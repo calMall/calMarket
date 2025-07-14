@@ -1,6 +1,6 @@
 package com.example.calmarket;
 
-import org.springframework.boot.SpringApplication;
+import corg.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
