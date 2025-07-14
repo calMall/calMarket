@@ -16,7 +16,7 @@ public class CartItem {
 
     private Integer userId; // カート所有者のユーザーID
 
-    private String productId; // 商品ID（楽天形式）
+    private String productItemCode; // 商品ID（楽天形式）
 
     private Integer quantity; // 数量
 

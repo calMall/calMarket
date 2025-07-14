@@ -18,7 +18,7 @@ public class Review {
 
     private Integer userId; // レビュー投稿者のユーザーID
 
-    private String productId; // 対象商品のID
+    private String productItemCode; // 商品ID（楽天形式）
 
     private Integer rating; // 評価（5段階など）
 

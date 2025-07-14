@@ -17,7 +17,7 @@ public class Orders {
 
     private Integer userId; // ユーザーID
 
-    private String productId; // 商品ID（楽天形式）
+    private String productItemCode; // 商品ID（楽天形式）
 
     private String status; // 注文状態（例：CREATED, SHIPPED, DELIVERED）
 

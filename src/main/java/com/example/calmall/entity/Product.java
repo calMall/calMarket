@@ -2,27 +2,33 @@ package com.example.calmall.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 商品情報を管理するエンティティ
+ * 楽天APIの商品情報を保持するエンティティ
  */
 @Entity
 @Data
 public class Product {
 
     @Id
-    private String id; // 楽天API形式の商品ID（文字列）
+    private String itemCode; // 楽天の商品コード（楽天形式）
 
-    private String title; // 商品名
-    private Integer price; // 価格
-    private Integer inventory; // 在庫数
-
-    @ElementCollection
-    private List<String> images; // 画像URLリスト（mediumImageUrls）
-
-    private Boolean status; // 販売状態（true=販売中、false=停止中）
+    private String itemName; // 商品名（楽天形式）
+    private Integer price;   // 価格
+    private Integer inventory; // 在庫数（初回登録時にランダムで設定）
 
     @ElementCollection
-    private List<Integer> tagIds; // タグID一覧
+    private List<String> images; // 中サイズ画像URLリスト（mediumImageUrls）
+
+    private Boolean status = true; // 販売状態（true = 販売中）
+
+    @ElementCollection
+    private List<Integer> tagIds; // タグIDの一覧（任意）
+
+    private String itemUrl; // 商品詳細ページへのURL
+
+    private LocalDateTime createdAt; // 登録日時
 }
