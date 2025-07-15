@@ -1,6 +1,5 @@
-package com.example.calmall.repository;
+package com.example.calmall.Orders;
 
-import com.example.calmall.entity.Orders;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 // 注文テーブルの操作を行うリポジトリ

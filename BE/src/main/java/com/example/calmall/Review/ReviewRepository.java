@@ -1,7 +1,6 @@
 // ReviewRepository.java
-package com.example.calmall.repository;
+package com.example.calmall.Review;
 
-import com.example.calmall.entity.Review;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 // レビューテーブルの操作を行うリポジトリ

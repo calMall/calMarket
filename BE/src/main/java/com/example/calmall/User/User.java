@@ -1,4 +1,4 @@
-package com.example.calmall.entity;
+package com.example.calmall.User;
 
 import jakarta.persistence.*;
 import lombok.Data;

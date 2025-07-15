@@ -1,6 +1,5 @@
-package com.example.calmall.repository;
+package com.example.calmall.Product;
 
-import com.example.calmall.entity.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 // 商品テーブルの操作を行うリポジトリ

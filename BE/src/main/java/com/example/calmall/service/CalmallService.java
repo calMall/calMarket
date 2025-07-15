@@ -1,7 +1,17 @@
 package com.example.calmall.service;
 
-import com.example.calmall.entity.*;
-import com.example.calmall.repository.*;
+import com.example.calmall.CartItem.CartItem;
+import com.example.calmall.CartItem.CartItemRepository;
+import com.example.calmall.Orders.Orders;
+import com.example.calmall.Orders.OrdersRepository;
+import com.example.calmall.Product.Product;
+import com.example.calmall.Product.ProductRepository;
+import com.example.calmall.Review.Review;
+import com.example.calmall.Review.ReviewRepository;
+import com.example.calmall.ReviewLike.ReviewLike;
+import com.example.calmall.ReviewLike.ReviewLikeRepository;
+import com.example.calmall.User.User;
+import com.example.calmall.User.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

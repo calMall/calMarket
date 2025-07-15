@@ -1,6 +1,5 @@
-package com.example.calmall.repository;
+package com.example.calmall.CartItem;
 
-import com.example.calmall.entity.CartItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 // カートアイテムテーブルの操作を行うリポジトリ
