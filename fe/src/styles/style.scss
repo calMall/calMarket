@@ -1,0 +1,21 @@
+$black: #353535;
+$gray: #f2f2f2;
+$breakpoint-mobile: 320px;
+$breakpoint-tabletToMobile: 535px;
+$breakpoint-tablet: 720px;
+$breakpoint-laptopToTablet: 960px;
+$breakpoint-laptop: 1024px;
+$breakpoint-desktopToLaptop: 1500px;
+$breakpoint-desktop: 1800px;
+$main-light-color: #959aff;
+$main-dark-color: #263238;
+$main-color: #323e44;
+$logo-color: #a0cabf;
+@mixin mobile {
+  @media (min-width: 0) and (max-width: #{$breakpoint-tablet - 1px}) {
+    @content;
+  }
+}
+body {
+  background-color: #48a3d1;
+}
