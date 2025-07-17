@@ -1,6 +1,6 @@
-package com.example.calmall.repository;
+package com.example.calmall.product.repository;
 
-import com.example.calmall.entity.Product;
+import com.example.calmall.product.entity.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

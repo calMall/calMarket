@@ -1,7 +1,11 @@
-package com.example.calmall.controller;
+package com.example.calmall.global.controller;
 
-import com.example.calmall.entity.*;
-import com.example.calmall.service.CalmallService;
+import com.example.calmall.orders.entity.Orders;
+import com.example.calmall.product.entity.Product;
+import com.example.calmall.review.entity.Review;
+import com.example.calmall.reviewLike.entity.ReviewLike;
+import com.example.calmall.global.service.CalmallService;
+import com.example.calmall.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

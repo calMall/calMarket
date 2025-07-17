@@ -1,4 +1,4 @@
-package com.example.calmall.entity;
+package com.example.calmall.reviewLike.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

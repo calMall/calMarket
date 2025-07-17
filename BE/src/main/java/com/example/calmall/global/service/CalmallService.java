@@ -1,7 +1,16 @@
-package com.example.calmall.service;
+package com.example.calmall.global.service;
 
-import com.example.calmall.entity.*;
-import com.example.calmall.repository.*;
+import com.example.calmall.cartitem.repository.CartItemRepository;
+import com.example.calmall.orders.entity.Orders;
+import com.example.calmall.orders.repository.OrdersRepository;
+import com.example.calmall.product.entity.Product;
+import com.example.calmall.product.repository.ProductRepository;
+import com.example.calmall.review.entity.Review;
+import com.example.calmall.review.repository.ReviewRepository;
+import com.example.calmall.reviewLike.entity.ReviewLike;
+import com.example.calmall.reviewLike.repository.ReviewLikeRepository;
+import com.example.calmall.user.entity.User;
+import com.example.calmall.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,6 +1,6 @@
-package com.example.calmall.repository;
+package com.example.calmall.reviewLike.repository;
 
-import com.example.calmall.entity.ReviewLike;
+import com.example.calmall.reviewLike.entity.ReviewLike;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 // いいね（レビューライク）テーブルの操作を行うリポジトリ
