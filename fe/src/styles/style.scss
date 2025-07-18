@@ -7,15 +7,146 @@ $breakpoint-laptopToTablet: 960px;
 $breakpoint-laptop: 1024px;
 $breakpoint-desktopToLaptop: 1500px;
 $breakpoint-desktop: 1800px;
-$main-light-color: #959aff;
-$main-dark-color: #263238;
-$main-color: #323e44;
-$logo-color: #a0cabf;
 @mixin mobile {
-  @media (min-width: 0) and (max-width: #{$breakpoint-tablet - 1px}) {
+  @media (min-width: 0) and (max-width: #{$breakpoint-mobile - 1px}) {
     @content;
   }
 }
+$main-light-color: #dfebee;
+$main-dark-color: #66b3c7;
+$main-color: #a6d1de;
+$logo-color: #a0cabf;
+
+// スクロールバーデザイン
+::-webkit-scrollbar {
+  width: 10px;
+  height: 20px;
+}
+::-webkit-scrollbar-thumb {
+  background: $main-dark-color;
+  border-radius: 12px 12px 12px 12px;
+}
+::-webkit-scrollbar-track {
+  background-color: rgb(226, 226, 226);
+}
+.scroll-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.logo-img {
+  width: 10rem;
+  height: 3rem;
+  @include mobile {
+    width: 6rem;
+  }
+}
+
+a {
+  text-decoration: none;
+  color: black;
+}
+.flex-1 {
+  flex: 1;
+}
+button {
+  cursor: pointer;
+}
+html,
 body {
-  background-color: #48a3d1;
+  height: 100%;
+  margin: 0;
+  @include mobile() {
+    padding-bottom: 10vh;
+  }
+}
+
+.rt {
+  position: relative;
+}
+.layout {
+  box-sizing: border-box;
+  min-height: 90vh;
+  padding-left: 5%;
+  padding-right: 5%;
+  @include mobile() {
+    padding-left: 3%;
+    padding-right: 3%;
+  }
+}
+@mixin shadow-box {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 1);
+}
+.header {
+  background-color: $main-light-color;
+  height: 4rem;
+  @include shadow-box();
+}
+.flex {
+  display: flex;
+}
+
+.jc {
+  justify-content: center;
+}
+.ac {
+  align-items: center;
+}
+
+.hf {
+  height: 100%;
+}
+
+.wf {
+  width: 100%;
+}
+
+@mixin darkbtn-hover {
+  &:hover {
+    background-color: $main-dark-color;
+    transition: 0.2s;
+  }
+}
+
+.mn {
+  @include mobile() {
+    display: none;
+  }
+}
+
+.search-bar {
+  width: 100%;
+  height: 2.5rem;
+}
+
+.search-bar input {
+  background-color: $gray;
+  border-radius: 10px;
+  border: solid 1px rgba(0, 0, 0, 0.2);
+}
+
+.ab {
+  position: absolute;
+}
+
+.bx {
+  box-sizing: border-box;
+}
+.search-btn {
+  right: 0;
+  border: none;
+  height: 2.5rem;
+  width: 2.5rem;
+  background-color: $main-color;
+  border-radius: 0 10px 10px 0;
+  @include darkbtn-hover();
+}
+.gap-1 {
+  gap: 1rem;
+}
+
+.jb {
+  justify-content: space-between;
+}
+.nowrap {
+  white-space: nowrap;
 }
