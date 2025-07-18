@@ -14,6 +14,7 @@ $breakpoint-desktop: 1800px;
 }
 $main-light-color: #dfebee;
 $main-dark-color: #66b3c7;
+$main-deep-dark-color: #5292a1;
 $main-color: #a6d1de;
 $logo-color: #a0cabf;
 
@@ -37,6 +38,12 @@ $logo-color: #a0cabf;
   margin-top: 0.5rem;
 }
 
+.mt-1 {
+  margin-top: 1rem;
+}
+.mt-2 {
+  margin-top: 2rem;
+}
 a {
   text-decoration: none;
   color: black;
@@ -168,7 +175,7 @@ body {
 }
 .main-slider {
   width: 100%;
-  aspect-ratio: 28/9;
+  aspect-ratio: 3/1;
   @include mobile() {
     width: 100%;
     height: auto;
@@ -182,6 +189,10 @@ body {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 1.5rem;
+  @include mobile() {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
 }
 
 .star-container {
@@ -265,5 +276,47 @@ body {
 }
 .list-price {
   font-size: large;
-  color: #5292a1;
+  color: $main-deep-dark-color;
+}
+
+.login-box {
+  margin: 5rem auto;
+  border-radius: 5px;
+  background-color: $gray;
+  width: 50%;
+  padding: 1rem 2rem;
+  @include shadow-box();
+}
+
+.signup-link {
+  color: $main-dark-color;
+  &:hover {
+    color: $main-deep-dark-color;
+    text-decoration: underline;
+    transition: 0.2s;
+  }
+}
+
+.custom-input {
+  height: 2.5rem;
+  width: 100%;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  padding: 0 0.5rem;
+  box-sizing: border-box;
+}
+
+.custom-btn {
+  height: 2.5rem;
+  width: 100%;
+  border-radius: 5px;
+  padding: 0 0.5rem;
+  box-sizing: border-box;
+  background-color: $main-dark-color;
+  &:hover {
+    background-color: $main-deep-dark-color;
+    box-shadow: none;
+    transition: 0.2s;
+  }
+  @include shadow-box();
 }
