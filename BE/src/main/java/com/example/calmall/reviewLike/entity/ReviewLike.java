@@ -14,7 +14,9 @@ public class ReviewLike {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Integer userId; // いいねしたユーザーのID
+    // いいねしたユーザーのID（User.id を参照）
+    private Long userId;
 
-    private Long reviewId; // 対象のレビューID
+    // 対象のレビューID
+    private Long reviewId;
 }

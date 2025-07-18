@@ -15,11 +15,15 @@ public class Orders {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Integer userId; // ユーザーID
+    // ユーザーの主キーID（User.id を参照）
+    private Long userId;
 
-    private String productItemCode; // 商品ID（楽天形式）
+    // 商品ID（楽天形式）
+    private String productItemCode;
 
-    private String status; // 注文状態（例：CREATED, SHIPPED, DELIVERED）
+    // 注文状態（例：CREATED, SHIPPED, DELIVERED, REFUNDED）
+    private String status;
 
-    private LocalDateTime createdAt; // 注文作成日時
+    // 注文作成日時
+    private LocalDateTime createdAt;
 }

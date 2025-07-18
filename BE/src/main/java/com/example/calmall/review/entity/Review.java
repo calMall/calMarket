@@ -2,7 +2,6 @@ package com.example.calmall.review.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
-
 import java.time.LocalDateTime;
 
 /**
@@ -16,20 +15,28 @@ public class Review {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Integer userId; // レビュー投稿者のユーザーID
+    // レビュー投稿者のユーザーID（User.id を参照）
+    private Long userId;
 
-    private String productItemCode; // 商品ID（楽天形式）
+    // 商品ID（楽天形式）
+    private String productItemCode;
 
-    private Integer rating; // 評価（5段階など）
+    // 評価（5段階など）
+    private Integer rating;
 
-    private String title; // レビュータイトル
+    // レビュータイトル
+    private String title;
 
+    // コメント内容
     @Column(columnDefinition = "TEXT")
-    private String comment; // コメント内容
+    private String comment;
 
-    private String image; // 画像のURL
+    // 画像のURL
+    private String image;
 
-    private LocalDateTime createdAt; // 作成日時
+    // 作成日時
+    private LocalDateTime createdAt;
 
-    private LocalDateTime updatedAt; // 更新日時
+    // 更新日時
+    private LocalDateTime updatedAt;
 }
