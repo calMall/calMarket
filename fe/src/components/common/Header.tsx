@@ -35,7 +35,7 @@ export default function Header() {
       </div>
 
       <div className="nowrap">
-        <Link href={"/"}>ログイン</Link>
+        <Link href={"/login"}>ログイン</Link>
       </div>
     </div>
   );
