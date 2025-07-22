@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 // ReviewRepository.java
+=======
+>>>>>>> BE
 package com.example.calmall.review.repository;
 
 import com.example.calmall.review.entity.Review;

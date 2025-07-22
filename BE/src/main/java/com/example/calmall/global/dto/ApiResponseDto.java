@@ -1,5 +1,6 @@
 package com.example.calmall.global.dto;
 
+<<<<<<< HEAD
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -12,3 +13,19 @@ public class ApiResponseDto {
 
     private String message; // "success" または "fail"
 }
+=======
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.AllArgsConstructor;
+/**
+ * 全API共通のシンプルなレスポンスDTO
+ */
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+public class ApiResponseDto {
+    private String message; // "success" または "fail"
+}
+>>>>>>> BE
