@@ -87,21 +87,27 @@ public class UserServiceImpl implements UserService {
     // ユーザー詳細取得
     @Override
     public ResponseEntity<UserDetailResponseDto> getUserDetail(String userId) {
-        Optional<User> userOpt = userRepository.findByUserId(userId);
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(
-                    UserDetailResponseDto.builder().message("fail").build());
-        }
+        // ユーザーを取得
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
 
-        User user = userOpt.get();
+        // 配送先住所一覧（String に変換して渡す）
+        List<String> addressList = user.getDeliveryAddresses()
+                .stream()
+                .map(address -> address.getPostalCode() + " " + address.getAddress1() + " " + address.getAddress2())
+                .toList();
 
-        return ResponseEntity.ok(
-                UserDetailResponseDto.builder()
-                        .message("success")
-                        .point(user.getPoint())
-                        .orders(new ArrayList<>())
-                        .reviews(new ArrayList<>())
-                        .build());
+        // TODO: 最新10件の注文とレビュー情報を詰める（今は空でOK）
+
+        UserDetailResponseDto responseDto = UserDetailResponseDto.builder()
+                .message("success")
+                .point(user.getPoint())
+                .deliveryAddresses(addressList)
+                .orders(List.of())  // 仮
+                .reviews(List.of()) // 仮
+                .build();
+
+        return ResponseEntity.ok(responseDto);
     }
 
     // 配送先住所追加（重複しない場合のみ保存）
