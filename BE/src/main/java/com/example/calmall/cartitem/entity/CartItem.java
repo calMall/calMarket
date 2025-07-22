@@ -16,7 +16,7 @@ public class CartItem {
 
     private String itemCode; // 商品ID（楽天形式）
 
-    private Integer quantity; // 数量
+    private Integer quantity; // 数量0になったら削除
 
     private String option; // APIから与えられる商品オプション
 }
