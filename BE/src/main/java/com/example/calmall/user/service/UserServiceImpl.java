@@ -6,6 +6,7 @@ import com.example.calmall.orders.repository.OrdersRepository;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
 import com.example.calmall.user.dto.*;
+import com.example.calmall.user.entity.DeliveryAddress;
 import com.example.calmall.user.entity.User;
 import com.example.calmall.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -94,9 +95,10 @@ public class UserServiceImpl implements UserService {
                         .build());
     }
 
-    // 配送先住所追加（重複しないように追加）
+    // 配送先住所追加（重複しない場合のみ保存）
     @Override
     public ResponseEntity<ApiResponseDto> addAddress(UserAddressRequestDto requestDto) {
+        // ユーザーIDから該当ユーザーを取得
         Optional<User> userOpt = userRepository.findByUserId(requestDto.getUserId());
         if (userOpt.isEmpty()) {
             return ResponseEntity.badRequest().body(new ApiResponseDto("fail"));
@@ -104,14 +106,25 @@ public class UserServiceImpl implements UserService {
 
         User user = userOpt.get();
 
-        String fullAddress = requestDto.getPostalCode() + " "
-                + requestDto.getAddress1() + " "
-                + requestDto.getAddress2();
+        // すでに同じ住所が登録されているかチェック
+        boolean isDuplicate = user.getDeliveryAddresses().stream()
+                .anyMatch(addr -> addr.getPostalCode().equals(requestDto.getPostalCode()) &&
+                        addr.getAddress1().equals(requestDto.getAddress1()) &&
+                        addr.getAddress2().equals(requestDto.getAddress2()));
 
-        List<String> addresses = user.getDeliveryAddresses();
-        if (!addresses.contains(fullAddress)) {
-            addresses.add(fullAddress);
-            user.setDeliveryAddresses(addresses);
+        // 重複していない場合のみ新しい住所を追加
+        if (!isDuplicate) {
+            // 新しい配送先エンティティを作成
+            DeliveryAddress newAddress = new DeliveryAddress();
+            newAddress.setPostalCode(requestDto.getPostalCode());
+            newAddress.setAddress1(requestDto.getAddress1());
+            newAddress.setAddress2(requestDto.getAddress2());
+            newAddress.setUser(user);  // ユーザー情報を紐付け
+
+            // ユーザーに新しい住所を追加
+            user.getDeliveryAddresses().add(newAddress);
+
+            // ユーザーを保存（CascadeType.ALL により住所も保存される）
             userRepository.save(user);
         }
 
