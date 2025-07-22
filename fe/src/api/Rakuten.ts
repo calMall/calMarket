@@ -12,3 +12,13 @@ export const rakutenRanking = async (): Promise<RakutenAPIResponse> => {
   if (!data.ok) throw new Error(data.statusText);
   return data.json();
 };
+export const test = async (): Promise<RakutenAPIResponse> => {
+  const data = await fetch(
+    `${rankingUrl}${process.env.NEXT_PUBLIC_RAKUTEN_API_ID}`,
+    {
+      method: "GET",
+    }
+  );
+  if (!data.ok) throw new Error(data.statusText);
+  return data.json();
+};
