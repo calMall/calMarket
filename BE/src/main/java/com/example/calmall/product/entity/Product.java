@@ -17,7 +17,9 @@ public class Product {
     private String itemCode; // 楽天の商品コード（楽天形式）
 
     private String itemName; // 商品名（楽天形式）
+
     private Integer price;   // 価格
+
     private Integer inventory; // 在庫数（初回登録時にランダムで設定）
 
     @ElementCollection
@@ -31,4 +33,10 @@ public class Product {
     private String itemUrl; // 商品詳細ページへのURL
 
     private LocalDateTime createdAt; // 登録日時
+
+    // 追加項目：商品説明文（楽天APIのitemCaption）
+    private String itemCaption;
+
+    // 追加項目：キャッチコピー（楽天APIのcatchcopy）
+    private String catchcopy;
 }
