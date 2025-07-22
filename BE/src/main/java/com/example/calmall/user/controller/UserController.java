@@ -97,10 +97,24 @@ public class UserController {
     // Email重複確認API（クエリパラメータでemailを受け取る）
     @GetMapping("/users/check-email")
     public ResponseEntity<EmailCheckResponseDto> checkEmail(@RequestParam("email") String email) {
-        boolean available = !userService.existsByEmail(email);
-        return ResponseEntity.ok(new EmailCheckResponseDto("success", available));
-    }
+        // Email形式が正しいかを検証
+        if (!email.matches("^[\\w.-]+@[\\w.-]+\\.[a-zA-Z]{2,}$")) {
+            return ResponseEntity.badRequest().body(
+                    EmailCheckResponseDto.builder()
+                            .message("fail")
+                            .available(false)
+                            .build()
+            );
+        }
 
+        boolean exists = userService.existsByEmail(email);
+        return ResponseEntity.ok(
+                EmailCheckResponseDto.builder()
+                        .message("success")
+                        .available(!exists)
+                        .build()
+        );
+    }
 
     @GetMapping("/test-session")
     public ResponseEntity<String> testSession(HttpServletRequest request) {
