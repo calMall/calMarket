@@ -3,10 +3,6 @@ package com.example.calmall.product.repository;
 import com.example.calmall.product.entity.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-<<<<<<< HEAD
-// 商品テーブルの操作を行うリポジトリ
-public interface ProductRepository extends JpaRepository<Product, String> {}
-=======
 import java.util.Optional;
 
 /**
@@ -21,4 +17,3 @@ public interface ProductRepository extends JpaRepository<Product, String> {
      */
     Optional<Product> findByItemCode(String itemCode);
 }
->>>>>>> BE

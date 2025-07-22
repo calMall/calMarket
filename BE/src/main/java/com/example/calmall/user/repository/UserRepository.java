@@ -3,10 +3,6 @@ package com.example.calmall.user.repository;
 import com.example.calmall.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-<<<<<<< HEAD
-// ユーザーテーブルの操作を行うリポジトリ
-public interface UserRepository extends JpaRepository<User, Long> {}
-=======
 import java.util.Optional;
 
 /**
@@ -23,4 +19,3 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // emailの重複確認
     boolean existsByEmail(String email);
 }
->>>>>>> BE

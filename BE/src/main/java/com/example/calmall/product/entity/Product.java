@@ -14,15 +14,9 @@ import java.util.List;
 public class Product {
 
     @Id
-<<<<<<< HEAD
-    private String itemCode; // 楽天の商品コード（例: book:123456）
-
-    private String itemName; // 商品名
-=======
     private String itemCode; // 楽天の商品コード（楽天形式）
 
     private String itemName; // 商品名（楽天形式）
->>>>>>> BE
     private Integer price;   // 価格
     private Integer inventory; // 在庫数（初回登録時にランダムで設定）
 

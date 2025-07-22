@@ -1,25 +1,5 @@
 package com.example.calmall.user.dto;
 
-<<<<<<< HEAD
-import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
-
-/**
- * 配送先住所追加用のリクエストDTO
- */
-@Data
-public class UserAddressRequestDto {
-
-    @NotBlank(message = "郵便番号は必須です。")
-    private String postalCode;  // 郵便番号
-
-    @NotBlank(message = "住所（市区町村）は必須です。")
-    private String address1;    // 住所1（市区町村・番地など）
-
-    @NotBlank(message = "住所（建物名など）は必須です。")
-    private String address2;    // 住所2（建物名や部屋番号など）
-}
-=======
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,7 +9,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * ユーザーの配送先住所追加リクエストDTO
+ * ユーザーの配送先住所追加リクエストDTOW
  */
 @Data
 @Builder
@@ -57,4 +37,3 @@ public class UserAddressRequestDto {
     private String address2;
 
 }
->>>>>>> BE
