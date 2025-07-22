@@ -1,12 +1,5 @@
 package com.example.calmall.user.service;
 
-<<<<<<< HEAD
-import org.springframework.stereotype.Service;
-
-@Service
-public class UserService {
-    // registerUser(), loginUser(), logoutUser(), getUserDetails(), addDeliveryAddress() をここで定義
-=======
 import com.example.calmall.global.dto.ApiResponseDto;
 import com.example.calmall.user.dto.*;
 import org.springframework.http.ResponseEntity;
@@ -24,5 +17,4 @@ public interface UserService {
     ResponseEntity<RefundResponseDto> refund(RefundRequestDto requestDto);
 
     ResponseEntity<ApiResponseDto> addAddress(UserAddressRequestDto requestDto);
->>>>>>> BE
 }
