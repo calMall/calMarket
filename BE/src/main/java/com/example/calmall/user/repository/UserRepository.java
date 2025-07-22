@@ -1,6 +1,7 @@
 package com.example.calmall.user.repository;
 
 import com.example.calmall.user.entity.User;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
@@ -13,7 +14,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // emailで検索
     Optional<User> findByEmail(String email);
 
-    // userId（UUID）で検索
+    // userId（UUID）で検索（deliveryAddresses も一緒に取得）
+    @EntityGraph(attributePaths = "deliveryAddresses")
     Optional<User> findByUserId(String userId);
 
     // emailの重複確認

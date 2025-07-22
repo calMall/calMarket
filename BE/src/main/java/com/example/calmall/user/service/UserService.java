@@ -3,6 +3,7 @@ package com.example.calmall.user.service;
 import com.example.calmall.global.dto.ApiResponseDto;
 import com.example.calmall.user.dto.*;
 import com.example.calmall.user.entity.User;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 
 /**
@@ -36,15 +37,12 @@ public interface UserService {
     User authenticate(UserLoginRequestDto requestDto);
 
     /**
-     * ログアウト処理（セッションの破棄はControllerで実施）
+     * ログアウト処理（セッションの破棄を含む）
      *
-     * @param requestDto ログアウト用のリクエストDTO（未使用可）
+     * @param request HTTPリクエストオブジェクト（セッション操作用）
      * @return レスポンスメッセージ（success）
      */
-    default ResponseEntity<ApiResponseDto> logout(UserLogoutRequestDto requestDto) {
-        return ResponseEntity.ok(new ApiResponseDto("success"));
-    }
-
+    ResponseEntity<ApiResponseDto> logout(HttpServletRequest request);
 
     /**
      * ユーザー詳細情報の取得
@@ -65,6 +63,7 @@ public interface UserService {
     /**
      * 配送先住所の追加処理（重複チェックあり）
      *
+     * @param userId ユーザーID
      * @param requestDto 配送先住所の追加リクエストDTO
      * @return 処理結果（success または fail）
      */
