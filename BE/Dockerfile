@@ -16,7 +16,7 @@ RUN ./gradlew build -x test
 
 # 3. 실행 단계 (JDK 대신 JRE만 사용하여 경량화)
 # Java 21 JRE 이미지를 사용해 실행 환경을 구성합니다.
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:17-jre
 
 # 실행 단계에서도 작업할 디렉터리를 /app으로 설정합니다.
 WORKDIR /app
