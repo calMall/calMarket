@@ -24,7 +24,7 @@ WORKDIR /app
 # 4. 빌드된 JAR 파일 복사
 
 # Gradle 일 경우 경로
-COPY --from=build /app/build/libs/*.jar app.jar
+COPY --from=build /app/buildf/libs/*.jar app.jar
 
 # 5. 컨테이너 시작 시 실행할 명령어
 # 컨테이너가 시작되면 "java -jar app.jar" 명령어로 애플리케이션을 실행합니다.
