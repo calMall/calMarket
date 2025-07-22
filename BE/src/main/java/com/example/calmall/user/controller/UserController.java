@@ -89,26 +89,23 @@ public class UserController {
     }
 
 
-    // 配送先住所追加API（DTOにuserIdを含む）
+    // 配送先住所追加API
     @PatchMapping("/users/addresses")
     public ResponseEntity<ApiResponseDto> addAddress(
             @RequestBody @Valid UserAddressRequestDto requestDto,
             HttpServletRequest request) {
 
-        // セッションからuserIdを取得
         HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("userId") == null) {
+        if (session == null || session.getAttribute("user") == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ApiResponseDto("ログインが必要です"));
         }
 
-        String userId = (String) session.getAttribute("userId");
+        User user = (User) session.getAttribute("user");
+        String userId = user.getUserId();
 
-        // セッションのuserIdを使ってService呼び出し
         return userService.addAddress(userId, requestDto);
     }
-
-
 
     // Email重複確認API（クエリパラメータでemailを受け取る）
     @GetMapping("/users/check-email")
