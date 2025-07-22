@@ -96,16 +96,16 @@ public class UserController {
             HttpServletRequest request) {
 
         HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("user") == null) {
+        User user = (User) (session != null ? session.getAttribute("user") : null);
+        if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ApiResponseDto("ログインが必要です"));
         }
 
-        User user = (User) session.getAttribute("user");
         String userId = user.getUserId();
-
         return userService.addAddress(userId, requestDto);
     }
+
 
     // Email重複確認API（クエリパラメータでemailを受け取る）
     @GetMapping("/users/check-email")
