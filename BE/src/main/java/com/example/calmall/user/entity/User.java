@@ -13,7 +13,7 @@ import java.util.List;
  * - 外部連携などに使用するUUID形式のuserIdも保持
  */
 @Entity
-@Table(name = "\"user\"") // PostgreSQL の予約語回避のためエスケープ
+@Table(name = "\"users\"") // PostgreSQL の予約語回避のためエスケープ
 @Data
 public class User {
 
@@ -34,7 +34,7 @@ public class User {
     @Column(length = 128, unique = true)
     private String email;
 
-    /** パスワード（最大64文字） */
+    /** パスワード（８から20文字） */
     @Column(length = 64)
     private String password;
 

@@ -8,10 +8,14 @@ import com.example.calmall.product.repository.ProductRepository;
 import com.example.calmall.user.dto.*;
 import com.example.calmall.user.entity.DeliveryAddress;
 import com.example.calmall.user.entity.User;
+import com.example.calmall.user.repository.DeliveryAddressRepository;
 import com.example.calmall.user.repository.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
 
 import java.util.*;
 
@@ -22,6 +26,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final OrdersRepository ordersRepository;
     private final ProductRepository productRepository;
+    private final DeliveryAddressRepository deliveryAddressRepository;
 
     // ユーザー新規登録
     @Override
@@ -43,6 +48,12 @@ public class UserServiceImpl implements UserService {
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
+    // Email がすでに存在するか確認
+    @Override
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
     // UUID形式のuserId生成
     private String generateUserId() {
         return "user_" + UUID.randomUUID().toString().substring(0, 8);
@@ -50,30 +61,28 @@ public class UserServiceImpl implements UserService {
 
     // ログイン処理
     @Override
-    public UserLoginResponseDto login(UserLoginRequestDto requestDto) {
+    public User authenticate(UserLoginRequestDto requestDto) {
         Optional<User> userOpt = userRepository.findByEmail(requestDto.getEmail());
-
         if (userOpt.isPresent()) {
             User user = userOpt.get();
             if (requestDto.getPassword().equals(user.getPassword())) {
-                return UserLoginResponseDto.builder()
-                        .message("success")
-                        .nickname(user.getNickname())
-                        .cartItemCount(0)
-                        .build();
+                return user;
             }
         }
-
-        return UserLoginResponseDto.builder()
-                .message("fail")
-                .build();
+        return null;
     }
 
     // ログアウト処理
-    @Override
-    public ResponseEntity<ApiResponseDto> logout(UserLogoutRequestDto requestDto) {
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponseDto> logout(HttpServletRequest request) {
+        HttpSession session = request.getSession(false); // 既存セッションを取得（なければnull）
+        if (session != null) {
+            session.invalidate(); // セッションを無効化（ログアウト）
+        }
+
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
+
 
     // ユーザー詳細取得
     @Override
@@ -97,39 +106,38 @@ public class UserServiceImpl implements UserService {
 
     // 配送先住所追加（重複しない場合のみ保存）
     @Override
-    public ResponseEntity<ApiResponseDto> addAddress(UserAddressRequestDto requestDto) {
-        // ユーザーIDから該当ユーザーを取得
-        Optional<User> userOpt = userRepository.findByUserId(requestDto.getUserId());
+    public ResponseEntity<ApiResponseDto> addAddress(String userId, UserAddressRequestDto requestDto) {
+        Optional<User> userOpt = userRepository.findByUserId(userId);
         if (userOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(new ApiResponseDto("fail"));
+            return ResponseEntity.badRequest().body(new ApiResponseDto("ユーザーが存在しません"));
         }
 
         User user = userOpt.get();
 
-        // すでに同じ住所が登録されているかチェック
-        boolean isDuplicate = user.getDeliveryAddresses().stream()
-                .anyMatch(addr -> addr.getPostalCode().equals(requestDto.getPostalCode()) &&
+        // すでに同じ住所が存在するかチェック
+        boolean exists = user.getDeliveryAddresses().stream().anyMatch(addr ->
+                addr.getPostalCode().equals(requestDto.getPostalCode()) &&
                         addr.getAddress1().equals(requestDto.getAddress1()) &&
-                        addr.getAddress2().equals(requestDto.getAddress2()));
+                        addr.getAddress2().equals(requestDto.getAddress2())
+        );
 
-        // 重複していない場合のみ新しい住所を追加
-        if (!isDuplicate) {
-            // 新しい配送先エンティティを作成
-            DeliveryAddress newAddress = new DeliveryAddress();
-            newAddress.setPostalCode(requestDto.getPostalCode());
-            newAddress.setAddress1(requestDto.getAddress1());
-            newAddress.setAddress2(requestDto.getAddress2());
-            newAddress.setUser(user);  // ユーザー情報を紐付け
-
-            // ユーザーに新しい住所を追加
-            user.getDeliveryAddresses().add(newAddress);
-
-            // ユーザーを保存（CascadeType.ALL により住所も保存される）
-            userRepository.save(user);
+        if (exists) {
+            return ResponseEntity.badRequest().body(new ApiResponseDto("同じ住所が既に登録されています"));
         }
+
+        // 住所追加処理
+        DeliveryAddress address = new DeliveryAddress();
+        address.setPostalCode(requestDto.getPostalCode());
+        address.setAddress1(requestDto.getAddress1());
+        address.setAddress2(requestDto.getAddress2());
+        address.setUser(user);
+
+        user.getDeliveryAddresses().add(address);
+        deliveryAddressRepository.save(address);
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
+
 
     // 払い戻し処理（返金クーポンなし）
     @Override

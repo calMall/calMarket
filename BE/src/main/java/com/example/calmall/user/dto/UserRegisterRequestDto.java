@@ -20,7 +20,7 @@ public class UserRegisterRequestDto {
     private String email;
 
     @NotBlank(message = "password は必須です")
-    @Size(min = 8, max = 64, message = "password は8〜64文字で入力してください")
+    @Size(min = 8, max = 20, message = "password は8〜20文字で入力してください")
     private String password;
 
     @NotBlank(message = "nickname は必須です")
