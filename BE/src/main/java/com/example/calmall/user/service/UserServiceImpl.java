@@ -15,20 +15,28 @@ import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PostMapping;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
+/**
+ * ユーザー関連のビジネスロジックを実装するサービスクラス
+ */
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
+    // 各種リポジトリを依存注入
     private final UserRepository userRepository;
     private final OrdersRepository ordersRepository;
     private final ProductRepository productRepository;
     private final DeliveryAddressRepository deliveryAddressRepository;
 
-    // ユーザー新規登録
+    /**
+     * ユーザー新規登録処理
+     * - email が重複していないか確認
+     * - UUID形式のuserIdを生成し、初期情報を保存
+     */
     @Override
     public ResponseEntity<ApiResponseDto> register(UserRegisterRequestDto requestDto) {
         if (userRepository.existsByEmail(requestDto.getEmail())) {
@@ -41,25 +49,33 @@ public class UserServiceImpl implements UserService {
         newUser.setEmail(requestDto.getEmail());
         newUser.setPassword(requestDto.getPassword());
         newUser.setBirth(requestDto.getBirth());
-        newUser.setDeliveryAddresses(new ArrayList<>());
-        newUser.setPoint(0);
+        newUser.setDeliveryAddresses(new ArrayList<>()); // 空の住所リストで初期化
+        newUser.setPoint(0); // 初期ポイント0
 
         userRepository.save(newUser);
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
-    // Email がすでに存在するか確認
+    /**
+     * 指定された email が既に登録されているかチェック
+     */
     @Override
     public boolean existsByEmail(String email) {
         return userRepository.existsByEmail(email);
     }
 
-    // UUID形式のuserId生成
+    /**
+     * UUID形式のuserIdを生成するヘルパーメソッド
+     */
     private String generateUserId() {
         return "user_" + UUID.randomUUID().toString().substring(0, 8);
     }
 
-    // ログイン処理
+    /**
+     * ログイン処理
+     * - emailとパスワードの一致を確認
+     * - 成功時はUserオブジェクトを返却
+     */
     @Override
     public User authenticate(UserLoginRequestDto requestDto) {
         Optional<User> userOpt = userRepository.findByEmail(requestDto.getEmail());
@@ -72,45 +88,56 @@ public class UserServiceImpl implements UserService {
         return null;
     }
 
-    // ログアウト処理
-    @PostMapping("/logout")
+    /**
+     * ログアウト処理
+     * - セッションを無効化
+     */
+    @Override
     public ResponseEntity<ApiResponseDto> logout(HttpServletRequest request) {
-        HttpSession session = request.getSession(false); // 既存セッションを取得（なければnull）
+        HttpSession session = request.getSession(false);
         if (session != null) {
-            session.invalidate(); // セッションを無効化（ログアウト）
+            session.invalidate();
         }
-
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
-
-    // ユーザー詳細取得
+    /**
+     * ユーザー詳細情報の取得
+     * - 指定されたuserIdに基づいて情報を取得
+     * - 配送先住所、所持ポイントを返却
+     */
     @Override
     public ResponseEntity<UserDetailResponseDto> getUserDetail(String userId) {
-        // ユーザーを取得
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
 
-        // 配送先住所一覧（String に変換して渡す）
-        List<String> addressList = user.getDeliveryAddresses()
+        // 住所リストを「郵便番号 住所1 住所2」の形式で文字列化
+        List<String> addressList = Optional.ofNullable(user.getDeliveryAddresses())
+                .orElse(Collections.emptyList())
                 .stream()
-                .map(address -> address.getPostalCode() + " " + address.getAddress1() + " " + address.getAddress2())
-                .toList();
+                .map(addr -> String.format("%s %s %s",
+                                Optional.ofNullable(addr.getPostalCode()).orElse(""),
+                                Optional.ofNullable(addr.getAddress1()).orElse(""),
+                                Optional.ofNullable(addr.getAddress2()).orElse(""))
+                        .trim())
+                .collect(Collectors.toList());
 
-        // TODO: 最新10件の注文とレビュー情報を詰める（今は空でOK）
-
+        // 注文履歴やレビュー履歴は現時点では空
         UserDetailResponseDto responseDto = UserDetailResponseDto.builder()
                 .message("success")
-                .point(user.getPoint())
+                .point(Optional.ofNullable(user.getPoint()).orElse(0))
                 .deliveryAddresses(addressList)
-                .orders(List.of())  // 仮
-                .reviews(List.of()) // 仮
+                .orders(Collections.emptyList())
+                .reviews(Collections.emptyList())
                 .build();
 
         return ResponseEntity.ok(responseDto);
     }
 
-    // 配送先住所追加（重複しない場合のみ保存）
+    /**
+     * ユーザーの配送先住所を追加
+     * - 同一内容の住所が既に登録されている場合は登録しない
+     */
     @Override
     public ResponseEntity<ApiResponseDto> addAddress(String userId, UserAddressRequestDto requestDto) {
         Optional<User> userOpt = userRepository.findByUserId(userId);
@@ -120,7 +147,7 @@ public class UserServiceImpl implements UserService {
 
         User user = userOpt.get();
 
-        // すでに同じ住所が存在するかチェック
+        // 同一内容の住所が既に存在するか確認
         boolean exists = user.getDeliveryAddresses().stream().anyMatch(addr ->
                 addr.getPostalCode().equals(requestDto.getPostalCode()) &&
                         addr.getAddress1().equals(requestDto.getAddress1()) &&
@@ -131,7 +158,7 @@ public class UserServiceImpl implements UserService {
             return ResponseEntity.badRequest().body(new ApiResponseDto("同じ住所が既に登録されています"));
         }
 
-        // 住所追加処理
+        // 新しい住所エンティティを作成し、ユーザーに紐付けて保存
         DeliveryAddress address = new DeliveryAddress();
         address.setPostalCode(requestDto.getPostalCode());
         address.setAddress1(requestDto.getAddress1());
@@ -144,8 +171,10 @@ public class UserServiceImpl implements UserService {
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
-
-    // 払い戻し処理（返金クーポンなし）
+    /**
+     * 注文払い戻し処理
+     * - 注文ステータスを「REFUNDED」に変更し、商品金額分のポイントを返却
+     */
     @Override
     public ResponseEntity<RefundResponseDto> refund(RefundRequestDto requestDto) {
         Optional<Orders> orderOpt = ordersRepository.findById(requestDto.getOrderId());
@@ -156,6 +185,7 @@ public class UserServiceImpl implements UserService {
 
         Orders order = orderOpt.get();
 
+        // 既に返金済みかチェック
         if ("REFUNDED".equals(order.getStatus())) {
             return ResponseEntity.badRequest().body(
                     RefundResponseDto.builder().message("fail").coupons(null).build());
