@@ -68,5 +68,6 @@ public interface UserService {
      * @param requestDto 配送先住所の追加リクエストDTO
      * @return 処理結果（success または fail）
      */
-    ResponseEntity<ApiResponseDto> addAddress(UserAddressRequestDto requestDto);
+    ResponseEntity<ApiResponseDto> addAddress(String userId, UserAddressRequestDto requestDto);
+
 }

@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -90,9 +91,24 @@ public class UserController {
 
     // 配送先住所追加API（DTOにuserIdを含む）
     @PatchMapping("/users/addresses")
-    public ResponseEntity<ApiResponseDto> addAddress(@RequestBody @Valid UserAddressRequestDto requestDto) {
-        return userService.addAddress(requestDto);
+    public ResponseEntity<ApiResponseDto> addAddress(
+            @RequestBody @Valid UserAddressRequestDto requestDto,
+            HttpServletRequest request) {
+
+        // セッションからuserIdを取得
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("userId") == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponseDto("ログインが必要です"));
+        }
+
+        String userId = (String) session.getAttribute("userId");
+
+        // セッションのuserIdを使ってService呼び出し
+        return userService.addAddress(userId, requestDto);
     }
+
+
 
     // Email重複確認API（クエリパラメータでemailを受け取る）
     @GetMapping("/users/check-email")
