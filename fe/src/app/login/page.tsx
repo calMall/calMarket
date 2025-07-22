@@ -16,7 +16,7 @@ export default function Login() {
         <Link className="signup-link" href={"/signup"}>
           アカウントをお持ちでない方はこちら
         </Link>
-        <div className="mt-1">ID</div>
+        <div className="mt-1">メール</div>
         <CustomInput
           placeholder="IDを入力してください。"
           classname="mt-05"

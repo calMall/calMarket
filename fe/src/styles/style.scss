@@ -8,7 +8,7 @@ $breakpoint-laptop: 1024px;
 $breakpoint-desktopToLaptop: 1500px;
 $breakpoint-desktop: 1800px;
 @mixin mobile {
-  @media (min-width: 0) and (max-width: #{$breakpoint-tabletToMobile - 1px}) {
+  @media (min-width: 0) and (max-width: #{$breakpoint-tablet - 1px}) {
     @content;
   }
 }
@@ -111,6 +111,10 @@ body {
 
 .gap-1 {
   gap: 1rem;
+}
+
+.red-color {
+  color: red;
 }
 
 .jb {
@@ -283,9 +287,16 @@ body {
   margin: 5rem auto;
   border-radius: 5px;
   background-color: $gray;
-  width: 50%;
+  width: 30%;
   padding: 1rem 2rem;
+  box-sizing: border-box;
   @include shadow-box();
+  @include mobile() {
+    box-shadow: none;
+    background-color: transparent;
+    width: 100%;
+    margin-top: 0;
+  }
 }
 
 .signup-link {
@@ -316,7 +327,18 @@ body {
   &:hover {
     background-color: $main-deep-dark-color;
     box-shadow: none;
-    transition: 0.2s;
+    transition: 0.3s;
   }
   @include shadow-box();
+}
+
+.check-btn {
+  width: 5rem;
+}
+
+.signup-box {
+  width: 40%;
+  @include mobile() {
+    width: 100%;
+  }
 }
