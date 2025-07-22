@@ -18,7 +18,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**") // "/api/"で始まるすべてのAPIを対象とする
-                .allowedOrigins("https://cal-market.vercel.app") // 許可するフロントエンドのURL
+                .allowedOrigins("https://cal-market.vercel.app", "http://localhost:3000") // 許可するフロントエンドのURL
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS") // 許可するHTTPメソッド
                 .allowedHeaders("*") // すべてのリクエストヘッダーを許可
                 .allowCredentials(true); // Cookie（セッション）の使用を許可
