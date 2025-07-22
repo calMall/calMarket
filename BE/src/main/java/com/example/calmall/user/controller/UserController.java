@@ -89,4 +89,16 @@ public class UserController {
     public ResponseEntity<ApiResponseDto> addAddress(@RequestBody @Valid UserAddressRequestDto requestDto) {
         return userService.addAddress(requestDto);
     }
+
+    @GetMapping("/test-session")
+    public ResponseEntity<String> testSession(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return ResponseEntity.ok("❌ session 不存在");
+        }
+
+        Object user = session.getAttribute("user");
+        return ResponseEntity.ok("✅ session 存在，user: " + (user != null ? user.toString() : "null"));
+    }
+
 }
