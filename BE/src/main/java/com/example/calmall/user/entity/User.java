@@ -34,7 +34,7 @@ public class User {
     @Column(length = 128, unique = true)
     private String email;
 
-    /** パスワード（最大64文字） */
+    /** パスワード（８から20文字） */
     @Column(length = 64)
     private String password;
 

@@ -9,9 +9,12 @@ import com.example.calmall.user.dto.*;
 import com.example.calmall.user.entity.DeliveryAddress;
 import com.example.calmall.user.entity.User;
 import com.example.calmall.user.repository.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
 
 import java.util.*;
 
@@ -50,30 +53,28 @@ public class UserServiceImpl implements UserService {
 
     // ログイン処理
     @Override
-    public UserLoginResponseDto login(UserLoginRequestDto requestDto) {
+    public User authenticate(UserLoginRequestDto requestDto) {
         Optional<User> userOpt = userRepository.findByEmail(requestDto.getEmail());
-
         if (userOpt.isPresent()) {
             User user = userOpt.get();
             if (requestDto.getPassword().equals(user.getPassword())) {
-                return UserLoginResponseDto.builder()
-                        .message("success")
-                        .nickname(user.getNickname())
-                        .cartItemCount(0)
-                        .build();
+                return user;
             }
         }
-
-        return UserLoginResponseDto.builder()
-                .message("fail")
-                .build();
+        return null;
     }
 
     // ログアウト処理
-    @Override
-    public ResponseEntity<ApiResponseDto> logout(UserLogoutRequestDto requestDto) {
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponseDto> logout(HttpServletRequest request) {
+        HttpSession session = request.getSession(false); // 既存セッションを取得（なければnull）
+        if (session != null) {
+            session.invalidate(); // セッションを無効化（ログアウト）
+        }
+
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
+
 
     // ユーザー詳細取得
     @Override

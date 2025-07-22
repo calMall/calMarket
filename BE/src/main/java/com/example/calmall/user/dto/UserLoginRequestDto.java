@@ -17,5 +17,6 @@ public class UserLoginRequestDto {
     private String email;
 
     @NotBlank(message = "password は必須です")
+    @Size(min = 8, max = 20, message = "password は8文字以上20文字以内で入力してください")
     private String password;
 }
