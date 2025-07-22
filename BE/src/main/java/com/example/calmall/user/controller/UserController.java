@@ -90,6 +90,14 @@ public class UserController {
         return userService.addAddress(requestDto);
     }
 
+    // Email重複確認API（クエリパラメータでemailを受け取る）
+    @GetMapping("/users/check-email")
+    public ResponseEntity<EmailCheckResponseDto> checkEmail(@RequestParam("email") String email) {
+        boolean available = !userService.existsByEmail(email);
+        return ResponseEntity.ok(new EmailCheckResponseDto("success", available));
+    }
+
+
     @GetMapping("/test-session")
     public ResponseEntity<String> testSession(HttpServletRequest request) {
         HttpSession session = request.getSession(false);

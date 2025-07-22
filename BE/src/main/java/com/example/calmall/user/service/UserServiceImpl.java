@@ -46,6 +46,12 @@ public class UserServiceImpl implements UserService {
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
+    // Email がすでに存在するか確認
+    @Override
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
     // UUID形式のuserId生成
     private String generateUserId() {
         return "user_" + UUID.randomUUID().toString().substring(0, 8);

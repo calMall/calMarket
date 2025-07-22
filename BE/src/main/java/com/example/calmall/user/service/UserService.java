@@ -20,6 +20,14 @@ public interface UserService {
     ResponseEntity<ApiResponseDto> register(UserRegisterRequestDto requestDto);
 
     /**
+     * Email がすでに存在するか確認する
+     *
+     * @param email 確認したいemail
+     * @return true：すでに存在する、false：未登録
+     */
+    boolean existsByEmail(String email);
+
+    /**
      * ユーザー認証処理（セッションはControllerで管理）
      *
      * @param requestDto ログイン用のリクエストDTO
