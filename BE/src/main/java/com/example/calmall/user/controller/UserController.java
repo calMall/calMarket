@@ -29,24 +29,29 @@ public class UserController {
         return userService.register(requestDto);
     }
 
-    // ログインAPI（成功時 HttpOnlyクッキーをセット）
+    // ログインAPI
     @PostMapping("/login")
     public ResponseEntity<UserLoginResponseDto> login(@RequestBody @Valid UserLoginRequestDto requestDto,
                                                       HttpServletRequest request) {
         User user = userService.authenticate(requestDto);
 
         if (user != null) {
-            // ✅ セッションにユーザー情報を保存（これだけでJSESSIONIDクッキーが自動で発行）
+            // ✅ セッション作成（true：なければ作成）
             HttpSession session = request.getSession(true);
-            session.setAttribute("user", user); // 任意で保持したい情報
+            session.setAttribute("user", user); // セッションにユーザー情報保存
 
-            // ✅ レスポンス返却
+            // ✅ デバッグログ出力（セッションIDとユーザー名）
+            System.out.println("✅ セッションが作成されました");
+            System.out.println("🆔 セッションID: " + session.getId());
+            System.out.println("👤 ユーザー: " + user.getNickname());
+
             return ResponseEntity.ok(UserLoginResponseDto.builder()
                     .message("success")
                     .nickname(user.getNickname())
                     .cartItemCount(0)
                     .build());
         } else {
+            System.out.println("❌ ログイン失敗：認証エラー");
             return ResponseEntity.status(401).body(
                     UserLoginResponseDto.builder()
                             .message("fail")
@@ -54,7 +59,6 @@ public class UserController {
             );
         }
     }
-
 
     // ログアウトAPI（クッキー削除）
     @PostMapping("/logout")
