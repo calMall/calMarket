@@ -11,3 +11,8 @@ interface SignupReq {
   nickname: string;
   birth: string;
 }
+
+interface UserStore {
+  cartItemCount: number;
+  nickname: string;
+}
