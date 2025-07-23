@@ -4,88 +4,112 @@ import com.example.calmall.product.dto.ProductDetailResponseDto;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
+import java.util.List;
+import java.util.Random;
 
 /**
- * 商品情報に関するビジネスロジック実装クラス。
+ * 商品情報に関する業務ロジックを実装するサービスクラス
  *
- * フロント側想定フロー：
- * ・ユーザーが商品をクリック → GET /api/products/{itemCode} を呼び出す
- *   → DB未登録なら楽天APIから取得して保存（このタイミングでDB登録）
- * ・カート／注文画面で在庫確認時 → GET /api/products/{itemCode}/purchasable
- *   → DBに無い商品は未登録扱い（自動登録しない）→ 400 + false
+ * 以下の方針で商品詳細を返却する:
+ * 1) DBに商品が存在すればそれを返却。[ソース=DB]
+ * 2) 存在しなければ楽天APIで取得を試行。[ソース=DB無し→API照会]
+ *    - API成功時: DBへ保存し返却。[ソース=楽天API] + [DB登録]
+ *    - API失敗時: 失敗レスポンスを返却。[ソース=楽天API無し]
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final RakutenApiService rakutenApiService;
 
     /**
-     * 商品詳細取得処理。
-     * DBに無い場合は楽天APIから取得して保存。
-     * 成功時：message=success, HTTP 200
-     * 失敗時（楽天でも取得不可）：message=fail, HTTP 400
+     * 商品詳細取得処理
+     * @param itemCode 楽天商品コード
+     * @return API仕様に沿ったレスポンス
      */
     @Override
-    @Transactional
     public ResponseEntity<ProductDetailResponseDto> getProductDetail(String itemCode) {
 
-        // DB検索 → 無ければ楽天APIから取得・保存
-        Product product = productRepository.findByItemCode(itemCode).orElseGet(() ->
-                rakutenApiService.fetchProductFromRakuten(itemCode)
-                        .map(productRepository::save)
-                        .orElse(null)
-        );
-
-        // 楽天でも取得不可 → fail & 400
-        if (product == null) {
-            ProductDetailResponseDto fail = ProductDetailResponseDto.builder()
-                    .message("fail")
-                    .product(null)
-                    .build();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(fail);
+        // --- 1) まずDB検索 ---------------------------------------------------
+        Product product = productRepository.findByItemCode(itemCode).orElse(null);
+        if (product != null) {
+            log.info("[ソース=DB] DBに既存商品を発見 itemCode={} name={}", product.getItemCode(), product.getItemName());
+            return ResponseEntity.ok(buildSuccessResponse(product));
         }
 
-        // エンティティ→DTO変換
+        // --- 2) DBに無い → 楽天API照会 ---------------------------------------
+        log.info("[ソース=DB無し→楽天API照会] itemCode={}", itemCode);
+        product = rakutenApiService.fetchProductFromRakuten(itemCode).orElse(null);
+
+        if (product == null) {
+            log.warn("[ソース=楽天API無し] 楽天APIから商品取得不可 itemCode={}", itemCode);
+            return new ResponseEntity<>(buildFailResponse(), HttpStatus.BAD_REQUEST);
+        }
+
+        // --- 3) API成功 → DB保存 ---------------------------------------------
+        Product saved = productRepository.save(product);
+        log.info("[ソース=楽天API] 取得成功 → [DB登録] 完了 itemCode={} name={}", saved.getItemCode(), saved.getItemName());
+
+        return ResponseEntity.ok(buildSuccessResponse(saved));
+    }
+
+    /**
+     * 在庫による購入可否判定
+     * true = 在庫1以上, false = 在庫0以下 または商品無し
+     */
+    @Override
+    public ResponseEntity<Boolean> isPurchasable(String itemCode) {
+        return productRepository.findByItemCode(itemCode)
+                .map(product -> {
+                    boolean purchasable = product.getInventory() != null && product.getInventory() > 0;
+                    log.info("[ソース=DB] 購入可否判定 itemCode={} 在庫={} result={}", itemCode, product.getInventory(), purchasable);
+                    return ResponseEntity.ok(purchasable);
+                })
+                .orElseGet(() -> {
+                    log.warn("[ソース=DB無し] 購入可否判定対象商品がDBに存在しません itemCode={}", itemCode);
+                    return new ResponseEntity<>(false, HttpStatus.BAD_REQUEST);
+                });
+    }
+
+    /* ======================================================================
+     * 内部ユーティリティ: レスポンスDTO組み立て
+     * ====================================================================== */
+
+    /**
+     * 成功レスポンス組み立て
+     */
+    private ProductDetailResponseDto buildSuccessResponse(Product product) {
         ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
                 .itemCode(product.getItemCode())
                 .itemName(product.getItemName())
                 .itemCaption(product.getItemCaption())
                 .catchcopy(product.getCatchcopy())
-                // TODO: レビュー機能実装後に置換
-                .score(4)
-                .reviewCount(10)
+                .score(4)            // ここでは仮固定
+                .reviewCount(10)     // ここでは仮固定
                 .price(product.getPrice())
-                .imageUrls(product.getImages() != null ? product.getImages() : Collections.emptyList())
+                .imageUrls(product.getImages() != null ? product.getImages() : List.of())
                 .build();
 
-        ProductDetailResponseDto success = ProductDetailResponseDto.builder()
+        return ProductDetailResponseDto.builder()
                 .message("success")
                 .product(dto)
                 .build();
-
-        return ResponseEntity.ok(success);
     }
 
     /**
-     * 購入可否チェック処理（自動登録なし）。
-     * DBに未登録の商品は 400 + false を返却。
-     * DBに存在する場合のみ在庫で判定（inventory > 0）。
+     * 失敗レスポンス組み立て（商品情報なし）
      */
-    @Override
-    @Transactional(readOnly = true)
-    public ResponseEntity<Boolean> isPurchasable(String itemCode) {
-
-        return productRepository.findByItemCode(itemCode)
-                .map(p -> ResponseEntity.ok(p.getInventory() != null && p.getInventory() > 0))
-                // 商品未登録
-                .orElse(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(false));
+    private ProductDetailResponseDto buildFailResponse() {
+        return ProductDetailResponseDto.builder()
+                .message("fail")
+                .product(null)
+                .build();
     }
 }
