@@ -1,4 +1,3 @@
-import { rakutenApiItem } from "@/types/RakutenAPI";
 import CoverImage from "../common/CoverImage";
 import Star from "./Star";
 import { newImageSizing } from "@/utils/newImageSizing";
