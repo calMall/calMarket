@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@/styles/style.scss";
 import Header from "@/components/common/Header";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Header />
+        <Suspense fallback={<div></div>}>
+          <Header />
+        </Suspense>
         {children}
       </body>
     </html>
