@@ -24,6 +24,13 @@ export const login = async (email: string, password : string): Promise<LoginRes>
 
   console.log(loginInfo)
   console.log(data)
+export const signup = async (signupData: SignupReq): Promise<ResponseDTO> => {
+  const data = await fetch(`${url}/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(signupData),
+  });
   if (!data.ok) throw new Error(data.statusText);
   return data.json();
 };

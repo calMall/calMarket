@@ -342,3 +342,12 @@ body {
     width: 100%;
   }
 }
+.password-toggle {
+  right: 0.5rem;
+  top: 50%;
+  transform: translate(-25%, -25%);
+}
+.toggle-icon {
+  width: 1rem;
+  height: 1rem;
+}
