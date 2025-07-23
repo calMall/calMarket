@@ -1,10 +1,12 @@
 "use client";
 
+import UserStore from "@/store/user";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FaSearch } from "react-icons/fa";
+import HeaderMenu from "./HeaderMenu";
 
 export default function Header() {
   const searchParams = useSearchParams();
@@ -14,7 +16,7 @@ export default function Header() {
   const onSearch = () => {
     router.push(`/search?q=${searchText}`);
   };
-
+  const userStore = UserStore();
   useEffect(() => {
     if (typeof q === "string") setSearchText(q);
   }, []);
@@ -50,8 +52,12 @@ export default function Header() {
         </button>
       </div>
 
-      <div className="nowrap">
-        <Link href={"/login"}>ログイン</Link>
+      <div className="nowrap hf ac flex">
+        {userStore.userInfo ? (
+          <HeaderMenu nickname={userStore.userInfo.nickname} />
+        ) : (
+          <Link href={"/login"}>ログイン</Link>
+        )}
       </div>
     </div>
   );
