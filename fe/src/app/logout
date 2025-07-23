@@ -1,0 +1,29 @@
+
+const url = process.env.NEXT_PUBLIC_BASE_URL;
+
+export const logout = async (logout: string): Promise<CheckLogoutRes> => {
+  const data = await fetch(`${/api/logout}/api/users/check-logout?logout=${logout}`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!data.ok) throw new Error(data.statusText);
+  return data.json();
+};
+
+export const logout = async (email: string, password : string): Promise<LogoutRes> => {
+  const logoutInfo = {
+    nickname
+  }
+
+const data = await fetch(`${url}/api/logout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body : JSON.stringify(logoutInfo)
+  });
+
+  console.log(logoutInfo)
+  console.log(data)
+  if (!data.ok) throw new Error(data.statusText);
+  return data.json();
+};
