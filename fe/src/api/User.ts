@@ -9,21 +9,25 @@ export const checkEmail = async (email: string): Promise<CheckEmailRes> => {
   return data.json();
 };
 
-export const login = async (email: string, password : string): Promise<LoginRes> => {
+export const login = async (
+  email: string,
+  password: string
+): Promise<LoginRes> => {
   const loginInfo = {
-    email, 
-    password
-  }
-  
+    email,
+    password,
+  };
+
   const data = await fetch(`${url}/api/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body : JSON.stringify(loginInfo)
+    body: JSON.stringify(loginInfo),
   });
+  if (!data.ok) throw new Error(data.statusText);
+  return data.json();
+};
 
-  console.log(loginInfo)
-  console.log(data)
 export const signup = async (signupData: SignupReq): Promise<ResponseDTO> => {
   const data = await fetch(`${url}/users`, {
     method: "POST",
@@ -31,6 +35,7 @@ export const signup = async (signupData: SignupReq): Promise<ResponseDTO> => {
     credentials: "include",
     body: JSON.stringify(signupData),
   });
+
   if (!data.ok) throw new Error(data.statusText);
   return data.json();
 };
