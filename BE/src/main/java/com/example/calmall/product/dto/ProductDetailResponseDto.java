@@ -1,58 +1,68 @@
 package com.example.calmall.product.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
 
 import java.util.List;
 
-
 /**
- * 商品詳細取得APIのレスポンスDTO
+ * 商品詳細取得API（GET /api/products/{itemCode}）のレスポンスDTO。
+ * 仕様：
+ * message: "success" または "fail"
+ * 商品: 商品詳細データ（null可）
+ *
+ * ※「商品」キー名は仕様に合わせた日本語表記。内部フィールド名は product。
+ * ※ itemName / itemCaption / catchcopy のキー名は仕様上変更可能だが、ここでは楽天API準拠のまま使用。
  */
-
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ProductDetailResponseDto {
 
-    // レスポンスメッセージ（"success" または "fail"）
+    /** レスポンスメッセージ（"success" / "fail"） */
     private String message;
 
-    // 商品詳細情報（下記のProductDtoを使用）
+    /** 商品詳細（キー名を日本語「商品」にする） */
+    @JsonProperty("商品")
     private ProductDto product;
 
-    // 商品情報を表すDTO（商品詳細の中身）
-    @Data
+    /**
+     * 商品詳細データ本体。
+     * 楽天APIの代表カラムをマッピング。
+     */
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ProductDto {
 
-        // 楽天APIの商品コード（itemCode）
+        /** 楽天APIの商品コード（例：jpntnc:10002379） */
         private String itemCode;
 
-        // 商品名（itemName）
+        /** 商品名 */
         private String itemName;
 
-        // 商品の説明文（itemCaption）
+        /** 商品説明文 */
         private String itemCaption;
 
-        // キャッチコピー（catchcopy）
+        /** キャッチコピー */
         private String catchcopy;
 
-        // 平均スコア（レビュー評価）
+        /** レビュー平均点（現状は仮値） */
         private int score;
 
-        // レビュー件数
+        /** レビュー件数（現状は仮値） */
         private int reviewCount;
 
-        // 商品価格
-        private int price;
+        /** 商品価格 */
+        private Integer price;
 
-        // 商品画像URLリスト
+        /** 商品画像URLリスト */
         private List<String> imageUrls;
     }
 }
