@@ -2,11 +2,23 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { FaSearch } from "react-icons/fa";
 
 export default function Header() {
+  const searchParams = useSearchParams();
+  const q = searchParams.get("q");
   const [searchText, setSearchText] = useState("");
+  const router = useRouter();
+  const onSearch = () => {
+    router.push(`/search?q=${searchText}`);
+  };
+
+  useEffect(() => {
+    if (typeof q === "string") setSearchText(q);
+  }, []);
+
   return (
     <div className="header flex ac jb gap-1">
       <Link href={"/"} className="flex ac">
@@ -28,8 +40,12 @@ export default function Header() {
           className="hf wf bx"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
+          onKeyUp={(e) => e.key === "Enter" && onSearch()}
         />
-        <button className="ab search-btn main-dark-btn-hover">
+        <button
+          className="ab search-btn main-dark-btn-hover"
+          onClick={onSearch}
+        >
           <FaSearch />
         </button>
       </div>
