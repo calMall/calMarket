@@ -1,4 +1,4 @@
-export interface rakutenApiItem {
+interface rakutenApiItem {
   Item: {
     catchcopy: "楽天生活応援米";
     genreId: "201184";
@@ -18,7 +18,7 @@ export interface rakutenApiItem {
   };
 }
 
-export interface RakutenAPIResponse {
+interface RakutenAPIResponse {
   Items: rakutenApiItem[];
   count: number;
   hits: number;

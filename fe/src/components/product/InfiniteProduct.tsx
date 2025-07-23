@@ -1,7 +1,6 @@
 "use client";
 
 import { rakutenSearch } from "@/api/Rakuten";
-import { rakutenApiItem } from "@/types/RakutenAPI";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import InfiniteScroll from "react-infinite-scroll-component";

@@ -18,7 +18,7 @@ export const login = async (
     password,
   };
 
-  const data = await fetch(`${url}/api/login`, {
+  const data = await fetch(`${url}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",

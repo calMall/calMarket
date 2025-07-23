@@ -1,5 +1,3 @@
-import { RakutenAPIResponse } from "@/types/RakutenAPI";
-
 const rankingUrl = process.env.NEXT_PUBLIC_RAKUTEN_RANKING;
 const searchUrl = process.env.NEXT_PUBLIC_RAKUTEN_SEARCH;
 export const rakutenRanking = async (): Promise<RakutenAPIResponse> => {

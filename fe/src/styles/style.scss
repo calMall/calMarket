@@ -112,6 +112,9 @@ body {
 .gap-1 {
   gap: 1rem;
 }
+.gap-05 {
+  gap: 0.5rem;
+}
 
 .red-color {
   color: red;
@@ -361,4 +364,56 @@ body {
 .toggle-icon {
   width: 1rem;
   height: 1rem;
+}
+
+.modal-cover {
+  background-color: rgba(78, 78, 78, 0.7);
+  width: 100vw;
+  height: 100vh;
+  left: 0;
+  top: 0;
+  z-index: 1;
+}
+
+@keyframes menu {
+  from {
+    transform: translateY(-25%) scaleY(0.5);
+
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.content-menu-contain {
+  background-color: white;
+  color: black;
+  font-size: large;
+  border-radius: 10px;
+  min-width: 6rem;
+  right: 0;
+  z-index: 99;
+  overflow: hidden;
+  top: 100%;
+  animation: menu 0.5s;
+  @include shadow-box();
+}
+.menu-mypage-btn {
+  padding: 0.5rem;
+  width: 7rem;
+}
+.menu-logout-btn {
+  color: red;
+  padding: 0.5rem;
+  width: 7rem;
+}
+.button-hover-color {
+  &:hover {
+    background-color: $main-light-color;
+    transition: 0.3s;
+  }
+}
+.fs-large {
+  font-size: large;
 }
