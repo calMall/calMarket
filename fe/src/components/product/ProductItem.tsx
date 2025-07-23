@@ -6,13 +6,17 @@ import Link from "next/link";
 
 interface props {
   product: rakutenApiItem;
+  imageSize?: number;
 }
-export default function ProductItem({ product }: props) {
+export default function ProductItem({ product, imageSize }: props) {
   return (
     <Link href={"/"} className="product-list-item-contain">
       <div className="rt product-list-item-img">
         <CoverImage
-          url={newImageSizing(product.Item.mediumImageUrls[0].imageUrl, 256)}
+          url={newImageSizing(
+            product.Item.mediumImageUrls[0].imageUrl,
+            imageSize ? imageSize : 256
+          )}
           alt="img"
         />
       </div>

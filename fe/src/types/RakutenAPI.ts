@@ -20,4 +20,8 @@ export interface rakutenApiItem {
 
 export interface RakutenAPIResponse {
   Items: rakutenApiItem[];
+  count: number;
+  hits: number;
+  last: number;
+  page: number;
 }
