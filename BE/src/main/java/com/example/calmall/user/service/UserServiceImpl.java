@@ -15,6 +15,7 @@ import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -137,36 +138,48 @@ public class UserServiceImpl implements UserService {
     /**
      * ユーザーの配送先住所を追加
      * - 同一内容の住所が既に登録されている場合は登録しない
+     * - 親(User)側から cascade 保存
      */
+    @Transactional
     @Override
     public ResponseEntity<ApiResponseDto> addAddress(String userId, UserAddressRequestDto requestDto) {
-        Optional<User> userOpt = userRepository.findByUserId(userId);
-        if (userOpt.isEmpty()) {
+
+        // 1) ユーザー取得
+        User user = userRepository.findByUserId(userId).orElse(null);
+        if (user == null) {
             return ResponseEntity.badRequest().body(new ApiResponseDto("ユーザーが存在しません"));
         }
 
-        User user = userOpt.get();
+        // 2) リスト null 防止
+        if (user.getDeliveryAddresses() == null) {
+            user.setDeliveryAddresses(new ArrayList<>());
+        }
 
-        // 同一内容の住所が既に存在するか確認
+        // 3) 入力値をトリム（重複判定の精度UP）
+        String pc = requestDto.getPostalCode().trim();
+        String a1 = requestDto.getAddress1().trim();
+        String a2 = requestDto.getAddress2().trim();
+
+        // 4) 重複チェック
         boolean exists = user.getDeliveryAddresses().stream().anyMatch(addr ->
-                addr.getPostalCode().equals(requestDto.getPostalCode()) &&
-                        addr.getAddress1().equals(requestDto.getAddress1()) &&
-                        addr.getAddress2().equals(requestDto.getAddress2())
+                pc.equals(addr.getPostalCode()) &&
+                        a1.equals(addr.getAddress1()) &&
+                        a2.equals(addr.getAddress2())
         );
-
         if (exists) {
             return ResponseEntity.badRequest().body(new ApiResponseDto("同じ住所が既に登録されています"));
         }
 
-        // 新しい住所エンティティを作成し、ユーザーに紐付けて保存
+        // 5) 子エンティティ生成 & 双方向リンク
         DeliveryAddress address = new DeliveryAddress();
-        address.setPostalCode(requestDto.getPostalCode());
-        address.setAddress1(requestDto.getAddress1());
-        address.setAddress2(requestDto.getAddress2());
-        address.setUser(user);
+        address.setPostalCode(pc);
+        address.setAddress1(a1);
+        address.setAddress2(a2);
+        address.setUser(user);                    // Owning side (FK)
+        user.getDeliveryAddresses().add(address); // Inverse side
 
-        user.getDeliveryAddresses().add(address);
-        deliveryAddressRepository.save(address);
+        // 6) 親を保存（cascade=ALLなので子も保存）
+        userRepository.save(user);                // saveAndFlush(user) でも可
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
