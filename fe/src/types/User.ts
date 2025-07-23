@@ -1,7 +1,7 @@
 interface CheckEmailRes extends ResponseDTO {
   available: boolean;
 }
-interface SignupRes extends ResponseDTO {
+interface LoginRes extends ResponseDTO {
   cartItemCount: number;
   nickname: string;
 }
