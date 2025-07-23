@@ -31,8 +31,7 @@ export default function Signup() {
       const data = await checkEmail(email);
       if (data.available) {
         setCheckedEmail(true);
-        alert("使用できるメールアドレスです。");
-        return router.push("/");
+        return alert("使用できるメールアドレスです。");
       } else return alert("すでに登録されているメールアドレスです。");
     } catch (e) {
       alert("検査に失敗しました。");
