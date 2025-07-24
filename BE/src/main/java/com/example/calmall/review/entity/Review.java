@@ -51,4 +51,8 @@ public class Review {
 
     /** 更新日時 */
     private LocalDateTime updatedAt;
+
+    /** 論理削除フラグ（trueの場合、削除済） */
+    @Column(nullable = false)
+    private boolean deleted;
 }

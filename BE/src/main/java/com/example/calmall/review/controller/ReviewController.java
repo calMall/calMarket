@@ -3,6 +3,7 @@ package com.example.calmall.review.controller;
 import com.example.calmall.global.dto.ApiResponseDto;
 import com.example.calmall.review.dto.*;
 import com.example.calmall.review.service.ReviewService;
+import com.example.calmall.user.entity.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,8 +23,9 @@ public class ReviewController {
      * レビュー投稿API（1ヶ月以内購入者のみ）
      */
     @PostMapping
-    public ResponseEntity<ApiResponseDto> postReview(@Valid @RequestBody ReviewRequestDto requestDto) {
-        return reviewService.postReview(requestDto);
+    public ResponseEntity<ApiResponseDto> postReview(@Valid @RequestBody ReviewRequestDto requestDto,
+                                                     @SessionAttribute("user") User loginUser) {
+        return reviewService.postReview(requestDto, loginUser.getUserId());
     }
 
     /**
@@ -52,15 +54,17 @@ public class ReviewController {
      */
     @PatchMapping("/{id}")
     public ResponseEntity<ApiResponseDto> updateReview(@PathVariable Long id,
-                                                       @Valid @RequestBody ReviewUpdateRequestDto requestDto) {
-        return reviewService.updateReview(id, requestDto);
+                                                       @Valid @RequestBody ReviewUpdateRequestDto requestDto,
+                                                       @SessionAttribute("user") User loginUser) {
+        return reviewService.updateReview(id, requestDto, loginUser.getUserId());
     }
 
     /**
      * レビュー削除API（本人のみ削除可）
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponseDto> deleteReview(@PathVariable Long id) {
-        return reviewService.deleteReview(id);
+    public ResponseEntity<ApiResponseDto> deleteReview(@PathVariable Long id,
+                                                       @SessionAttribute("user") User loginUser) {
+        return reviewService.deleteReview(id, loginUser.getUserId());
     }
 }

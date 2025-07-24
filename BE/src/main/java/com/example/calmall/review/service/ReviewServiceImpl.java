@@ -24,7 +24,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * ReviewServiceの実装クラス
+ * ReviewService の実装クラス
  */
 @Service
 @RequiredArgsConstructor
@@ -37,18 +37,31 @@ public class ReviewServiceImpl implements ReviewService {
     private final OrdersRepository ordersRepository;
 
     /**
-     * レビュー投稿（1ヶ月以内の購入ユーザーのみ）
+     * レビュー投稿（1ヶ月以内の購入ユーザー限定、同一商品に対し1回のみ投稿可能）
      */
     @Override
     @Transactional
-    public ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto) {
-        // ユーザーと商品取得
-        User user = userRepository.findByUserId(requestDto.getUserId())
+    public ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto, String userId) {
+        User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
         Product product = productRepository.findByItemCode(requestDto.getItemCode())
                 .orElseThrow(() -> new IllegalArgumentException("商品が存在しません"));
 
-        // 購入履歴の1ヶ月以内チェック
+        // 削除済レビューが存在するかチェック（再投稿禁止）
+        Optional<Review> deleted = reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedIsTrue(userId, product.getItemCode());
+        if (deleted.isPresent()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponseDto("削除済レビューが存在するため再投稿できません"));
+        }
+
+        // 既に投稿済レビューがあるかチェック（1商品に1回制限）
+        Optional<Review> existing = reviewRepository.findByProduct_ItemCodeAndUser_UserId(product.getItemCode(), userId);
+        if (existing.isPresent()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponseDto("この商品には既にレビューを投稿済みです"));
+        }
+
+        // 購入1ヶ月以内チェック
         LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
         boolean hasRecentOrder = ordersRepository.existsByUser_UserIdAndProduct_ItemCodeAndCreatedAtAfter(
                 user.getUserId(), product.getItemCode(), oneMonthAgo);
@@ -58,7 +71,7 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("購入後1ヶ月以内のユーザーのみレビュー可能です"));
         }
 
-        // レビュー作成
+        // レビュー新規作成
         Review review = Review.builder()
                 .user(user)
                 .product(product)
@@ -68,6 +81,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .image(requestDto.getImage())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
+                .deleted(false) // 論理削除フラグ（新規なので false）
                 .build();
 
         reviewRepository.save(review);
@@ -75,22 +89,21 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * 商品ごとのレビュー一覧取得（統計・マイレビュー付き）
+     * 商品別レビュー一覧取得（統計情報・マイレビュー付き）
      */
     @Override
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(String itemCode, String userId, int page, int size) {
         Page<Review> reviewPage = reviewRepository.findByProduct_ItemCode(itemCode, PageRequest.of(page, size));
         List<Review> allReviews = reviewRepository.findByProduct_ItemCode(itemCode);
 
-        // 統計情報
         double average = allReviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
         long count = allReviews.size();
+
         ReviewListByItemResponseDto.RatingStat stats = ReviewListByItemResponseDto.RatingStat.builder()
                 .average(average)
                 .count(count)
                 .build();
 
-        // レビューリスト構築
         List<ReviewListByItemResponseDto.ReviewInfo> reviews = reviewPage.getContent().stream().map(r -> {
             boolean liked = userId != null && reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, r.getReviewId());
             long likeCount = reviewLikeRepository.countByReviewReviewId(r.getReviewId());
@@ -107,7 +120,6 @@ public class ReviewServiceImpl implements ReviewService {
                     .build();
         }).collect(Collectors.toList());
 
-        // 自分のレビュー
         ReviewListByItemResponseDto.MyReview myReview = null;
         if (userId != null) {
             Optional<Review> my = reviewRepository.findByProduct_ItemCodeAndUser_UserId(itemCode, userId);
@@ -132,7 +144,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * ユーザーごとのレビュー取得（ページネーション付き）
+     * ユーザー別レビュー一覧取得
      */
     @Override
     public ResponseEntity<ReviewListByUserResponseDto> getReviewsByUser(String userId, int page, int size) {
@@ -142,7 +154,6 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         Page<Review> reviewPage = reviewRepository.findByUser_UserId(userId, PageRequest.of(page, size));
-
         List<ReviewListByUserResponseDto.UserReview> reviews = reviewPage.getContent().stream().map(r ->
                 ReviewListByUserResponseDto.UserReview.builder()
                         .reviewId(r.getReviewId())
@@ -164,15 +175,18 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * レビュー編集（本人のみ）
+     * レビュー編集（本人のみ可能）
      */
     @Override
     @Transactional
-    public ResponseEntity<ApiResponseDto> updateReview(Long reviewId, ReviewUpdateRequestDto requestDto) {
+    public ResponseEntity<ApiResponseDto> updateReview(Long reviewId, ReviewUpdateRequestDto requestDto, String userId) {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
 
-        // 本人チェックは別途ログイン処理が必要
+        if (!review.getUser().getUserId().equals(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiResponseDto("本人のみ編集可能です"));
+        }
 
         review.setTitle(requestDto.getTitle());
         review.setComment(requestDto.getComment());
@@ -183,15 +197,23 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * レビュー削除（本人のみ）
+     * レビュー削除（論理削除・本人のみ）
      */
     @Override
     @Transactional
-    public ResponseEntity<ApiResponseDto> deleteReview(Long reviewId) {
+    public ResponseEntity<ApiResponseDto> deleteReview(Long reviewId, String userId) {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
 
-        reviewRepository.delete(review);
+        if (!review.getUser().getUserId().equals(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ApiResponseDto("本人のみ削除可能です"));
+        }
+
+        // 論理削除（DB上に残して再投稿防止）
+        review.setDeleted(true);
+        review.setUpdatedAt(LocalDateTime.now());
+
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 }
