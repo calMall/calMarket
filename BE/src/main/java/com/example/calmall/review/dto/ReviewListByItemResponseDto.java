@@ -1,69 +1,80 @@
 package com.example.calmall.review.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.*;
 
 import java.util.List;
 
-// 商品に対するレビュー一覧取得APIのレスポンスDTO
-@Data
+/**
+ * 商品ごとのレビュー取得APIのレスポンスDTO
+ */
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReviewListByItemResponseDto {
 
-    // レスポンスメッセージ
+    // レスポンスメッセージ（例: success / fail）
     private String message;
 
     // レビュー一覧
-    private List<Review> reviews;
+    private List<ReviewInfo> reviews;
 
-    // 点数別の人数
-    private List<RatingStat> ratingStats;
+    // 統計情報（任意、null許容）
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private RatingStat stats;
 
-    // 自分のレビュー
+    // 自分のレビュー（任意、null許容）
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private MyReview myReview;
 
-    // レビュー1件の情報
-    @Data
+    /**
+     * 商品ごとのレビュー詳細情報
+     */
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class Review {
-
+    public static class ReviewInfo {
         private Long reviewId;
         private String userNickname;
         private int rating;
         private String title;
         private String comment;
-        private List<String> imageList;
+        private String image;
         private String createdAt;
-        private boolean isLike;
-        private int likeCount;
+        private boolean liked;
+        private long likeCount;
     }
 
-    // 点数ごとの集計（例：score=5, count=2）
-    @Data
+    /**
+     * 商品ごとのレビュー評価統計情報
+     */
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class RatingStat {
-        private int score;
-        private int count;
+        private double average;  // 平均点
+        private long count;      // 総レビュー数
     }
 
-    // 自分のレビュー（編集可能）
-    @Data
+    /**
+     * ログインユーザーの自身のレビュー
+     */
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MyReview {
-        private Long reviewId;
+        private int rating;
         private String title;
         private String comment;
-        private int rating;
-        private List<String> imageList;
+        private String image;
+        private String createdAt;
     }
 }

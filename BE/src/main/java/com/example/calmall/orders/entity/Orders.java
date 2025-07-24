@@ -1,29 +1,38 @@
 package com.example.calmall.orders.entity;
 
+import com.example.calmall.user.entity.User;
+import com.example.calmall.product.entity.Product;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+
 import java.time.LocalDateTime;
 
-/**
- * 注文情報を管理するエンティティ
- */
 @Entity
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Table(name = "orders")
 public class Orders {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ユーザーの主キーID（User.id を参照）
-    private Long userId;
+    /** 注文ユーザー */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", referencedColumnName = "user_id", nullable = false)
+    private User user;
 
-    // 商品ID（楽天形式）
-    private String productItemCode;
+    /** 注文商品 */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "item_code", referencedColumnName = "item_code", nullable = false)
+    private Product product;
 
-    // 注文状態（例：CREATED, SHIPPED, DELIVERED, REFUNDED）
+    /** 注文状態 */
     private String status;
 
-    // 注文作成日時
+    /** 作成日時 */
     private LocalDateTime createdAt;
 }

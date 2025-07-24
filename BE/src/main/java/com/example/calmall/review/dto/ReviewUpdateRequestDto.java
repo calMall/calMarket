@@ -1,23 +1,23 @@
 package com.example.calmall.review.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.*;
+import lombok.Getter;
 
-// レビュー編集APIのリクエストDTO
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+/**
+ * レビュー更新用リクエストDTOクラス
+ * ユーザーが自分の投稿済みレビューを編集する際に使用する
+ */
+@Getter
 public class ReviewUpdateRequestDto {
 
-    // タイトル
+    // 編集後のレビュータイトル
+    @NotBlank(message = "title は必須です")
     private String title;
 
-    // 本文
+    // 編集後のレビュー本文
+    @NotBlank(message = "comment は必須です")
     private String comment;
 
-    // 画像URL
+    // 編集後の画像URL（空文字可）
     private String image;
 }
