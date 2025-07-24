@@ -31,7 +31,7 @@ export default function Signup() {
       const data = await checkEmail(email);
       if (data.available) {
         setCheckedEmail(true);
-        return alert("使用できるメールアドレスです。");
+        alert("使用できるメールアドレスです。");
       } else return alert("すでに登録されているメールアドレスです。");
     } catch (e) {
       alert("検査に失敗しました。");
@@ -53,7 +53,10 @@ export default function Signup() {
     };
     try {
       const data = await signup(signupData);
-      if (data.message === "success") return alert("登録されました。");
+      if (data.message === "success") {
+        alert("登録されました。");
+        return router.push("/");
+      }
       return alert("登録に失敗しました。");
     } catch (e) {
       console.log(e);
