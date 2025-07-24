@@ -591,3 +591,44 @@ body {
   transition: 0.3s;
   transform: translateX(100%);
 }
+.simple-order-contain {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+}
+.simple-order-img {
+  aspect-ratio: 1;
+  border: 1px solid rgba($color: #000000, $alpha: 0.2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.bb {
+  border-bottom: solid 2px rgba($color: #000000, $alpha: 0.5);
+}
+.mypage-horizens {
+  padding: 2rem 0;
+}
+.pd-1 {
+  padding: 1rem;
+}
+.review-title {
+  width: 100%;
+  word-break: break-all;
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.review-content {
+  width: 100%;
+  font-size: small;
+  word-break: break-all;
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

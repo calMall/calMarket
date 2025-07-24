@@ -39,3 +39,14 @@ export const signup = async (signupData: SignupReq): Promise<ResponseDTO> => {
   if (!data.ok) throw new Error(data.statusText);
   return data.json();
 };
+
+// 自分の情報照会
+export const myInfo = async (): Promise<MyinfoDTO> => {
+  const data = await fetch(`${url}/users/me`, {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (!data.ok) throw new Error(data.statusText);
+  return data.json();
+};

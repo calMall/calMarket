@@ -54,7 +54,7 @@ export default function HeaderMenu({ nickname }: props) {
       </button>
       {viewMenu && (
         <div className="content-menu-contain ab z-20" ref={ref}>
-          <Link href={``}>
+          <Link href={`/mypage`}>
             <button
               className="flex ac gap-05 menu-mypage-btn button-hover-color "
               onClick={onViewMenu}
