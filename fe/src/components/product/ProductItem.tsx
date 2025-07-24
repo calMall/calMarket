@@ -9,7 +9,10 @@ interface props {
 }
 export default function ProductItem({ product, imageSize }: props) {
   return (
-    <Link href={"/"} className="product-list-item-contain">
+    <Link
+      href={`/product/${product.Item.itemCode}`}
+      className="product-list-item-contain"
+    >
       <div className="rt product-list-item-img">
         <CoverImage
           url={newImageSizing(
