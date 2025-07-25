@@ -10,3 +10,14 @@ interface ProductDetailResponseDto extends ResponseDTO {
     imageUrls: string[];
   };
 }
+interface CartListResponseDto extends ResponseDTO {
+  cartItems: cartItem[];
+}
+
+interface cartItem {
+  itemCode: string;
+  itemName: string;
+  price: number;
+  quantity: number;
+  imageUrls: string[];
+}
