@@ -1,32 +1,36 @@
 package com.example.calmall.review.dto;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 
 import java.util.List;
 
 /**
- * レビュー投稿用リクエストDTOクラス（セッションからuser取得のためuserId削除）
+ * レビュー投稿用のリクエストDTOクラス
  */
 @Getter
 public class ReviewRequestDto {
 
-    // 商品のコード（楽天APIの商品識別子）フロントが埋め込み
+    // 商品コード（例：楽天の商品コード）
     @NotBlank(message = "itemCode は必須です")
     private String itemCode;
 
-    // レビュー評価（1〜5）
+    // 評価点（1〜5の整数）
     @Min(value = 1, message = "rating は1以上である必要があります")
     @Max(value = 5, message = "rating は5以下である必要があります")
     private int rating;
 
-    // レビュータイトル（空文字許容・任意）
+    // レビュータイトル（空欄不可）
+    @NotBlank(message = "title は必須です")
     private String title;
 
-    // レビュー本文コメント
+    // レビュー本文（空欄不可）
     @NotBlank(message = "comment は必須です")
     private String comment;
 
-    // 画像URLのリスト（空、または複数画像URLを格納）
+    // 画像URLのリスト（任意）
     private List<String> imageList;
 }
