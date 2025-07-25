@@ -1,6 +1,7 @@
 package com.example.calmall.review.service;
 
 import com.example.calmall.global.dto.ApiResponseDto;
+import com.example.calmall.orders.entity.Orders;
 import com.example.calmall.orders.repository.OrdersRepository;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
@@ -39,34 +40,46 @@ public class ReviewServiceImpl implements ReviewService {
     private final OrdersRepository ordersRepository;
 
     /**
-     * レビュー投稿処理（購入1ヶ月以内、1商品1回、再投稿不可）
+     * レビュー投稿処理
+     * - 購入後1ヶ月以内のユーザーのみ投稿可能
+     * - 同一商品には1回のみ投稿可能（削除済含む）
      */
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto, String userId) {
+        // ユーザーと商品を取得
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
         Product product = productRepository.findByItemCode(requestDto.getItemCode())
                 .orElseThrow(() -> new IllegalArgumentException("商品が存在しません"));
 
-        // 過去に削除済みレビューが存在する場合は再投稿不可
+        // 以前に削除したレビューがある場合 → 再投稿不可
         if (reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedIsTrue(userId, product.getItemCode()).isPresent()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("削除済レビューが存在するため再投稿できません"));
         }
 
-        // 既に投稿済みレビューが存在するか
+        // 既にレビュー投稿済みなら投稿不可
         if (reviewRepository.findByProduct_ItemCodeAndUser_UserId(product.getItemCode(), userId).isPresent()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("この商品には既にレビューを投稿済みです"));
         }
 
-        // 購入から1ヶ月以内かどうか確認
-        LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
-        boolean hasRecentOrder = ordersRepository.existsByUser_UserIdAndProduct_ItemCodeAndCreatedAtAfter(
-                userId, product.getItemCode(), oneMonthAgo);
+        // 購入履歴を取得（商品＋ユーザー）
+        List<Orders> orders = ordersRepository.findByUser_UserIdAndProduct_ItemCode(userId, product.getItemCode());
 
-        if (!hasRecentOrder) {
+        // 購入履歴が存在しない場合
+        if (orders.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponseDto("未購入の商品にはレビューできません"));
+        }
+
+        // 購入が1ヶ月以内かどうか判定
+        LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
+        boolean purchasedWithinOneMonth = orders.stream()
+                .anyMatch(order -> order.getCreatedAt().isAfter(oneMonthAgo));
+
+        if (!purchasedWithinOneMonth) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("購入後1ヶ月以内のユーザーのみレビュー可能です"));
         }
@@ -89,14 +102,18 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * 商品ごとのレビュー取得（ページネーション・評価統計・自分のレビュー・いいね情報含む）
+     * 商品ごとのレビュー取得
+     * - ページネーション対応
+     * - 評価統計（★ごとの件数）
+     * - 自分のレビュー情報（myReview）
+     * - 各レビューの「いいね」状態と件数
      */
     @Override
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(String itemCode, String userId, int page, int size) {
         Page<Review> reviewPage = reviewRepository.findByProduct_ItemCode(itemCode, PageRequest.of(page, size));
         List<Review> allReviews = reviewRepository.findByProduct_ItemCode(itemCode);
 
-        // 点数別件数を集計
+        // 点数ごとの件数をカウント
         Map<Integer, Long> ratingStatsMap = allReviews.stream()
                 .collect(Collectors.groupingBy(Review::getRating, Collectors.counting()));
 
@@ -108,7 +125,7 @@ public class ReviewServiceImpl implements ReviewService {
                     .build());
         }
 
-        // レビューリスト作成
+        // 表示用レビュー情報のリストを作成
         List<ReviewListByItemResponseDto.ReviewInfo> reviewInfos = reviewPage.getContent().stream()
                 .map(r -> ReviewListByItemResponseDto.ReviewInfo.builder()
                         .reviewId(r.getReviewId())
@@ -123,7 +140,7 @@ public class ReviewServiceImpl implements ReviewService {
                         .build())
                 .collect(Collectors.toList());
 
-        // 自分のレビュー
+        // 自分のレビューを取得（存在する場合のみ）
         ReviewListByItemResponseDto.MyReview myReview = null;
         if (userId != null) {
             Optional<Review> my = reviewRepository.findByProduct_ItemCodeAndUser_UserId(itemCode, userId);
@@ -148,7 +165,8 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * ユーザーごとのレビュー取得（ページネーション付き）
+     * ユーザーごとのレビュー取得
+     * - ページネーション対応
      */
     @Override
     public ResponseEntity<ReviewListByUserResponseDto> getReviewsByUser(String userId, int page, int size) {
@@ -179,7 +197,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * レビュー編集（本人のみ編集可）
+     * レビュー編集処理（本人のみ）
      */
     @Override
     @Transactional
@@ -187,11 +205,13 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
 
+        // 本人チェック
         if (!review.getUser().getUserId().equals(userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(new ApiResponseDto("本人のみ編集可能です"));
         }
 
+        // 内容更新
         review.setRating(requestDto.getRating());
         review.setTitle(requestDto.getTitle());
         review.setComment(requestDto.getComment());
@@ -210,11 +230,13 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
 
+        // 本人チェック
         if (!review.getUser().getUserId().equals(userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(new ApiResponseDto("本人のみ削除可能です"));
         }
 
+        // 論理削除
         review.setDeleted(true);
         review.setUpdatedAt(LocalDateTime.now());
 

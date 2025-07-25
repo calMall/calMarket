@@ -4,6 +4,7 @@ import com.example.calmall.orders.entity.Orders;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 注文履歴を扱うJPAリポジトリ
@@ -25,4 +26,14 @@ public interface OrdersRepository extends JpaRepository<Orders, Long> {
             String itemCode,
             LocalDateTime after
     );
+
+    /**
+     * 指定された userId のユーザーが、
+     * 指定された itemCode の商品を購入した履歴をすべて取得
+     *
+     * @param userId ユーザーの UUID（User.userId）
+     * @param itemCode 商品の itemCode（Product.itemCode）
+     * @return 該当する注文履歴リスト
+     */
+    List<Orders> findByUser_UserIdAndProduct_ItemCode(String userId, String itemCode);
 }
