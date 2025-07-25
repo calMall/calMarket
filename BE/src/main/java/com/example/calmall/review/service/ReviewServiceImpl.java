@@ -4,7 +4,10 @@ import com.example.calmall.global.dto.ApiResponseDto;
 import com.example.calmall.orders.repository.OrdersRepository;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
-import com.example.calmall.review.dto.*;
+import com.example.calmall.review.dto.ReviewListByItemResponseDto;
+import com.example.calmall.review.dto.ReviewListByUserResponseDto;
+import com.example.calmall.review.dto.ReviewRequestDto;
+import com.example.calmall.review.dto.ReviewUpdateRequestDto;
 import com.example.calmall.review.entity.Review;
 import com.example.calmall.review.repository.ReviewRepository;
 import com.example.calmall.reviewLike.repository.ReviewLikeRepository;
@@ -19,12 +22,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * ReviewService の実装クラス
+ * レビュー機能のサービス実装クラス
  */
 @Service
 @RequiredArgsConstructor
@@ -37,7 +39,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final OrdersRepository ordersRepository;
 
     /**
-     * レビュー投稿（1ヶ月以内の購入ユーザー限定、同一商品に対し1回のみ投稿可能）
+     * レビュー投稿処理（購入1ヶ月以内、1商品1回、再投稿不可）
      */
     @Override
     @Transactional
@@ -47,41 +49,39 @@ public class ReviewServiceImpl implements ReviewService {
         Product product = productRepository.findByItemCode(requestDto.getItemCode())
                 .orElseThrow(() -> new IllegalArgumentException("商品が存在しません"));
 
-        // 削除済レビューが存在するかチェック（再投稿禁止）
-        Optional<Review> deleted = reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedIsTrue(userId, product.getItemCode());
-        if (deleted.isPresent()) {
+        // 過去に削除済みレビューが存在する場合は再投稿不可
+        if (reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedIsTrue(userId, product.getItemCode()).isPresent()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("削除済レビューが存在するため再投稿できません"));
         }
 
-        // 既に投稿済レビューがあるかチェック（1商品に1回制限）
-        Optional<Review> existing = reviewRepository.findByProduct_ItemCodeAndUser_UserId(product.getItemCode(), userId);
-        if (existing.isPresent()) {
+        // 既に投稿済みレビューが存在するか
+        if (reviewRepository.findByProduct_ItemCodeAndUser_UserId(product.getItemCode(), userId).isPresent()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("この商品には既にレビューを投稿済みです"));
         }
 
-        // 購入1ヶ月以内チェック
+        // 購入から1ヶ月以内かどうか確認
         LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
         boolean hasRecentOrder = ordersRepository.existsByUser_UserIdAndProduct_ItemCodeAndCreatedAtAfter(
-                user.getUserId(), product.getItemCode(), oneMonthAgo);
+                userId, product.getItemCode(), oneMonthAgo);
 
         if (!hasRecentOrder) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("購入後1ヶ月以内のユーザーのみレビュー可能です"));
         }
 
-        // レビュー新規作成
+        // レビュー作成・保存
         Review review = Review.builder()
                 .user(user)
                 .product(product)
                 .rating(requestDto.getRating())
                 .title(requestDto.getTitle())
                 .comment(requestDto.getComment())
-                .image(requestDto.getImage())
+                .imageList(requestDto.getImageList())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
-                .deleted(false) // 論理削除フラグ（新規なので false）
+                .deleted(false)
                 .build();
 
         reviewRepository.save(review);
@@ -89,62 +89,66 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * 商品別レビュー一覧取得（統計情報・マイレビュー付き）
+     * 商品ごとのレビュー取得（ページネーション・評価統計・自分のレビュー・いいね情報含む）
      */
     @Override
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(String itemCode, String userId, int page, int size) {
         Page<Review> reviewPage = reviewRepository.findByProduct_ItemCode(itemCode, PageRequest.of(page, size));
         List<Review> allReviews = reviewRepository.findByProduct_ItemCode(itemCode);
 
-        double average = allReviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
-        long count = allReviews.size();
+        // 点数別件数を集計
+        Map<Integer, Long> ratingStatsMap = allReviews.stream()
+                .collect(Collectors.groupingBy(Review::getRating, Collectors.counting()));
 
-        ReviewListByItemResponseDto.RatingStat stats = ReviewListByItemResponseDto.RatingStat.builder()
-                .average(average)
-                .count(count)
-                .build();
+        List<ReviewListByItemResponseDto.RatingStat> ratingStats = new ArrayList<>();
+        for (int i = 5; i >= 1; i--) {
+            ratingStats.add(ReviewListByItemResponseDto.RatingStat.builder()
+                    .score(i)
+                    .count(ratingStatsMap.getOrDefault(i, 0L))
+                    .build());
+        }
 
-        List<ReviewListByItemResponseDto.ReviewInfo> reviews = reviewPage.getContent().stream().map(r -> {
-            boolean liked = userId != null && reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, r.getReviewId());
-            long likeCount = reviewLikeRepository.countByReviewReviewId(r.getReviewId());
-            return ReviewListByItemResponseDto.ReviewInfo.builder()
-                    .reviewId(r.getReviewId())
-                    .userNickname(r.getUser().getNickname())
-                    .rating(r.getRating())
-                    .title(r.getTitle())
-                    .comment(r.getComment())
-                    .image(r.getImage())
-                    .createdAt(r.getCreatedAt().toString())
-                    .liked(liked)
-                    .likeCount(likeCount)
-                    .build();
-        }).collect(Collectors.toList());
+        // レビューリスト作成
+        List<ReviewListByItemResponseDto.ReviewInfo> reviewInfos = reviewPage.getContent().stream()
+                .map(r -> ReviewListByItemResponseDto.ReviewInfo.builder()
+                        .reviewId(r.getReviewId())
+                        .userNickname(r.getUser().getNickname())
+                        .rating(r.getRating())
+                        .title(r.getTitle())
+                        .comment(r.getComment())
+                        .imageList(r.getImageList())
+                        .createdAt(r.getCreatedAt().toString())
+                        .isLike(userId != null && reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, r.getReviewId()))
+                        .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId()))
+                        .build())
+                .collect(Collectors.toList());
 
+        // 自分のレビュー
         ReviewListByItemResponseDto.MyReview myReview = null;
         if (userId != null) {
             Optional<Review> my = reviewRepository.findByProduct_ItemCodeAndUser_UserId(itemCode, userId);
             if (my.isPresent()) {
                 Review r = my.get();
                 myReview = ReviewListByItemResponseDto.MyReview.builder()
+                        .reviewId(r.getReviewId())
                         .rating(r.getRating())
                         .title(r.getTitle())
                         .comment(r.getComment())
-                        .image(r.getImage())
-                        .createdAt(r.getCreatedAt().toString())
+                        .imageList(r.getImageList())
                         .build();
             }
         }
 
         return ResponseEntity.ok(ReviewListByItemResponseDto.builder()
                 .message("success")
-                .reviews(reviews)
-                .stats(stats)
+                .reviews(reviewInfos)
+                .ratingStats(ratingStats)
                 .myReview(myReview)
                 .build());
     }
 
     /**
-     * ユーザー別レビュー一覧取得
+     * ユーザーごとのレビュー取得（ページネーション付き）
      */
     @Override
     public ResponseEntity<ReviewListByUserResponseDto> getReviewsByUser(String userId, int page, int size) {
@@ -154,7 +158,7 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         Page<Review> reviewPage = reviewRepository.findByUser_UserId(userId, PageRequest.of(page, size));
-        List<ReviewListByUserResponseDto.UserReview> reviews = reviewPage.getContent().stream().map(r ->
+        List<ReviewListByUserResponseDto.UserReview> userReviews = reviewPage.getContent().stream().map(r ->
                 ReviewListByUserResponseDto.UserReview.builder()
                         .reviewId(r.getReviewId())
                         .itemCode(r.getProduct().getItemCode())
@@ -163,19 +167,19 @@ public class ReviewServiceImpl implements ReviewService {
                         .rating(r.getRating())
                         .title(r.getTitle())
                         .comment(r.getComment())
-                        .image(r.getImage())
+                        .imageList(r.getImageList())
                         .createdAt(r.getCreatedAt().toString())
                         .build()
         ).collect(Collectors.toList());
 
         return ResponseEntity.ok(ReviewListByUserResponseDto.builder()
                 .message("success")
-                .reviews(reviews)
+                .reviews(userReviews)
                 .build());
     }
 
     /**
-     * レビュー編集（本人のみ可能）
+     * レビュー編集（本人のみ編集可）
      */
     @Override
     @Transactional
@@ -188,19 +192,17 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("本人のみ編集可能です"));
         }
 
-        // 追加：評価も更新できるようにする
         review.setRating(requestDto.getRating());
-
         review.setTitle(requestDto.getTitle());
         review.setComment(requestDto.getComment());
-        review.setImage(requestDto.getImage());
+        review.setImageList(requestDto.getImageList());
         review.setUpdatedAt(LocalDateTime.now());
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
     /**
-     * レビュー削除（論理削除・本人のみ）
+     * レビュー削除処理（論理削除・本人のみ）
      */
     @Override
     @Transactional
@@ -213,7 +215,6 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("本人のみ削除可能です"));
         }
 
-        // 論理削除（DB上に残して再投稿防止）
         review.setDeleted(true);
         review.setUpdatedAt(LocalDateTime.now());
 

@@ -14,14 +14,14 @@ import java.util.List;
 @AllArgsConstructor
 public class ReviewListByUserResponseDto {
 
-    // レスポンスメッセージ（例: success / fail）
+    // レスポンスメッセージ（"success" または "fail"）
     private String message;
 
     // レビュー一覧
     private List<UserReview> reviews;
 
     /**
-     * ユーザー自身のレビュー情報
+     * ユーザーが投稿したレビュー情報（1レビュー単位）
      */
     @Getter
     @Setter
@@ -29,14 +29,31 @@ public class ReviewListByUserResponseDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class UserReview {
+        // レビューID
         private Long reviewId;
+
+        // 商品コード（楽天APIのitemCode）
         private String itemCode;
+
+        // 商品名
         private String itemName;
-        private String itemImage;  // メイン画像URL
+
+        // 商品のメイン画像URL
+        private String itemImage;
+
+        // レビューの評価点（1〜5）
         private int rating;
+
+        // レビュータイトル（任意）
         private String title;
+
+        // レビュー本文
         private String comment;
-        private String image;
+
+        // 🔽 修正：画像リストに対応（複数画像対応に拡張）
+        private List<String> imageList;
+
+        // 投稿日時（文字列形式）
         private String createdAt;
     }
 }

@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 商品に対するレビュー情報を管理するエンティティ
@@ -33,18 +34,21 @@ public class Review {
     @JoinColumn(name = "item_code", referencedColumnName = "item_code", nullable = false)
     private Product product;
 
-    /** 評価 */
+    /** 評価（1〜5） */
     private Integer rating;
 
-    /** タイトル */
+    /** レビュータイトル（任意） */
     private String title;
 
-    /** コメント本文 */
+    /** コメント本文（必須） */
     @Column(columnDefinition = "TEXT")
     private String comment;
 
-    /** 画像URL */
-    private String image;
+    /** 画像URLリスト（複数枚対応） */
+    @ElementCollection
+    @CollectionTable(name = "review_images", joinColumns = @JoinColumn(name = "review_id"))
+    @Column(name = "image_url")
+    private List<String> imageList;
 
     /** 作成日時 */
     private LocalDateTime createdAt;
@@ -52,7 +56,7 @@ public class Review {
     /** 更新日時 */
     private LocalDateTime updatedAt;
 
-    /** 論理削除フラグ（trueの場合、削除済） */
+    /** 論理削除フラグ（true の場合削除済み） */
     @Column(nullable = false)
     private boolean deleted;
 }

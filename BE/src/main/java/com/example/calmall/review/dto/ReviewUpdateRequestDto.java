@@ -5,6 +5,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 
+import java.util.List;
+
 /**
  * レビュー更新用リクエストDTOクラス
  * ユーザーが自分の投稿済みレビューを編集する際に使用する
@@ -24,6 +26,6 @@ public class ReviewUpdateRequestDto {
     @NotBlank(message = "comment は必須です")
     private String comment;
 
-    // 編集後の画像URL（空文字可）
-    private String image;
+    // 編集後の画像URLリスト（複数枚対応・任意）
+    private List<String> imageList;
 }

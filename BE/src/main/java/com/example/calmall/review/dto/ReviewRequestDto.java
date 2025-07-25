@@ -3,6 +3,8 @@ package com.example.calmall.review.dto;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 
+import java.util.List;
+
 /**
  * レビュー投稿用リクエストDTOクラス（セッションからuser取得のためuserId削除）
  */
@@ -18,13 +20,13 @@ public class ReviewRequestDto {
     @Max(value = 5, message = "rating は5以下である必要があります")
     private int rating;
 
-    // レビュータイト（空文字許容・任意）
+    // レビュータイトル（空文字許容・任意）
     private String title;
 
     // レビュー本文コメント
     @NotBlank(message = "comment は必須です")
     private String comment;
 
-    // 画像URL（空文字許容・任意）
-    private String image;
+    // 画像URLのリスト（空、または複数画像URLを格納）
+    private List<String> imageList;
 }

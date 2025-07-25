@@ -15,22 +15,22 @@ import java.util.List;
 @AllArgsConstructor
 public class ReviewListByItemResponseDto {
 
-    // レスポンスメッセージ（例: success / fail）
+    // レスポンスメッセージ（"success" または "fail"）
     private String message;
 
     // レビュー一覧
     private List<ReviewInfo> reviews;
 
-    // 統計情報（任意、null許容）
+    // 評価統計情報（null 許容）
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    private RatingStat stats;
+    private List<RatingStat> ratingStats;
 
-    // 自分のレビュー（任意、null許容）
+    // ログインユーザー自身のレビュー（null 許容）
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private MyReview myReview;
 
     /**
-     * 商品ごとのレビュー詳細情報
+     * レビュー情報を表す内部クラス
      */
     @Getter
     @Setter
@@ -38,19 +38,36 @@ public class ReviewListByItemResponseDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ReviewInfo {
+        // レビューID
         private Long reviewId;
+
+        // 投稿者のニックネーム
         private String userNickname;
+
+        // 評価点数（1〜5）
         private int rating;
+
+        // レビュータイトル
         private String title;
+
+        // レビュー本文
         private String comment;
-        private String image;
+
+        // 画像URLのリスト（1枚以上）
+        private List<String> imageList;
+
+        // 投稿日時
         private String createdAt;
-        private boolean liked;
+
+        // ログインユーザーがいいねしているか
+        private boolean isLike;
+
+        // このレビューの総いいね数
         private long likeCount;
     }
 
     /**
-     * 商品ごとのレビュー評価統計情報
+     * 各点数ごとのレビュー件数
      */
     @Getter
     @Setter
@@ -58,12 +75,15 @@ public class ReviewListByItemResponseDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class RatingStat {
-        private double average;  // 平均点
-        private long count;      // 総レビュー数
+        // 点数（例: 5, 4, 3, ...）
+        private int score;
+
+        // 件数（該当点数のレビュー数）
+        private long count;
     }
 
     /**
-     * ログインユーザーの自身のレビュー
+     * ログインユーザー自身が投稿したレビュー
      */
     @Getter
     @Setter
@@ -71,10 +91,19 @@ public class ReviewListByItemResponseDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MyReview {
+        // レビューID
+        private Long reviewId;
+
+        // 評価点数
         private int rating;
+
+        // レビュータイトル
         private String title;
+
+        // レビュー本文
         private String comment;
-        private String image;
-        private String createdAt;
+
+        // 画像URLのリスト
+        private List<String> imageList;
     }
 }
