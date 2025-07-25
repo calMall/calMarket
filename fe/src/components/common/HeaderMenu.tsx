@@ -72,7 +72,7 @@ export default function HeaderMenu({ nickname }: props) {
               マイページ
             </button>
           </Link>
-          <Link href={``}>
+          <Link href={`/cart`}>
             <button
               className="flex ac gap-05 menu-mypage-btn button-hover-color"
               onClick={onViewMenu}
