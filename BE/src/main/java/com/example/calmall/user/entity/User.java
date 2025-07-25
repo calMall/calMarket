@@ -1,9 +1,7 @@
 package com.example.calmall.user.entity;
 
-import com.example.calmall.user.entity.DeliveryAddress;
 import jakarta.persistence.*;
 import lombok.Data;
-
 import java.time.LocalDate;
 import java.util.List;
 
@@ -34,7 +32,7 @@ public class User {
     @Column(length = 128, unique = true)
     private String email;
 
-    /** パスワード（８から20文字） */
+    /** パスワード（8〜64文字） */
     @Column(length = 64)
     private String password;
 

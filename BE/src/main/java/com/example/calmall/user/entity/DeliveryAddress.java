@@ -28,8 +28,11 @@ public class DeliveryAddress {
     @Column(nullable = false)
     private String address2;
 
-    /** 紐づくユーザー情報（外部キー） */
+    /**
+     * 紐づくユーザー情報（外部キー）
+     * - ここで user_id を UUID(user.userId) にリンクさせる
+     */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", referencedColumnName = "user_id", nullable = false)
     private User user;
 }

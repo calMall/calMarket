@@ -11,13 +11,13 @@ import java.util.Optional;
  */
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    // emailで検索
+    /** emailでユーザーを検索する */
     Optional<User> findByEmail(String email);
 
-    // userId（UUID）で検索（deliveryAddresses も一緒に取得）
+    /** userId（UUID）でユーザーを検索し、配送先住所も一括取得 */
     @EntityGraph(attributePaths = "deliveryAddresses")
     Optional<User> findByUserId(String userId);
 
-    // emailの重複確認
+    /** emailの重複チェック */
     boolean existsByEmail(String email);
 }
