@@ -23,7 +23,7 @@ export default function ProductDetailImage({ images, itemName }: props) {
         {images.map((image, index) => (
           <button
             className="rt product-detail-sm-image"
-            key={image}
+            key={index}
             onClick={() => setIdx(index)}
           >
             <ContainImage alt="small image" url={image} />

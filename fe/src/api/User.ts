@@ -40,6 +40,16 @@ export const signup = async (signupData: SignupReq): Promise<ResponseDTO> => {
   return data.json();
 };
 
+export const logout = async (): Promise<ResponseDTO> => {
+  const data = await fetch(`${url}/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  if (!data.ok) throw new Error(data.statusText);
+  return data.json();
+};
 // 自分の情報照会
 export const myInfo = async (): Promise<MyinfoDTO> => {
   const data = await fetch(`${url}/users/me`, {
