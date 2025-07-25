@@ -12,9 +12,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ReviewLikeRequestDto {
 
-    // ユーザーID
-    private Long userId;
-
     // レビューID
     private Long reviewId;
 }

@@ -1,6 +1,8 @@
 package com.example.calmall.review.dto;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 
 /**
@@ -10,11 +12,15 @@ import lombok.Getter;
 @Getter
 public class ReviewUpdateRequestDto {
 
-    // 編集後のレビュータイトル
-    @NotBlank(message = "title は必須です")
+    // 評価（1〜5の範囲で必須）
+    @Min(value = 1, message = "rating は1以上である必要があります")
+    @Max(value = 5, message = "rating は5以下である必要があります")
+    private int rating;
+
+    // 編集後のレビュータイトル（任意）
     private String title;
 
-    // 編集後のレビュー本文
+    // 編集後のレビュー本文（必須）
     @NotBlank(message = "comment は必須です")
     private String comment;
 

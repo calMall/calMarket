@@ -188,6 +188,9 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("本人のみ編集可能です"));
         }
 
+        // 追加：評価も更新できるようにする
+        review.setRating(requestDto.getRating());
+
         review.setTitle(requestDto.getTitle());
         review.setComment(requestDto.getComment());
         review.setImage(requestDto.getImage());
