@@ -39,3 +39,16 @@ export const signup = async (signupData: SignupReq): Promise<ResponseDTO> => {
   if (!data.ok) throw new Error(data.statusText);
   return data.json();
 };
+
+export const logout = async (): Promise<ResponseDTO> => {
+  const data = await fetch(`${url}/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+  });
+
+  if (!data.ok) throw new Error(data.statusText);
+  return data.json();
+};

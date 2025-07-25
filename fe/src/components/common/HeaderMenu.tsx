@@ -7,6 +7,8 @@ import { MdLogout, MdOutlineArrowDropDown } from "react-icons/md";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FaCartShopping } from "react-icons/fa6";
+import { logout } from "@/api/User";
+
 interface props {
   nickname: string;
 }
@@ -16,13 +18,20 @@ export default function HeaderMenu({ nickname }: props) {
   const onViewMenu = () => {
     setViewMenu(false);
   };
+
   const userStore = UserStore();
   const router = useRouter();
-  const logout = () => {
-    setViewMenu(false);
-    userStore.logout();
+  const onLogout = async () => {
+    try {
+      setViewMenu(false);
 
-    router.replace("/");
+      userStore.logout();
+      const data = await logout();
+      console.log(data);
+      router.replace("/");
+    } catch (e) {
+      alert("エラーが発生しました。");
+    }
   };
   const ref = useRef<HTMLDivElement>(null);
   const parentRef = useRef<HTMLDivElement>(null);
@@ -73,7 +82,7 @@ export default function HeaderMenu({ nickname }: props) {
             </button>
           </Link>
           <button
-            onClick={logout}
+            onClick={onLogout}
             className="flex ac gap-05 pointer menu-logout-btn button-hover-color"
           >
             <MdLogout />
