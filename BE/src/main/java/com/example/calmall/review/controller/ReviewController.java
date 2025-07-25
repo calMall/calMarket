@@ -30,12 +30,14 @@ public class ReviewController {
 
     /**
      * 商品ごとのレビュー取得API（ページネーション・マイレビュー・評価統計付き）
+     * - ログイン中のユーザーはマイレビューも含めて返却
      */
     @GetMapping(params = "itemCode")
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(@RequestParam String itemCode,
-                                                                        @RequestParam(required = false) String userId,
                                                                         @RequestParam(defaultValue = "0") int page,
-                                                                        @RequestParam(defaultValue = "10") int size) {
+                                                                        @RequestParam(defaultValue = "10") int size,
+                                                                        @SessionAttribute(value = "user", required = false) User loginUser) {
+        String userId = (loginUser != null) ? loginUser.getUserId() : null;
         return reviewService.getReviewsByItem(itemCode, userId, page, size);
     }
 
