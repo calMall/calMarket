@@ -1,32 +1,30 @@
 package com.example.calmall.review.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.*;
+import lombok.Getter;
 
-// レビュー投稿APIのリクエストDTO
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+/**
+ * レビュー投稿用リクエストDTOクラス（セッションからuser取得のためuserId削除）
+ */
+@Getter
 public class ReviewRequestDto {
 
-    // 商品コード
+    // 商品のコード（楽天APIの商品識別子）フロントが埋め込み
+    @NotBlank(message = "itemCode は必須です")
     private String itemCode;
 
-    // ユーザーID
-    private Long userId;
-
-    // 評価スコア（1〜5）
+    // レビュー評価（1〜5）
+    @Min(value = 1, message = "rating は1以上である必要があります")
+    @Max(value = 5, message = "rating は5以下である必要があります")
     private int rating;
 
-    // レビュータイトル
+    // レビュータイト（空文字許容・任意）
     private String title;
 
-    // レビュー内容
+    // レビュー本文コメント
+    @NotBlank(message = "comment は必須です")
     private String comment;
 
-    // 画像URL
+    // 画像URL（空文字許容・任意）
     private String image;
 }

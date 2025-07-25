@@ -1,4 +1,3 @@
-import { rakutenApiItem } from "@/types/RakutenAPI";
 import CoverImage from "../common/CoverImage";
 import Star from "./Star";
 import { newImageSizing } from "@/utils/newImageSizing";
@@ -10,7 +9,10 @@ interface props {
 }
 export default function ProductItem({ product, imageSize }: props) {
   return (
-    <Link href={"/"} className="product-list-item-contain">
+    <Link
+      href={`/product/${product.Item.itemCode}`}
+      className="product-list-item-contain"
+    >
       <div className="rt product-list-item-img">
         <CoverImage
           url={newImageSizing(

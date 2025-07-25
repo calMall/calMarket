@@ -139,5 +139,25 @@ public class UserController {
         Object user = session.getAttribute("user");
         return ResponseEntity.ok("✅ session 存在，user: " + (user != null ? user.toString() : "null"));
     }
+    // 払い戻しリクエストAPI
+    @PostMapping("/refunds")
+    public ResponseEntity<RefundResponseDto> refund(
+            @RequestBody @Valid RefundRequestDto requestDto,
+            HttpServletRequest request) {
 
+        // セッションチェック
+        HttpSession session = request.getSession(false);
+        User user = (session != null) ? (User) session.getAttribute("user") : null;
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    RefundResponseDto.builder()
+                            .message("fail")
+                            .coupons(null)
+                            .build()
+            );
+        }
+
+        // ロジック呼び出し
+        return userService.refund(requestDto);
+    }
 }

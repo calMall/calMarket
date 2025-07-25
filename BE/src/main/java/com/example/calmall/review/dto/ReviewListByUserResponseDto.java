@@ -1,34 +1,38 @@
 package com.example.calmall.review.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.List;
 
-// ユーザーが投稿したレビュー一覧取得APIのレスポンスDTO
-@Data
+/**
+ * ユーザーごとのレビュー取得APIのレスポンスDTO
+ */
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReviewListByUserResponseDto {
 
-    // レスポンスメッセージ
+    // レスポンスメッセージ（例: success / fail）
     private String message;
 
-    // レビューリスト
-    private List<Review> reviews;
+    // レビュー一覧
+    private List<UserReview> reviews;
 
-    // レビュー1件の情報
-    @Data
+    /**
+     * ユーザー自身のレビュー情報
+     */
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class Review {
+    public static class UserReview {
         private Long reviewId;
         private String itemCode;
         private String itemName;
+        private String itemImage;  // メイン画像URL
         private int rating;
         private String title;
         private String comment;

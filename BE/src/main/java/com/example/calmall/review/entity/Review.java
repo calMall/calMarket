@@ -1,42 +1,58 @@
 package com.example.calmall.review.entity;
 
+import com.example.calmall.product.entity.Product;
+import com.example.calmall.user.entity.User;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+
 import java.time.LocalDateTime;
 
 /**
  * 商品に対するレビュー情報を管理するエンティティ
  */
 @Entity
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Review {
 
+    /** レビューID */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long reviewId;
 
-    // レビュー投稿者のユーザーID（User.id を参照）
-    private Long userId;
+    /** 投稿ユーザー */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", referencedColumnName = "user_id", nullable = false)
+    private User user;
 
-    // 商品ID（楽天形式）
-    private String productItemCode;
+    /** 対象商品（item_code で紐付け） */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "item_code", referencedColumnName = "item_code", nullable = false)
+    private Product product;
 
-    // 評価（5段階など）
+    /** 評価 */
     private Integer rating;
 
-    // レビュータイトル
+    /** タイトル */
     private String title;
 
-    // コメント内容
+    /** コメント本文 */
     @Column(columnDefinition = "TEXT")
     private String comment;
 
-    // 画像のURL
+    /** 画像URL */
     private String image;
 
-    // 作成日時
+    /** 作成日時 */
     private LocalDateTime createdAt;
 
-    // 更新日時
+    /** 更新日時 */
     private LocalDateTime updatedAt;
+
+    /** 論理削除フラグ（trueの場合、削除済） */
+    @Column(nullable = false)
+    private boolean deleted;
 }

@@ -7,13 +7,7 @@ import lombok.*;
 import java.util.List;
 
 /**
- * 商品詳細取得API（GET /api/products/{itemCode}）のレスポンスDTO。
- * 仕様：
- * message: "success" または "fail"
- * 商品: 商品詳細データ（null可）
- *
- * ※「商品」キー名は仕様に合わせた日本語表記。内部フィールド名は product。
- * ※ itemName / itemCaption / catchcopy のキー名は仕様上変更可能だが、ここでは楽天API準拠のまま使用。
+ * 商品詳細取得APIレスポンスDTO
  */
 @Getter
 @Setter
@@ -23,17 +17,13 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ProductDetailResponseDto {
 
-    /** レスポンスメッセージ（"success" / "fail"） */
+    /** "success" / "fail" */
     private String message;
 
-    /** 商品詳細（キー名を日本語「商品」にする） */
-    @JsonProperty("商品")
+    /** 商品詳細 */
+    @JsonProperty("product")
     private ProductDto product;
 
-    /**
-     * 商品詳細データ本体。
-     * 楽天APIの代表カラムをマッピング。
-     */
     @Getter
     @Setter
     @Builder
@@ -41,28 +31,28 @@ public class ProductDetailResponseDto {
     @AllArgsConstructor
     public static class ProductDto {
 
-        /** 楽天APIの商品コード（例：jpntnc:10002379） */
+        /** 楽天API itemCode */
         private String itemCode;
 
         /** 商品名 */
         private String itemName;
 
-        /** 商品説明文 */
+        /** 説明文 */
         private String itemCaption;
 
         /** キャッチコピー */
         private String catchcopy;
 
-        /** レビュー平均点（現状は仮値） */
+        /** レビュー平均（仮） */
         private int score;
 
-        /** レビュー件数（現状は仮値） */
+        /** レビュー数（仮） */
         private int reviewCount;
 
-        /** 商品価格 */
+        /** 価格 */
         private Integer price;
 
-        /** 商品画像URLリスト */
+        /** 画像URL一覧 */
         private List<String> imageUrls;
     }
 }

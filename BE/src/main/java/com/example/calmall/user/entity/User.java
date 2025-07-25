@@ -23,7 +23,7 @@ public class User {
     private Long id;
 
     /** 外部公開用のUUID（ユニークかつ非NULL） */
-    @Column(length = 40, unique = true, nullable = false)
+    @Column(name = "user_id", length = 40, unique = true, nullable = false)
     private String userId;
 
     /** ニックネーム（最大10文字） */

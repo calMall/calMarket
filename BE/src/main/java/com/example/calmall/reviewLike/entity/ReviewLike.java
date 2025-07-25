@@ -1,22 +1,29 @@
 package com.example.calmall.reviewLike.entity;
 
+import com.example.calmall.review.entity.Review;
+import com.example.calmall.user.entity.User;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
-/**
- * レビューに対する「いいね」を管理するエンティティ
- */
 @Entity
-@Data
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ReviewLike {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // いいねしたユーザーのID（User.id を参照）
-    private Long userId;
+    // ユーザー（いいねした人）
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", referencedColumnName = "user_id", nullable = false)
+    private User user;
 
-    // 対象のレビューID
-    private Long reviewId;
+    // 対象レビュー
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "review_id", referencedColumnName = "reviewId", nullable = false)
+    private Review review;
 }

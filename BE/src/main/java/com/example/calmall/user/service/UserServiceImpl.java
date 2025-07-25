@@ -204,21 +204,14 @@ public class UserServiceImpl implements UserService {
                     RefundResponseDto.builder().message("fail").coupons(null).build());
         }
 
-        Optional<User> userOpt = userRepository.findById(order.getUserId());
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(401).body(
-                    RefundResponseDto.builder().message("fail").coupons(null).build());
-        }
+        // Orders エンティティの @ManyToOne 関係から直接取得
+        User user = order.getUser();
+        Product product = order.getProduct();
 
-        User user = userOpt.get();
-
-        Optional<Product> productOpt = productRepository.findById(order.getProductItemCode());
-        if (productOpt.isEmpty()) {
+        if (user == null || product == null) {
             return ResponseEntity.badRequest().body(
                     RefundResponseDto.builder().message("fail").coupons(null).build());
         }
-
-        Product product = productOpt.get();
 
         // ポイント加算
         user.setPoint(user.getPoint() + product.getPrice());
