@@ -1,5 +1,6 @@
 package com.example.calmall.user.entity;
 
+import com.example.calmall.review.entity.Review;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDate;
@@ -45,4 +46,8 @@ public class User {
 
     /** 保有ポイント（初期値0） */
     private Integer point = 0;
+
+    /** 投稿したレビュー一覧（1対多リレーション） */
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<Review> reviews;
 }

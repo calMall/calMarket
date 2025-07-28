@@ -1,6 +1,7 @@
 package com.example.calmall.orders.repository;
 
 import com.example.calmall.orders.entity.Orders;
+import com.example.calmall.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
@@ -36,4 +37,6 @@ public interface OrdersRepository extends JpaRepository<Orders, Long> {
      * @return 該当する注文履歴リスト
      */
     List<Orders> findByUser_UserIdAndProduct_ItemCode(String userId, String itemCode);
+    List<Orders> findTop10ByUserOrderByCreatedAtDesc(User user);
+
 }

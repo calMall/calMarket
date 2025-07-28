@@ -29,6 +29,18 @@ public class ReviewListByItemResponseDto {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private MyReview myReview;
 
+    // 総ページ数（ページネーション用）
+    private int totalPages;
+
+    // 現在のページ番号（0始まり）
+    private int currentPage;
+
+    // 次ページが存在するかどうか
+    private boolean hasNext;
+
+    // 全レビュー件数
+    private long totalElements;
+
     /**
      * レビュー情報を表す内部クラス
      */

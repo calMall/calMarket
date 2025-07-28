@@ -5,6 +5,7 @@ import com.example.calmall.orders.entity.Orders;
 import com.example.calmall.orders.repository.OrdersRepository;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
+import com.example.calmall.review.entity.Review;
 import com.example.calmall.user.dto.*;
 import com.example.calmall.user.entity.DeliveryAddress;
 import com.example.calmall.user.entity.User;
@@ -21,7 +22,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * ユーザー関連のビジネスロジックを実装するサービスクラス
+ * ユーザー関連のビジネスロジックを提供するサービス実装クラス
  */
 @Service
 @RequiredArgsConstructor
@@ -34,9 +35,7 @@ public class UserServiceImpl implements UserService {
     private final DeliveryAddressRepository deliveryAddressRepository;
 
     /**
-     * ユーザー新規登録処理
-     * - email が重複していないか確認
-     * - UUID形式のuserIdを生成し、初期情報を保存
+     * ユーザー登録処理
      */
     @Override
     public ResponseEntity<ApiResponseDto> register(UserRegisterRequestDto requestDto) {
@@ -50,15 +49,15 @@ public class UserServiceImpl implements UserService {
         newUser.setEmail(requestDto.getEmail());
         newUser.setPassword(requestDto.getPassword());
         newUser.setBirth(requestDto.getBirth());
-        newUser.setDeliveryAddresses(new ArrayList<>()); // 空の住所リストで初期化
-        newUser.setPoint(0); // 初期ポイント0
+        newUser.setDeliveryAddresses(new ArrayList<>());
+        newUser.setPoint(0);
 
         userRepository.save(newUser);
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
     /**
-     * 指定された email が既に登録されているかチェック
+     * Email重複チェック
      */
     @Override
     public boolean existsByEmail(String email) {
@@ -66,16 +65,14 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * UUID形式のuserIdを生成するヘルパーメソッド
+     * UUID形式のuserId生成ヘルパー
      */
     private String generateUserId() {
         return "user_" + UUID.randomUUID().toString().substring(0, 8);
     }
 
     /**
-     * ログイン処理
-     * - emailとパスワードの一致を確認
-     * - 成功時はUserオブジェクトを返却
+     * 認証処理（ログイン）
      */
     @Override
     public User authenticate(UserLoginRequestDto requestDto) {
@@ -90,8 +87,7 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * ログアウト処理
-     * - セッションを無効化
+     * ログアウト処理（セッション無効化）
      */
     @Override
     public ResponseEntity<ApiResponseDto> logout(HttpServletRequest request) {
@@ -104,15 +100,15 @@ public class UserServiceImpl implements UserService {
 
     /**
      * ユーザー詳細情報の取得
-     * - 指定されたuserIdに基づいて情報を取得
-     * - 配送先住所、所持ポイントを返却
+     * - 所持ポイント、配送先住所、注文履歴、レビュー履歴を返却
      */
     @Override
     public ResponseEntity<UserDetailResponseDto> getUserDetail(String userId) {
+        // ユーザー取得（存在しなければ例外）
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
 
-        // 住所リストを「郵便番号 住所1 住所2」の形式で文字列化
+        // 配送先住所リストを文字列に変換（郵便番号 + 住所1 + 住所2）
         List<String> addressList = Optional.ofNullable(user.getDeliveryAddresses())
                 .orElse(Collections.emptyList())
                 .stream()
@@ -123,44 +119,69 @@ public class UserServiceImpl implements UserService {
                         .trim())
                 .collect(Collectors.toList());
 
-        // 注文履歴やレビュー履歴は現時点では空
+        // 注文履歴（最新10件）を取得し、OrderSummary に変換
+        List<UserDetailResponseDto.OrderSummary> orderSummaries = ordersRepository.findTop10ByUserOrderByCreatedAtDesc(user)
+                .stream()
+                .map(order -> {
+                    Product product = order.getProduct();
+                    String imageUrl = (product != null && product.getImages() != null && !product.getImages().isEmpty())
+                            ? product.getImages().get(0) : null;
+                    return UserDetailResponseDto.OrderSummary.builder()
+                            .id(order.getId())
+                            .imageUrl(imageUrl)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        // レビュー履歴（最新10件）を取得し、ReviewSummary に変換
+        List<UserDetailResponseDto.ReviewSummary> reviewSummaries = new ArrayList<>();
+
+        if (user.getReviews() != null) {
+            reviewSummaries = user.getReviews().stream()
+                    .sorted(Comparator.comparing(Review::getCreatedAt).reversed())
+                    .limit(10)
+                    .map(review -> UserDetailResponseDto.ReviewSummary.builder()
+                            .id(review.getReviewId()) // 修正箇所：getId() → getReviewId()
+                            .title(review.getTitle())
+                            .createdAt(review.getCreatedAt().toString())
+                            .score(review.getRating())
+                            .content(review.getComment())
+                            .deliveryAddresses(addressList)
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
+        // DTOを構築して返却
         UserDetailResponseDto responseDto = UserDetailResponseDto.builder()
                 .message("success")
                 .point(Optional.ofNullable(user.getPoint()).orElse(0))
                 .deliveryAddresses(addressList)
-                .orders(Collections.emptyList())
-                .reviews(Collections.emptyList())
+                .orders(orderSummaries)
+                .reviews(reviewSummaries)
                 .build();
 
         return ResponseEntity.ok(responseDto);
     }
 
     /**
-     * ユーザーの配送先住所を追加
-     * - 同一内容の住所が既に登録されている場合は登録しない
-     * - 親(User)側から cascade 保存
+     * 配送先住所の追加
      */
     @Transactional
     @Override
     public ResponseEntity<ApiResponseDto> addAddress(String userId, UserAddressRequestDto requestDto) {
-
-        // 1) ユーザー取得
         User user = userRepository.findByUserId(userId).orElse(null);
         if (user == null) {
             return ResponseEntity.badRequest().body(new ApiResponseDto("ユーザーが存在しません"));
         }
 
-        // 2) リスト null 防止
         if (user.getDeliveryAddresses() == null) {
             user.setDeliveryAddresses(new ArrayList<>());
         }
 
-        // 3) 入力値をトリム（重複判定の精度UP）
         String pc = requestDto.getPostalCode().trim();
         String a1 = requestDto.getAddress1().trim();
         String a2 = requestDto.getAddress2().trim();
 
-        // 4) 重複チェック
         boolean exists = user.getDeliveryAddresses().stream().anyMatch(addr ->
                 pc.equals(addr.getPostalCode()) &&
                         a1.equals(addr.getAddress1()) &&
@@ -170,23 +191,19 @@ public class UserServiceImpl implements UserService {
             return ResponseEntity.badRequest().body(new ApiResponseDto("同じ住所が既に登録されています"));
         }
 
-        // 5) 子エンティティ生成 & 双方向リンク
         DeliveryAddress address = new DeliveryAddress();
         address.setPostalCode(pc);
         address.setAddress1(a1);
         address.setAddress2(a2);
-        address.setUser(user);                    // Owning side (FK)
-        user.getDeliveryAddresses().add(address); // Inverse side
+        address.setUser(user);
+        user.getDeliveryAddresses().add(address);
 
-        // 6) 親を保存（cascade=ALLなので子も保存）
-        userRepository.save(user);                // saveAndFlush(user) でも可
-
+        userRepository.save(user);
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
     /**
-     * 注文払い戻し処理
-     * - 注文ステータスを「REFUNDED」に変更し、商品金額分のポイントを返却
+     * 注文の払い戻し処理
      */
     @Override
     public ResponseEntity<RefundResponseDto> refund(RefundRequestDto requestDto) {
@@ -198,13 +215,11 @@ public class UserServiceImpl implements UserService {
 
         Orders order = orderOpt.get();
 
-        // 既に返金済みかチェック
         if ("REFUNDED".equals(order.getStatus())) {
             return ResponseEntity.badRequest().body(
                     RefundResponseDto.builder().message("fail").coupons(null).build());
         }
 
-        // Orders エンティティの @ManyToOne 関係から直接取得
         User user = order.getUser();
         Product product = order.getProduct();
 
@@ -213,11 +228,9 @@ public class UserServiceImpl implements UserService {
                     RefundResponseDto.builder().message("fail").coupons(null).build());
         }
 
-        // ポイント加算
         user.setPoint(user.getPoint() + product.getPrice());
         userRepository.save(user);
 
-        // 注文ステータス更新
         order.setStatus("REFUNDED");
         ordersRepository.save(order);
 
