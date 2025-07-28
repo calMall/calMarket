@@ -43,7 +43,7 @@ public class ReviewController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ApiResponseDto("ログインが必要です"));
         }
-
+        System.out.println(requestDto);
         return reviewService.postReview(requestDto, user.getUserId());
     }
 

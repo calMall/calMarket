@@ -23,8 +23,7 @@ public class ReviewRequestDto {
     @Max(value = 5, message = "rating は5以下である必要があります")
     private int rating;
 
-    // レビュータイトル（空欄不可）
-    @NotBlank(message = "title は必須です")
+    // レビュータイトル（任意）
     private String title;
 
     // レビュー本文（空欄不可）
