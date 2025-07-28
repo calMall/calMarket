@@ -27,7 +27,6 @@ export default function Login() {
         router.push("/");
       }
     } catch (e) {
-      console.log(e);
       return alert("ログインに失敗しました。");
     }
   };
