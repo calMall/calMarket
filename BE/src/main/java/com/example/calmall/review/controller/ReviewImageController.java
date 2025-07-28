@@ -6,6 +6,7 @@ import com.example.calmall.review.dto.ImageDeleteRequestDto;
 import com.example.calmall.review.service.ReviewImageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,8 +29,14 @@ public class ReviewImageController {
      * @return アップロード成功メッセージと画像URLリスト
      */
     @PostMapping("/upload")
-    public ResponseEntity<ImageUploadResponseDto> uploadImages(
-            @RequestParam("files") List<MultipartFile> files) {
+    public ResponseEntity<?> uploadImages(@RequestParam("files") List<MultipartFile> files) {
+        // 最大3枚まで制限
+        if (files.size() > 3) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponseDto("画像は最大3枚までアップロードできます"));
+        }
+
+        // アップロード処理を実行
         return reviewImageService.uploadImages(files);
     }
 
@@ -38,9 +45,8 @@ public class ReviewImageController {
      * @param requestDto 削除したい画像のURLリスト
      * @return 成功・失敗メッセージ
      */
-    @DeleteMapping("/delete")
-    public ResponseEntity<ApiResponseDto> deleteImages(
-            @RequestBody @Valid ImageDeleteRequestDto requestDto) {
+    @PostMapping("/delete")
+    public ResponseEntity<ApiResponseDto> deleteImages(@Valid @RequestBody ImageDeleteRequestDto requestDto) {
         return reviewImageService.deleteImages(requestDto);
     }
 }
