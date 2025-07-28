@@ -4,8 +4,11 @@ import com.example.calmall.global.dto.ApiResponseDto;
 import com.example.calmall.review.dto.*;
 import com.example.calmall.review.service.ReviewService;
 import com.example.calmall.user.entity.User;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,7 +27,15 @@ public class ReviewController {
      */
     @PostMapping
     public ResponseEntity<ApiResponseDto> postReview(@Valid @RequestBody ReviewRequestDto requestDto,
-                                                     @SessionAttribute("user") User loginUser) {
+                                                     HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        User loginUser = (session != null) ? (User) session.getAttribute("user") : null;
+
+        if (loginUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponseDto("ログインが必要です"));
+        }
+
         return reviewService.postReview(requestDto, loginUser.getUserId());
     }
 
@@ -36,7 +47,10 @@ public class ReviewController {
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(@RequestParam String itemCode,
                                                                         @RequestParam(defaultValue = "0") int page,
                                                                         @RequestParam(defaultValue = "10") int size,
-                                                                        @SessionAttribute(value = "user", required = false) User loginUser) {
+                                                                        HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        User loginUser = (session != null) ? (User) session.getAttribute("user") : null;
+
         String userId = (loginUser != null) ? loginUser.getUserId() : null;
         return reviewService.getReviewsByItem(itemCode, userId, page, size);
     }
@@ -57,7 +71,15 @@ public class ReviewController {
     @PatchMapping("/{id}")
     public ResponseEntity<ApiResponseDto> updateReview(@PathVariable Long id,
                                                        @Valid @RequestBody ReviewUpdateRequestDto requestDto,
-                                                       @SessionAttribute("user") User loginUser) {
+                                                       HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        User loginUser = (session != null) ? (User) session.getAttribute("user") : null;
+
+        if (loginUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponseDto("ログインが必要です"));
+        }
+
         return reviewService.updateReview(id, requestDto, loginUser.getUserId());
     }
 
@@ -66,7 +88,15 @@ public class ReviewController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponseDto> deleteReview(@PathVariable Long id,
-                                                       @SessionAttribute("user") User loginUser) {
+                                                       HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        User loginUser = (session != null) ? (User) session.getAttribute("user") : null;
+
+        if (loginUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponseDto("ログインが必要です"));
+        }
+
         return reviewService.deleteReview(id, loginUser.getUserId());
     }
 }
