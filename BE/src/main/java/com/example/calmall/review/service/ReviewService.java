@@ -68,4 +68,6 @@ public interface ReviewService {
      * @return 削除成功または失敗メッセージを含むレスポンス
      */
     ResponseEntity<ApiResponseDto> deleteReview(Long reviewId, String userId);
+
+    ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long id, String userId);
 }

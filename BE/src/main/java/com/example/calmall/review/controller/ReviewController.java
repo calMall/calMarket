@@ -109,4 +109,18 @@ public class ReviewController {
 
         return reviewService.deleteReview(id, user.getUserId());
     }
+
+    /**
+     * レビュー詳細取得API
+     * - POST /api/reviews/{id}
+     * - レビューIDに基づいて詳細情報を返す
+     */
+    @PostMapping("/{id}")
+    public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(@PathVariable Long id,
+                                                                   HttpServletRequest request) {
+        User user = getLoginUser(request);
+        String userId = (user != null) ? user.getUserId() : null;
+
+        return reviewService.getReviewDetail(id, userId);
+    }
 }
