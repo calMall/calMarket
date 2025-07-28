@@ -691,3 +691,26 @@ body {
   grid-template-columns: 2fr 1fr;
   gap: 1rem;
 }
+
+.simple-img {
+  width: 15rem;
+}
+
+.review-itemname {
+  padding: 0 1rem;
+}
+.simple-review-contain {
+  padding-bottom: 2rem;
+}
+
+textarea {
+  height: 10rem;
+  resize: none;
+}
+
+.review-post-btn {
+  width: 3rem;
+}
+.je {
+  justify-content: end;
+}
