@@ -54,6 +54,7 @@ export default function Login() {
             classname="mt-05"
             text={password}
             setText={setPassword}
+            func={onLogin}
           />
           <button
             className="ab password-toggle flex ac"

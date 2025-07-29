@@ -22,13 +22,7 @@ interface MyinfoDTO extends ResponseDTO {
   orders: SimpleOrder[];
   reviews: Review[];
 }
-interface Review {
-  id: number;
-  title: string;
-  createdAt: string;
-  score: number;
-  content: string;
-}
+
 interface SimpleOrder {
   id: number;
   imageUrl: string;

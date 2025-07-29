@@ -3,6 +3,8 @@
 import { useState } from "react";
 import CustomButton from "../common/CustomBtn";
 import { postReview } from "@/api/Review";
+import { useRouter } from "next/navigation";
+import CustomInput from "../common/CustomInput";
 interface props {
   itemCode: string;
 }
@@ -10,6 +12,8 @@ export default function ReviewWriteContain({ itemCode }: props) {
   const [hovered, setHovered] = useState(0);
   const [rating, setRating] = useState(0);
   const [content, setContent] = useState("");
+  const [title, setTitle] = useState("");
+  const router = useRouter();
   const decodedItemCode = decodeURIComponent(itemCode as string);
   const onPostReview = async () => {
     if (!rating) return alert("レビューには星の評価が必要です。");
@@ -28,9 +32,14 @@ export default function ReviewWriteContain({ itemCode }: props) {
       } else {
         alert("レビューの投稿に失敗しました。");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.log(e);
-      alert("レビューの投稿中にエラーが発生しました。");
+      if (e.status === 401) {
+        alert("ログインが必要です。ログインページに移動します。");
+        router.push("/login");
+      } else {
+        alert("レビューの投稿中にエラーが発生しました。");
+      }
     }
   };
   return (
@@ -52,6 +61,12 @@ export default function ReviewWriteContain({ itemCode }: props) {
           </span>
         ))}
       </div>
+      <h4>タイトル</h4>
+      <CustomInput
+        text={title}
+        setText={setTitle}
+        placeholder="タイトルを入力してください"
+      />
       <h4>レビューを書く</h4>
       <div>
         <textarea
