@@ -14,7 +14,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "review_uploaded_image")
+@Table(name = "review_images")
 public class ReviewImage {
 
     @Id
