@@ -5,15 +5,16 @@ import com.example.calmall.review.dto.ImageUploadResponseDto;
 import com.example.calmall.review.dto.ImageDeleteRequestDto;
 import com.example.calmall.review.entity.ReviewImage;
 import com.example.calmall.review.repository.ReviewImageRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,9 +28,10 @@ import java.util.*;
  */
 @Service
 @RequiredArgsConstructor
+@Transactional // ← 全メソッドにトランザクションを適用（delete用）
 public class ReviewImageServiceImpl implements ReviewImageService {
 
-    // application.properties に設定されたアップロードディレクトリ
+    // application.properties に設定されたアップロード先パス
     @Value("${file.upload-dir}")
     private String uploadDir;
 
@@ -39,7 +41,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
     private final ReviewImageRepository reviewImageRepository;
 
     /**
-     * サーバー起動後にアップロードパスを出力（デバッグ用）
+     * 起動時にアップロード先を出力（確認用）
      */
     @PostConstruct
     public void init() {
@@ -47,7 +49,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
     }
 
     /**
-     * 画像アップロード処理（最大3枚・JPG/PNGのみ）
+     * 複数画像をアップロードする（JPG/PNGのみ・最大3枚）
      */
     @Override
     public ResponseEntity<ImageUploadResponseDto> uploadImages(List<MultipartFile> files) {
@@ -61,6 +63,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
         for (MultipartFile file : files) {
             String contentType = file.getContentType();
 
+            // JPG/PNG 以外は拒否
             if (!Objects.equals(contentType, "image/jpeg") && !Objects.equals(contentType, "image/png")) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(new ImageUploadResponseDto("JPGまたはPNG形式のみアップロード可能です", List.of()));
@@ -77,6 +80,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                 String imageUrl = FILE_URL_PREFIX + filename;
                 imageUrls.add(imageUrl);
 
+                // DBに保存（レビュー未連携状態）
                 ReviewImage reviewImage = ReviewImage.builder()
                         .imageUrl(imageUrl)
                         .contentType(contentType)
@@ -98,7 +102,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
     }
 
     /**
-     * アップロード済み画像の削除処理
+     * 画像のURLリストを受け取り、対応するファイルとDBレコードを削除
      */
     @Override
     public ResponseEntity<ApiResponseDto> deleteImages(ImageDeleteRequestDto requestDto) {
@@ -110,25 +114,25 @@ public class ReviewImageServiceImpl implements ReviewImageService {
 
                 System.out.println("[DELETE] 嘗試刪除路徑: " + filePath.toAbsolutePath());
 
-                // ファイル削除（存在しなければスキップ）
+                // 実ファイル削除
                 File file = filePath.toFile();
                 if (file.exists()) {
                     if (file.delete()) {
                         System.out.println("[DELETE] ファイル削除成功: " + filename);
                     } else {
-                        System.out.println("[DELETE WARNING] ファイル削除失敗（但繼續DB刪除）: " + filename);
+                        System.out.println("[DELETE WARNING] ファイル削除失敗（但DB削除は継続）: " + filename);
                     }
                 } else {
                     System.out.println("[DELETE] 対象ファイルが存在しません: " + filename);
                 }
 
-                // DB削除
+                // DBレコード削除（トランザクション下で実行）
                 int count = reviewImageRepository.deleteByImageUrl(url);
                 System.out.println("[DELETE] DB削除件数: " + count + "（URL: " + url + "）");
 
             } catch (Exception e) {
                 System.out.println("[DELETE ERROR] 削除中に例外発生: " + e.getMessage());
-                e.printStackTrace(); // ★ 例外の詳細をログ出力
+                e.printStackTrace();
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .body(new ApiResponseDto("fail"));
             }
