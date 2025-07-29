@@ -4,13 +4,16 @@ import com.example.calmall.global.dto.ApiResponseDto;
 import com.example.calmall.review.dto.*;
 import com.example.calmall.review.service.ReviewService;
 import com.example.calmall.user.entity.User;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * レビュー機能に関するコントローラークラス
+ * レビュー機能に関するAPIを提供するコントローラークラス
  */
 @RestController
 @RequiredArgsConstructor
@@ -20,29 +23,50 @@ public class ReviewController {
     private final ReviewService reviewService;
 
     /**
-     * レビュー投稿API（1ヶ月以内購入者のみ）
+     * セッションからログインユーザーを取得する共通メソッド
      */
-    @PostMapping
-    public ResponseEntity<ApiResponseDto> postReview(@Valid @RequestBody ReviewRequestDto requestDto,
-                                                     @SessionAttribute("user") User loginUser) {
-        return reviewService.postReview(requestDto, loginUser.getUserId());
+    private User getLoginUser(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        return (session != null) ? (User) session.getAttribute("user") : null;
     }
 
     /**
-     * 商品ごとのレビュー取得API（ページネーション・マイレビュー・評価統計付き）
-     * - ログイン中のユーザーはマイレビューも含めて返却
+     * レビュー投稿API
+     * - ログイン必須
+     * - 購入後1ヶ月以内のユーザーのみ投稿可能
+     */
+    @PostMapping
+    public ResponseEntity<ApiResponseDto> postReview(@Valid @RequestBody ReviewRequestDto requestDto,
+                                                     HttpServletRequest request) {
+        User user = getLoginUser(request);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponseDto("ログインが必要です"));
+        }
+        System.out.println(requestDto);
+        return reviewService.postReview(requestDto, user.getUserId());
+    }
+
+    /**
+     * 商品ごとのレビュー一覧取得API
+     * - ページネーション対応
+     * - ログイン中ユーザーのマイレビュー、点数別統計情報を含む
      */
     @GetMapping(params = "itemCode")
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(@RequestParam String itemCode,
                                                                         @RequestParam(defaultValue = "0") int page,
                                                                         @RequestParam(defaultValue = "10") int size,
-                                                                        @SessionAttribute(value = "user", required = false) User loginUser) {
-        String userId = (loginUser != null) ? loginUser.getUserId() : null;
+                                                                        HttpServletRequest request) {
+        User user = getLoginUser(request);
+        String userId = (user != null) ? user.getUserId() : null;
+
         return reviewService.getReviewsByItem(itemCode, userId, page, size);
     }
 
     /**
-     * ユーザーごとのレビュー取得API（ページネーション付き）
+     * ユーザーごとのレビュー一覧取得API
+     * - クエリパラメータで userId を指定
+     * - ページネーション対応
      */
     @GetMapping(params = "userId")
     public ResponseEntity<ReviewListByUserResponseDto> getReviewsByUser(@RequestParam String userId,
@@ -52,21 +76,51 @@ public class ReviewController {
     }
 
     /**
-     * レビュー編集API（本人のみ編集可）
+     * レビュー編集API
+     * - ログイン必須
+     * - 本人投稿のみ編集可能
      */
     @PatchMapping("/{id}")
     public ResponseEntity<ApiResponseDto> updateReview(@PathVariable Long id,
                                                        @Valid @RequestBody ReviewUpdateRequestDto requestDto,
-                                                       @SessionAttribute("user") User loginUser) {
-        return reviewService.updateReview(id, requestDto, loginUser.getUserId());
+                                                       HttpServletRequest request) {
+        User user = getLoginUser(request);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponseDto("ログインが必要です"));
+        }
+
+        return reviewService.updateReview(id, requestDto, user.getUserId());
     }
 
     /**
-     * レビュー削除API（本人のみ削除可）
+     * レビュー削除API
+     * - ログイン必須
+     * - 本人投稿のみ削除可能（論理削除）
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponseDto> deleteReview(@PathVariable Long id,
-                                                       @SessionAttribute("user") User loginUser) {
-        return reviewService.deleteReview(id, loginUser.getUserId());
+                                                       HttpServletRequest request) {
+        User user = getLoginUser(request);
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponseDto("ログインが必要です"));
+        }
+
+        return reviewService.deleteReview(id, user.getUserId());
+    }
+
+    /**
+     * レビュー詳細取得API
+     * - POST /api/reviews/{id}
+     * - レビューIDに基づいて詳細情報を返す
+     */
+    @PostMapping("/{id}")
+    public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(@PathVariable Long id,
+                                                                   HttpServletRequest request) {
+        User user = getLoginUser(request);
+        String userId = (user != null) ? user.getUserId() : null;
+
+        return reviewService.getReviewDetail(id, userId);
     }
 }

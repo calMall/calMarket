@@ -19,17 +19,17 @@ import java.util.List;
 @Builder
 public class Review {
 
-    /** レビューID */
+    /** レビューID（自動採番） */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long reviewId;
 
-    /** 投稿ユーザー */
+    /** 投稿ユーザー（Userエンティティと多対一） */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "user_id", nullable = false)
     private User user;
 
-    /** 対象商品（item_code で紐付け） */
+    /** 対象商品（Productエンティティと多対一、itemCodeで紐付け） */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "item_code", referencedColumnName = "item_code", nullable = false)
     private Product product;
@@ -44,7 +44,9 @@ public class Review {
     @Column(columnDefinition = "TEXT")
     private String comment;
 
-    /** 画像URLリスト（複数枚対応） */
+    /**
+     * アップロードされた画像のURLリスト
+     */
     @ElementCollection
     @CollectionTable(name = "review_images", joinColumns = @JoinColumn(name = "review_id"))
     @Column(name = "image_url")
@@ -56,7 +58,7 @@ public class Review {
     /** 更新日時 */
     private LocalDateTime updatedAt;
 
-    /** 論理削除フラグ（true の場合削除済み） */
+    /** 論理削除フラグ（true の場合は削除扱い） */
     @Column(nullable = false)
     private boolean deleted;
 }

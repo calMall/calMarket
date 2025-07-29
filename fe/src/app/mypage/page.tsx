@@ -5,11 +5,15 @@ import ContainImage from "@/components/common/ContainImage";
 import CustomLayout from "@/components/common/CustomLayout";
 import Star from "@/components/product/Star";
 import UserStore from "@/store/user";
+import { dateFormat } from "@/utils/dateFormat";
+import { newImageSizing } from "@/utils/newImageSizing";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function Mypage() {
   const userStore = UserStore();
+  const router = useRouter();
   const [point, setPoint] = useState<null | number>(null);
   const [orders, setOrders] = useState<SimpleOrder[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -20,9 +24,16 @@ export default function Mypage() {
         setPoint(data.point);
         setOrders(data.orders);
         setReviews(data.reviews);
-      } catch (e) {
+        console.log(data);
+      } catch (e: any) {
         console.log(e);
-        alert("エラーが発生しました。");
+        if (e.status === 401) {
+          alert("ログインが必要です。ログインページに移動します。");
+          userStore.logout();
+          router.push("/login");
+        } else {
+          alert("レビューの投稿中にエラーが発生しました。");
+        }
       }
     };
     setData();
@@ -31,9 +42,18 @@ export default function Mypage() {
     <CustomLayout>
       <div className="bb mypage-horizens">
         <h2>ポイント残高</h2>
-        {point}ポイント
+        {point?.toLocaleString()} ポイント
       </div>
       <div className="bb mypage-horizens">
+        <div className="flex jb">
+          <h2>注文履歴</h2>
+          <Link
+            className="flex ac color-deep-dark-main"
+            href={"/mypage/orders"}
+          >
+            もっと見る
+          </Link>
+        </div>
         <h2>注文履歴</h2>
         {orders.map((order) => (
           <div>{order.imageUrl}</div>
@@ -52,7 +72,6 @@ export default function Mypage() {
             <ContainImage alt="product" url="/a.png" />
           </Link>
         </div>
-        {/*  */}
       </div>
       <div>
         <div className="mypage-horizens">
@@ -75,18 +94,21 @@ export default function Mypage() {
 
         {/* レビューできたら上に移す */}
         <div className="wf simple-order-contain">
-          <Link href={`/`} className="simple-order-img pd-1">
-            <div className="review-title ">
-              asdasdasdasdasdasdasdasdasdasdasdasdasd
-            </div>
-            <Star score={4} />
-            <div className="mt-05">2025-10-10</div>
-            <div className="review-content mt-05">
-              sdfsadsfasdkjfhajkehfouiawefhkjsbfjksofafoheuiaowefhiauehfiuasebfkjsadbfjkasdbflasdfjadksfsajkdhfaksjdh
-            </div>
-          </Link>
+          {reviews.slice(0, 4).map((review) => (
+            <Link
+              key={review.id}
+              href={`/review/detail/${review.id}`}
+              className="simple-order-img pd-1"
+            >
+              <div className="review-title">{review.title}</div>
+              <Star score={review.score} />
+              <div className="mt-05 review-date">
+                {dateFormat(review.createdAt)}
+              </div>
+              <div className="review-content mt-05">{review.content} </div>
+            </Link>
+          ))}
         </div>
-        {/*  */}
       </div>
     </CustomLayout>
   );

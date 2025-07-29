@@ -57,6 +57,10 @@ export const myInfo = async (): Promise<MyinfoDTO> => {
     credentials: "include",
   });
 
-  if (!data.ok) throw new Error(data.statusText);
+  if (!data.ok) {
+    const error: any = new Error(data.statusText);
+    error.status = data.status; // 상태 코드 추가
+    throw error;
+  }
   return data.json();
 };

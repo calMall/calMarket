@@ -5,10 +5,7 @@ import com.example.calmall.orders.entity.Orders;
 import com.example.calmall.orders.repository.OrdersRepository;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
-import com.example.calmall.review.dto.ReviewListByItemResponseDto;
-import com.example.calmall.review.dto.ReviewListByUserResponseDto;
-import com.example.calmall.review.dto.ReviewRequestDto;
-import com.example.calmall.review.dto.ReviewUpdateRequestDto;
+import com.example.calmall.review.dto.*;
 import com.example.calmall.review.entity.Review;
 import com.example.calmall.review.repository.ReviewRepository;
 import com.example.calmall.reviewLike.repository.ReviewLikeRepository;
@@ -235,4 +232,28 @@ public class ReviewServiceImpl implements ReviewService {
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
+
+    /**
+     * 指定されたレビューIDの詳細情報を取得する処理
+     * - ログインしていなくても取得可能（isLike判定のためuserIdはnull可）
+     */
+    @Override
+    public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long reviewId, String userId) {
+        // レビューが存在するかチェック
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
+
+        // レスポンスDTOを作成
+        ReviewDetailResponseDto detail = ReviewDetailResponseDto.builder()
+                .title(review.getTitle())
+                .comment(review.getComment())
+                .rating(review.getRating())
+                .imageList(review.getImageList())
+                .createdAt(review.getCreatedAt())
+                .updatedAt(review.getUpdatedAt())
+                .build();
+
+        return ResponseEntity.ok(detail);
+    }
+
 }
