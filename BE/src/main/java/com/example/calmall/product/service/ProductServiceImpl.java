@@ -20,9 +20,9 @@ import java.util.List;
 @Slf4j
 public class ProductServiceImpl implements ProductService {
 
-    private final ProductRepository productRepository;
-    private final RakutenApiService rakutenApiService;
-    private final ReviewRepository reviewRepository; // ★レビュー情報の取得用
+    private final ProductRepository productRepository; // 商品情報用リポジトリ
+    private final RakutenApiService rakutenApiService; // 楽天API呼び出し用サービス
+    private final ReviewRepository reviewRepository;   // ★レビュー情報の取得用
 
     /**
      * 商品詳細取得処理
@@ -74,11 +74,12 @@ public class ProductServiceImpl implements ProductService {
 
     /**
      * 成功レスポンスDTOの組み立て
+     * - レビュー件数と平均評価もセット
      */
     private ProductDetailResponseDto buildSuccessResponse(Product product) {
-        // ★ 平均スコアとレビュー件数を取得
+        // ★ 平均スコアとレビュー件数を取得（削除済みレビューは除外）
         Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode());
-        int reviewCount = reviewRepository.countByProduct_ItemCode(product.getItemCode());
+        int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(product.getItemCode()); // 修正済み
 
         ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
                 .itemCode(product.getItemCode())
