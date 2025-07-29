@@ -27,7 +27,7 @@ export default function CustomInput({
       onChange={(e) => {
         setText(e.target.value);
       }}
-      {...(func ? { onKeyDown: (e) => e.key === "Enter" && func() } : {})}
+      {...(func ? { onKeyUp: (e) => e.key === "Enter" && func() } : {})}
       placeholder={placeholder}
     />
   );

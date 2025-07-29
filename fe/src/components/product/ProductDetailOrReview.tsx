@@ -1,11 +1,17 @@
 "use client";
 import { useState } from "react";
+import ReviewContain from "../review/ReviewContain";
 
 interface props {
   itemCode: string;
   text: string;
+  rating: number;
 }
-export default function ProductDetailOrReview({ itemCode, text }: props) {
+export default function ProductDetailOrReview({
+  itemCode,
+  text,
+  rating,
+}: props) {
   const [type, setType] = useState<"detail" | "review">("detail");
 
   return (
@@ -29,7 +35,13 @@ export default function ProductDetailOrReview({ itemCode, text }: props) {
           />
         </div>
       </div>
-      {type === "detail" ? <div className="mt-1">{text}</div> : <div></div>}
+      {type === "detail" ? (
+        <div className="mt-1">{text}</div>
+      ) : (
+        <div>
+          <ReviewContain rating={rating} itemCode={itemCode} />
+        </div>
+      )}
     </div>
   );
 }

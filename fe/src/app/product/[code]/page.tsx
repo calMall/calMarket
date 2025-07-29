@@ -32,6 +32,7 @@ export default async function animeDetail({
           />
         </div>
         <ProductDetailOrReview
+          rating={data.product.score}
           itemCode={data.product.itemCode}
           text={data.product.itemCaption}
         />
