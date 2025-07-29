@@ -28,19 +28,17 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ReviewImageServiceImpl implements ReviewImageService {
 
-    // アップロード先ディレクトリ（application.propertiesから取得）
+    // application.properties からアップロード先ディレクトリを取得
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    // 公開用URLのプレフィックス（例: /uploads/）
+    // URL 表示時に付加されるパス
     private static final String FILE_URL_PREFIX = "/uploads/";
 
-    // ReviewImageエンティティ操作用リポジトリ
     private final ReviewImageRepository reviewImageRepository;
 
     /**
-     * 複数画像をアップロードし、ファイル保存＆DB登録
-     * 条件：最大3枚 / jpg・png形式のみ
+     * 画像アップロード処理（最大3枚・jpg/pngのみ）
      */
     @Override
     public ResponseEntity<ImageUploadResponseDto> uploadImages(List<MultipartFile> files) {
@@ -54,29 +52,22 @@ public class ReviewImageServiceImpl implements ReviewImageService {
         for (MultipartFile file : files) {
             String contentType = file.getContentType();
 
-            // jpg / png のみ許可
             if (!Objects.equals(contentType, "image/jpeg") && !Objects.equals(contentType, "image/png")) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(new ImageUploadResponseDto("JPGまたはPNG形式のみアップロード可能です", List.of()));
             }
 
             try {
-                // 元ファイル名と拡張子取得
                 String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
                 String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
 
-                // 一意なファイル名生成
                 String filename = UUID.randomUUID() + extension;
-
-                // 保存パスに書き込み
                 Path uploadPath = Paths.get(uploadDir).resolve(filename);
                 Files.write(uploadPath, file.getBytes());
 
-                // 公開URL形式に変換
                 String imageUrl = FILE_URL_PREFIX + filename;
                 imageUrls.add(imageUrl);
 
-                // DBに保存（レビュー未紐付け状態）
                 ReviewImage reviewImage = ReviewImage.builder()
                         .imageUrl(imageUrl)
                         .contentType(contentType)
@@ -97,7 +88,8 @@ public class ReviewImageServiceImpl implements ReviewImageService {
     }
 
     /**
-     * 画像のURLリストを受け取り、対応するファイルとDBレコードを削除
+     * アップロード済み画像の削除処理
+     * - 対象ファイルとDBレコードを削除
      */
     @Override
     public ResponseEntity<ApiResponseDto> deleteImages(ImageDeleteRequestDto requestDto) {
@@ -107,26 +99,27 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                 String filename = Paths.get(url).getFileName().toString();
                 Path filePath = Paths.get(uploadDir).resolve(filename);
 
-                // 実ファイル削除
+                System.out.println("[DELETE] 嘗試刪除路徑: " + filePath.toAbsolutePath());
+
+                // 実ファイル削除（存在しない場合でも継続）
                 File file = filePath.toFile();
                 if (file.exists()) {
                     if (file.delete()) {
                         System.out.println("[DELETE] ファイル削除成功: " + filename);
                     } else {
-                        System.out.println("[DELETE ERROR] ファイル削除失敗: " + filename);
-                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                                .body(new ApiResponseDto("fail"));
+                        System.out.println("[DELETE WARNING] ファイル削除失敗: " + filename);
+                        // ⚠ 不中斷流程，繼續刪DB
                     }
                 } else {
                     System.out.println("[DELETE] 対象ファイルが存在しません: " + filename);
                 }
 
-                // DB上のURLレコード削除
+                // DBレコード削除
                 int count = reviewImageRepository.deleteByImageUrl(url);
                 System.out.println("[DELETE] DB削除件数: " + count + "（URL: " + url + "）");
 
             } catch (Exception e) {
-                System.out.println("[DELETE ERROR] 削除処理中に例外: " + e.getMessage());
+                System.out.println("[DELETE ERROR] 削除中に例外発生: " + e.getMessage());
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .body(new ApiResponseDto("fail"));
             }
