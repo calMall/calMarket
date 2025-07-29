@@ -1,33 +1,33 @@
-// ファイルパス: com.example.calmall.review.entity.ReviewImage.java
-
 package com.example.calmall.review.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
 
 /**
- * アップロードされた画像のURL情報を管理するエンティティ
+ * レビューに紐づく画像情報を管理するエンティティクラス。
+ * - review_id（外部キー）でレビューと関連付けられる
+ * - imageUrl: 画像の保存パス（例：/uploads/xxx.png）
  */
 @Entity
+@Table(name = "review_images")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "review_images")
 public class ReviewImage {
 
+    // 主キーID（自動採番）
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 画像URL（/uploads/xxxxx.jpg）
-    @Column(nullable = false)
+    // レビューとのリレーション（多対一）
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "review_id", nullable = false)
+    private Review review;
+
+    // 画像URL（例：/uploads/xxx.png）
+    @Column(name = "image_url", nullable = false)
     private String imageUrl;
-
-    // 画像のタイプ（image/png）
-    private String contentType;
-
-    // 作成日時
-    private String createdAt;
 }
