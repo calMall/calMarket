@@ -22,7 +22,8 @@ import java.util.Optional;
 @RequestMapping("/api/cart") // ベースパスを設定
 @RequiredArgsConstructor // finalフィールドのコンストラクタを自動生成
 @Slf4j // ロギング用のアノテーション
-public class CartController {
+public class CartController { 
+    
 
     private final CartItemService cartItemService;
     private String getUserIdFromSession(HttpServletRequest request) {
