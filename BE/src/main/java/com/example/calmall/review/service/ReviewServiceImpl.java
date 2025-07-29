@@ -7,6 +7,7 @@ import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
 import com.example.calmall.review.dto.*;
 import com.example.calmall.review.entity.Review;
+import com.example.calmall.review.entity.ReviewImage;
 import com.example.calmall.review.repository.ReviewRepository;
 import com.example.calmall.review.repository.ReviewImageRepository;
 import com.example.calmall.reviewLike.repository.ReviewLikeRepository;
@@ -97,10 +98,11 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        // アップロード済み画像をレビューに紐付け
+        // アップロード済み画像をレビューに紐付け（List仕様）
         if (requestDto.getImageList() != null) {
             for (String fileName : requestDto.getImageList()) {
-                reviewImageRepository.findByImageUrl(fileName).ifPresent(image -> {
+                List<ReviewImage> images = reviewImageRepository.findAllByImageUrl(fileName);
+                for (ReviewImage image : images) {
                     image.setReview(savedReview);
                     // contentType補完
                     if (image.getContentType() == null) {
@@ -113,7 +115,7 @@ public class ReviewServiceImpl implements ReviewService {
                         }
                     }
                     reviewImageRepository.save(image);
-                });
+                }
             }
         }
 
@@ -160,7 +162,7 @@ public class ReviewServiceImpl implements ReviewService {
         if (userId != null) {
             List<Review> myList = reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(itemCode, userId);
             if (!myList.isEmpty()) {
-                Review r = myList.get(0); // 最初の1件を使用
+                Review r = myList.get(0);
                 myReview = ReviewListByItemResponseDto.MyReview.builder()
                         .reviewId(r.getReviewId())
                         .rating(r.getRating())
@@ -239,13 +241,14 @@ public class ReviewServiceImpl implements ReviewService {
         review.setImageList(requestDto.getImageList());
         review.setUpdatedAt(LocalDateTime.now());
 
-        // 画像のDB関連付けを更新
+        // 画像のDB関連付けを更新（List仕様）
         if (requestDto.getImageList() != null) {
             for (String fileName : requestDto.getImageList()) {
-                reviewImageRepository.findByImageUrl(fileName).ifPresent(image -> {
+                List<ReviewImage> images = reviewImageRepository.findAllByImageUrl(fileName);
+                for (ReviewImage image : images) {
                     image.setReview(review);
                     reviewImageRepository.save(image);
-                });
+                }
             }
         }
 
