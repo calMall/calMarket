@@ -43,10 +43,10 @@ public class ProductDetailResponseDto {
         /** キャッチコピー */
         private String catchcopy;
 
-        /** レビュー平均（仮） */
-        private int score;
+        /** レビュー平均 */
+        private Double score;
 
-        /** レビュー数（仮） */
+        /** レビュー数 */
         private int reviewCount;
 
         /** 価格 */

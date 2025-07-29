@@ -85,7 +85,7 @@ public class ProductServiceImpl implements ProductService {
                 .itemName(product.getItemName())
                 .itemCaption(product.getItemCaption())
                 .catchcopy(product.getCatchcopy())
-                .score(score != null ? (int) Math.round(score) : 0)  // 小数点を四捨五入して整数に
+                .score(score != null ? Math.round(score * 10.0) / 10.0 : 0.0) // ★ 小数第1位で四捨五入
                 .reviewCount(reviewCount)
                 .price(product.getPrice())
                 .imageUrls(product.getImages() != null ? product.getImages() : List.of())
