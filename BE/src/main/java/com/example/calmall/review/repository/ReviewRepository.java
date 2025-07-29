@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Reviewエンティティに対するDBアクセス処理を定義するリポジトリインターフェース
@@ -25,11 +24,11 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // 対象ユーザーのレビューをページング付きで取得（削除されていないレビューのみ）
     Page<Review> findByUser_UserIdAndDeletedFalse(String userId, Pageable pageable);
 
-    // 指定商品・ユーザーのレビュー（マイレビュー）を取得（削除されていないレビューのみ）
-    Optional<Review> findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(String itemCode, String userId);
+    // 指定商品・ユーザーのレビュー（削除されていない）→ List で返す（Optional だと複数ヒット時に例外発生するため）
+    List<Review> findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(String itemCode, String userId);
 
-    // 削除済みレビュー（再投稿制限用）
-    Optional<Review> findByUser_UserIdAndProduct_ItemCodeAndDeletedTrue(String userId, String itemCode);
+    // 削除済みレビュー（再投稿制限用）→ List で返す（複数ヒットを許容）
+    List<Review> findByUser_UserIdAndProduct_ItemCodeAndDeletedTrue(String userId, String itemCode);
 
     // 指定商品の有効（未削除）レビュー件数を取得（Product詳細取得で使用）
     int countByProductItemCodeAndDeletedFalse(String itemCode);
@@ -37,7 +36,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     /**
      * 指定商品の平均評価を取得（削除されていないレビューのみ）
      * - COALESCE を使って null を 0 に置き換える
-     * - AVG関数は必ず単一の数値を返すため、複数行は返らない
      */
     @Query("SELECT COALESCE(AVG(r.rating), 0) " +
             "FROM Review r " +
