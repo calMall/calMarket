@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 public class ReviewServiceImpl implements ReviewService {
 
     private final ReviewRepository reviewRepository;
-    private final ReviewImageRepository reviewImageRepository; // ★ 画像関連のリポジトリを追加
+    private final ReviewImageRepository reviewImageRepository;
     private final ReviewLikeRepository reviewLikeRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
@@ -99,11 +99,23 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        // ★ 画像のファイル名を元に ReviewImage を取得してレビューに紐付け
+        // アップロード済み画像をレビューに紐付ける処理
         if (requestDto.getImageList() != null) {
             for (String fileName : requestDto.getImageList()) {
                 reviewImageRepository.findByImageUrl(fileName).ifPresent(image -> {
                     image.setReview(savedReview); // review_id を設定
+
+                    // contentType が null の場合、拡張子から推測して補完
+                    if (image.getContentType() == null) {
+                        if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
+                            image.setContentType("image/jpeg");
+                        } else if (fileName.endsWith(".png")) {
+                            image.setContentType("image/png");
+                        } else {
+                            image.setContentType("application/octet-stream"); // 不明な場合
+                        }
+                    }
+
                     reviewImageRepository.save(image); // 更新保存
                 });
             }
@@ -179,7 +191,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * ユーザーごとのレビュー取得API
-     * - ページネーション対応
      */
     @Override
     public ResponseEntity<ReviewListByUserResponseDto> getReviewsByUser(String userId, int page, int size) {
@@ -239,7 +250,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * レビュー削除処理（論理削除）
-     * - 投稿者本人のみ削除可
      */
     @Override
     @Transactional
@@ -260,7 +270,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 指定レビューIDの詳細を取得
-     * - 未ログインでも取得可能
      */
     @Override
     public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long reviewId, String userId) {
