@@ -27,53 +27,57 @@ import java.util.stream.Collectors;
 
 /**
  * レビュー機能に関するサービス実装クラス
- * - 投稿、取得（商品・ユーザー別）、編集、削除、詳細取得を担当
+ * - レビューの投稿、取得（商品別・ユーザー別）、編集、削除、詳細取得を担当
  */
 @Service
 @RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {
 
-    private final ReviewRepository reviewRepository;
-    private final ReviewImageRepository reviewImageRepository;
-    private final ReviewLikeRepository reviewLikeRepository;
-    private final UserRepository userRepository;
-    private final ProductRepository productRepository;
-    private final OrdersRepository ordersRepository;
+    private final ReviewRepository reviewRepository;               // レビュー用リポジトリ
+    private final ReviewImageRepository reviewImageRepository;     // レビュー画像用リポジトリ
+    private final ReviewLikeRepository reviewLikeRepository;       // レビューいいね用リポジトリ
+    private final UserRepository userRepository;                   // ユーザー用リポジトリ
+    private final ProductRepository productRepository;             // 商品用リポジトリ
+    private final OrdersRepository ordersRepository;               // 注文履歴用リポジトリ
 
     /**
      * レビュー投稿処理
+     * - 購入1ヶ月以内のみ投稿可能
+     * - 同一商品への複数レビューは禁止
+     * - 削除済みレビューがある場合は再投稿不可
+     * - 画像の review_id 紐付けは UPDATE のみで行う（新規 insert しない）
      */
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto, String userId) {
-        // ユーザー取得
+        // 1. ユーザー取得
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
 
-        // 商品取得
+        // 2. 商品取得
         Product product = productRepository.findByItemCode(requestDto.getItemCode())
                 .orElseThrow(() -> new IllegalArgumentException("商品が存在しません"));
 
-        // 再投稿制限（削除済レビューが存在する場合）
+        // 3. 再投稿制限（論理削除済レビューが存在する場合）
         if (!reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedTrue(userId, product.getItemCode()).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("削除済レビューが存在するため再投稿できません"));
         }
 
-        // すでにレビュー済みか確認（削除されていないレビュー）
+        // 4. 既存レビュー投稿済みチェック（削除されていないレビュー）
         if (!reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(product.getItemCode(), userId).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("この商品には既にレビューを投稿済みです"));
         }
 
-        // 購入履歴チェック
+        // 5. 購入履歴チェック
         List<Orders> orders = ordersRepository.findByUser_UserIdAndProduct_ItemCode(userId, product.getItemCode());
         if (orders.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("未購入の商品にはレビューできません"));
         }
 
-        // 購入が1ヶ月以内かどうか
+        // 6. 購入が1ヶ月以内かどうか判定
         LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
         boolean purchasedWithinOneMonth = orders.stream()
                 .anyMatch(order -> order.getCreatedAt().isAfter(oneMonthAgo));
@@ -83,7 +87,7 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("購入後1ヶ月以内のユーザーのみレビュー可能です"));
         }
 
-        // レビュー保存
+        // 7. レビュー保存（新規作成）
         Review review = Review.builder()
                 .user(user)
                 .product(product)
@@ -98,13 +102,16 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        // アップロード済み画像をレビューに紐付け（List仕様）
+        // 8. アップロード済み画像をレビューに紐付け（UPDATE のみ）
         if (requestDto.getImageList() != null) {
             for (String fileName : requestDto.getImageList()) {
+                // ファイル名に一致する既存のアップロード画像を取得
                 List<ReviewImage> images = reviewImageRepository.findAllByImageUrl(fileName);
                 for (ReviewImage image : images) {
+                    // レビューIDを設定
                     image.setReview(savedReview);
-                    // contentType補完
+
+                    // contentTypeが未設定の場合に補完
                     if (image.getContentType() == null) {
                         if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
                             image.setContentType("image/jpeg");
@@ -114,7 +121,8 @@ public class ReviewServiceImpl implements ReviewService {
                             image.setContentType("application/octet-stream");
                         }
                     }
-                    reviewImageRepository.save(image);
+
+                    // save() は呼ばない → @Transactional により自動で UPDATE が行われる
                 }
             }
         }
@@ -124,13 +132,16 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * 商品別レビュー取得
+     * - ページネーション対応
+     * - 評価統計、マイレビュー、いいね状態を含む
      */
     @Override
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(String itemCode, String userId, int page, int size) {
+        // ページング取得
         Page<Review> reviewPage = reviewRepository.findByProduct_ItemCodeAndDeletedFalse(itemCode, PageRequest.of(page, size));
         List<Review> allReviews = reviewRepository.findByProduct_ItemCodeAndDeletedFalse(itemCode);
 
-        // 評価統計
+        // 評価統計データ作成
         Map<Integer, Long> ratingStatsMap = allReviews.stream()
                 .collect(Collectors.groupingBy(Review::getRating, Collectors.counting()));
 
@@ -142,7 +153,7 @@ public class ReviewServiceImpl implements ReviewService {
                     .build());
         }
 
-        // レビューリスト
+        // レビューリスト変換
         List<ReviewListByItemResponseDto.ReviewInfo> reviewInfos = reviewPage.getContent().stream()
                 .map(r -> ReviewListByItemResponseDto.ReviewInfo.builder()
                         .reviewId(r.getReviewId())
@@ -157,7 +168,7 @@ public class ReviewServiceImpl implements ReviewService {
                         .build())
                 .collect(Collectors.toList());
 
-        // マイレビュー
+        // マイレビュー取得
         ReviewListByItemResponseDto.MyReview myReview = null;
         if (userId != null) {
             List<Review> myList = reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(itemCode, userId);
@@ -187,6 +198,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * ユーザー別レビュー取得
+     * - ページネーション対応
      */
     @Override
     public ResponseEntity<ReviewListByUserResponseDto> getReviewsByUser(String userId, int page, int size) {
@@ -222,7 +234,9 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * レビュー編集
+     * レビュー編集処理
+     * - 本人のみ編集可能
+     * - 画像の review_id 更新は UPDATE のみ
      */
     @Override
     @Transactional
@@ -241,13 +255,13 @@ public class ReviewServiceImpl implements ReviewService {
         review.setImageList(requestDto.getImageList());
         review.setUpdatedAt(LocalDateTime.now());
 
-        // 画像のDB関連付けを更新（List仕様）
+        // 画像の関連付け更新（UPDATE のみ）
         if (requestDto.getImageList() != null) {
             for (String fileName : requestDto.getImageList()) {
                 List<ReviewImage> images = reviewImageRepository.findAllByImageUrl(fileName);
                 for (ReviewImage image : images) {
                     image.setReview(review);
-                    reviewImageRepository.save(image);
+                    // save() は不要 → UPDATE のみ
                 }
             }
         }
@@ -257,6 +271,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * レビュー削除（論理削除）
+     * - 本人のみ削除可能
      */
     @Override
     @Transactional
