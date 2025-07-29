@@ -38,24 +38,41 @@ export default function Mypage() {
         {orders.map((order) => (
           <div>{order.imageUrl}</div>
         ))}
+        <div className="bb mypage-horizens">
+          <h2>注文履歴</h2>
+          {orders.length === 0 ? (
+            <div>注文履歴がありません</div>
+          ) : (
+            orders.map((order) => <div key={order.id}>{order.imageUrl}</div>)
+          )}
+        </div>
         {/* オーダーできたら上に移す */}
         <div className="wf simple-order-contain">
           <Link href={`/`} className="rt simple-order-img">
-            <ContainImage alt="poduct" url="/a.png" />
+            <ContainImage alt="product" url="/a.png" />
           </Link>
         </div>
         {/*  */}
       </div>
-      <div className="mypage-horizens">
-        <h2>「{userStore.userInfo?.nickname}」さんのレビュー</h2>
-        {reviews.map((review) => (
-          <div>
-            <div>{review.title}</div>
-            <Star score={review.score} />
-            <div>{review.createdAt}</div>
-            <div>{review.content}</div>
-          </div>
-        ))}
+      <div>
+        <div className="mypage-horizens">
+          <h2>「{userStore.userInfo?.nickname}」さんのレビュー</h2>
+          {reviews.length === 0 ? (
+            <div>レビューがありません</div>
+          ) : (
+            <>
+              {reviews.map((review) => (
+                <div key={review.id}>
+                  <div>{review.title}</div>
+                  <Star score={review.score} />
+                  <div>{review.createdAt}</div>
+                  <div>{review.content}</div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
         {/* レビューできたら上に移す */}
         <div className="wf simple-order-contain">
           <Link href={`/`} className="simple-order-img pd-1">
