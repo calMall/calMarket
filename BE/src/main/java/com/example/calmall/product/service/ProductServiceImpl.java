@@ -77,8 +77,8 @@ public class ProductServiceImpl implements ProductService {
      */
     private ProductDetailResponseDto buildSuccessResponse(Product product) {
         // ★ 平均スコアとレビュー件数を取得（削除済みを除外）
-        Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode());
-        int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(product.getItemCode()); // ← 修正版
+        Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode()); // nullにはならず必ず0以上
+        int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(product.getItemCode());
 
         ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
                 .itemCode(product.getItemCode())

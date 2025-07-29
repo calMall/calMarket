@@ -34,7 +34,13 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // 指定商品の有効（未削除）レビュー件数を取得（Product詳細取得で使用）
     int countByProductItemCodeAndDeletedFalse(String itemCode);
 
-    // 指定商品の平均評価を取得（削除されていないレビューのみ）
-    @Query("SELECT AVG(r.rating) FROM Review r WHERE r.product.itemCode = :itemCode AND r.deleted = false")
+    /**
+     * 指定商品の平均評価を取得（削除されていないレビューのみ）
+     * - COALESCE を使って null を 0 に置き換える
+     * - AVG関数は必ず単一の数値を返すため、複数行は返らない
+     */
+    @Query("SELECT COALESCE(AVG(r.rating), 0) " +
+            "FROM Review r " +
+            "WHERE r.product.itemCode = :itemCode AND r.deleted = false")
     Double findAverageRatingByItemCode(@Param("itemCode") String itemCode);
 }
