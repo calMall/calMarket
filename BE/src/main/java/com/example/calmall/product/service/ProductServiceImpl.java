@@ -3,7 +3,7 @@ package com.example.calmall.product.service;
 import com.example.calmall.product.dto.ProductDetailResponseDto;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
-import com.example.calmall.review.repository.ReviewRepository; // ★追加
+import com.example.calmall.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -20,9 +20,9 @@ import java.util.List;
 @Slf4j
 public class ProductServiceImpl implements ProductService {
 
-    private final ProductRepository productRepository; // 商品情報用リポジトリ
-    private final RakutenApiService rakutenApiService; // 楽天API呼び出し用サービス
-    private final ReviewRepository reviewRepository;   // ★レビュー情報の取得用
+    private final ProductRepository productRepository;
+    private final RakutenApiService rakutenApiService;
+    private final ReviewRepository reviewRepository; // ★レビュー情報の取得用
 
     /**
      * 商品詳細取得処理
@@ -74,12 +74,11 @@ public class ProductServiceImpl implements ProductService {
 
     /**
      * 成功レスポンスDTOの組み立て
-     * - レビュー件数と平均評価もセット
      */
     private ProductDetailResponseDto buildSuccessResponse(Product product) {
-        // ★ 平均スコアとレビュー件数を取得（削除済みレビューは除外）
-        Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode());
-        int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(product.getItemCode()); // 修正済み
+        // ★ 平均スコアとレビュー件数を取得（削除済みを除外）
+        Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode()); // nullにはならず必ず0以上
+        int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(product.getItemCode());
 
         ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
                 .itemCode(product.getItemCode())

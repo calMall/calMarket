@@ -48,18 +48,19 @@ public class ReviewServiceImpl implements ReviewService {
         // ユーザー取得
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
+
         // 商品取得
         Product product = productRepository.findByItemCode(requestDto.getItemCode())
                 .orElseThrow(() -> new IllegalArgumentException("商品が存在しません"));
 
-        // 再投稿制限（削除済レビューを含む）
-        if (reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedTrue(userId, product.getItemCode()).isPresent()) {
+        // 再投稿制限（削除済レビューが存在する場合）
+        if (!reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedTrue(userId, product.getItemCode()).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("削除済レビューが存在するため再投稿できません"));
         }
 
-        // すでにレビュー済みか確認（論理削除されていないもの）
-        if (reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(product.getItemCode(), userId).isPresent()) {
+        // すでにレビュー済みか確認（削除されていないレビュー）
+        if (!reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(product.getItemCode(), userId).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("この商品には既にレビューを投稿済みです"));
         }
@@ -157,9 +158,9 @@ public class ReviewServiceImpl implements ReviewService {
         // マイレビュー
         ReviewListByItemResponseDto.MyReview myReview = null;
         if (userId != null) {
-            Optional<Review> my = reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(itemCode, userId);
-            if (my.isPresent()) {
-                Review r = my.get();
+            List<Review> myList = reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(itemCode, userId);
+            if (!myList.isEmpty()) {
+                Review r = myList.get(0); // 最初の1件を使用
                 myReview = ReviewListByItemResponseDto.MyReview.builder()
                         .reviewId(r.getReviewId())
                         .rating(r.getRating())
