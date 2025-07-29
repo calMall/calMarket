@@ -25,9 +25,9 @@ public class ReviewImage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** レビューとのリレーション（多対一） */
+    /** レビューとのリレーション（多対一、投稿後に後付け紐付け） */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "review_id", nullable = false)
+    @JoinColumn(name = "review_id", nullable = true)
     private Review review;
 
     /** 画像URL（保存先のファイルパスやURL） */
@@ -38,6 +38,7 @@ public class ReviewImage {
     @Column(name = "content_type", nullable = false)
     private String contentType;
 
+    /** アップロード日時 */
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 }
