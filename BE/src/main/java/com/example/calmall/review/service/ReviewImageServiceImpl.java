@@ -22,29 +22,28 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 /**
- * レビュー画像をアップロード・削除するサービスクラスの実装
+ * レビュー画像のアップロード・削除機能を提供するサービスクラス
  */
 @Service
 @RequiredArgsConstructor
 public class ReviewImageServiceImpl implements ReviewImageService {
 
-    // application.properties に定義されたアップロードディレクトリのパス
+    // アップロード先ディレクトリ（application.propertiesから取得）
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    // 画像公開用URLのパスプレフィックス
+    // 公開用URLのプレフィックス（例: /uploads/）
     private static final String FILE_URL_PREFIX = "/uploads/";
 
-    // ReviewImage テーブルへのアクセス用リポジトリ
+    // ReviewImageエンティティ操作用リポジトリ
     private final ReviewImageRepository reviewImageRepository;
 
     /**
-     * 複数画像をアップロードし、サーバー上に保存・DB登録する処理
-     * JPG/PNGのみ対応、最大3枚まで
+     * 複数画像をアップロードし、ファイル保存＆DB登録
+     * 条件：最大3枚 / jpg・png形式のみ
      */
     @Override
     public ResponseEntity<ImageUploadResponseDto> uploadImages(List<MultipartFile> files) {
-        // 画像数が3枚を超える場合はエラーを返す
         if (files.size() > 3) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ImageUploadResponseDto("画像は最大3枚までです", List.of()));
@@ -55,40 +54,40 @@ public class ReviewImageServiceImpl implements ReviewImageService {
         for (MultipartFile file : files) {
             String contentType = file.getContentType();
 
-            // JPGまたはPNG以外はエラー
+            // jpg / png のみ許可
             if (!Objects.equals(contentType, "image/jpeg") && !Objects.equals(contentType, "image/png")) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(new ImageUploadResponseDto("JPGまたはPNG形式のみアップロード可能です", List.of()));
             }
 
             try {
-                // オリジナルファイル名と拡張子を取得
+                // 元ファイル名と拡張子取得
                 String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
                 String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
 
-                // UUID付きファイル名を生成
+                // 一意なファイル名生成
                 String filename = UUID.randomUUID() + extension;
 
-                // 保存パスを作成してファイルを保存
+                // 保存パスに書き込み
                 Path uploadPath = Paths.get(uploadDir).resolve(filename);
                 Files.write(uploadPath, file.getBytes());
 
-                // 公開用の画像URLを作成
+                // 公開URL形式に変換
                 String imageUrl = FILE_URL_PREFIX + filename;
                 imageUrls.add(imageUrl);
 
-                // DBに保存
+                // DBに保存（レビュー未紐付け状態）
                 ReviewImage reviewImage = ReviewImage.builder()
                         .imageUrl(imageUrl)
                         .contentType(contentType)
-                        .createdAt(LocalDateTime.now().toString())
+                        .createdAt(LocalDateTime.now())
                         .build();
                 reviewImageRepository.save(reviewImage);
 
                 System.out.println("[UPLOAD] 画像保存成功: " + imageUrl);
 
             } catch (IOException e) {
-                System.out.println("[UPLOAD ERROR] ファイル書き込み失敗: " + e.getMessage());
+                System.out.println("[UPLOAD ERROR] ファイル保存失敗: " + e.getMessage());
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .body(new ImageUploadResponseDto("画像保存に失敗しました", List.of()));
             }
@@ -98,21 +97,20 @@ public class ReviewImageServiceImpl implements ReviewImageService {
     }
 
     /**
-     * 画像URLリストを受け取り、該当ファイルとDB上のレコードを削除
+     * 画像のURLリストを受け取り、対応するファイルとDBレコードを削除
      */
     @Override
     public ResponseEntity<ApiResponseDto> deleteImages(ImageDeleteRequestDto requestDto) {
         for (String url : requestDto.getImageUrls()) {
             try {
-                // ファイル名をパスから抽出（例: /uploads/abc.png → abc.png）
+                // URLからファイル名を抽出
                 String filename = Paths.get(url).getFileName().toString();
                 Path filePath = Paths.get(uploadDir).resolve(filename);
 
-                // ファイルを削除
+                // 実ファイル削除
                 File file = filePath.toFile();
                 if (file.exists()) {
-                    boolean deleted = file.delete();
-                    if (deleted) {
+                    if (file.delete()) {
                         System.out.println("[DELETE] ファイル削除成功: " + filename);
                     } else {
                         System.out.println("[DELETE ERROR] ファイル削除失敗: " + filename);
@@ -120,15 +118,15 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                                 .body(new ApiResponseDto("fail"));
                     }
                 } else {
-                    System.out.println("[DELETE] 対象ファイルなし: " + filename);
+                    System.out.println("[DELETE] 対象ファイルが存在しません: " + filename);
                 }
 
-                // DBから該当URLのレコードを削除
+                // DB上のURLレコード削除
                 int count = reviewImageRepository.deleteByImageUrl(url);
-                System.out.println("[DELETE] DB削除件数: " + count + "（対象URL: " + url + "）");
+                System.out.println("[DELETE] DB削除件数: " + count + "（URL: " + url + "）");
 
             } catch (Exception e) {
-                System.out.println("[DELETE ERROR] 処理中に例外発生: " + e.getMessage());
+                System.out.println("[DELETE ERROR] 削除処理中に例外: " + e.getMessage());
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .body(new ApiResponseDto("fail"));
             }
