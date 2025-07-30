@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 // ユーザー詳細取得APIのレスポンスDTO
@@ -60,8 +61,8 @@ public class UserDetailResponseDto {
         private String title;
 
         // レビュー投稿日時（ISO形式、例："2025-07-17T10:30:00"）
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
-        private String createdAt;
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Tokyo")
+        private LocalDateTime createdAt;
 
         // 評価スコア（1〜5）
         private int score;

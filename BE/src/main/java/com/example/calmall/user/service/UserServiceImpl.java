@@ -141,9 +141,9 @@ public class UserServiceImpl implements UserService {
                     .sorted(Comparator.comparing(Review::getCreatedAt).reversed())
                     .limit(10)
                     .map(review -> UserDetailResponseDto.ReviewSummary.builder()
-                            .id(review.getReviewId()) // 修正箇所：getId() → getReviewId()
+                            .id(review.getReviewId())
                             .title(review.getTitle())
-                            .createdAt(review.getCreatedAt().toString())
+                            .createdAt(review.getCreatedAt()) //  修正：.toString() を削除
                             .score(review.getRating())
                             .content(review.getComment())
                             .deliveryAddresses(addressList)
