@@ -2,6 +2,7 @@ package com.example.calmall.review.entity;
 
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.user.entity.User;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -46,16 +47,28 @@ public class Review {
 
     /**
      * アップロードされた画像のURLリスト
+     * - @ElementCollection を使用して別テーブル（review_images）で管理
+     * - joinColumns で review_id と紐付け
      */
     @ElementCollection
     @CollectionTable(name = "review_images", joinColumns = @JoinColumn(name = "review_id"))
     @Column(name = "image_url")
     private List<String> imageList;
 
-    /** 作成日時 */
+    /**
+     * 作成日時
+     * - @JsonFormat を使用して API 返却時に JST に変換
+     * - 秒単位まで表示（ミリ秒・マイクロ秒は除外）
+     * - timezone = "Asia/Tokyo" により JST 固定
+     */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "Asia/Tokyo")
     private LocalDateTime createdAt;
 
-    /** 更新日時 */
+    /**
+     * 更新日時
+     * - createdAt と同様に JST + 秒単位フォーマット
+     */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "Asia/Tokyo")
     private LocalDateTime updatedAt;
 
     /** 論理削除フラグ（true の場合は削除扱い） */
