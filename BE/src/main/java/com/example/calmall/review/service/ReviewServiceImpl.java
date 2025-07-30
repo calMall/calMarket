@@ -102,24 +102,37 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        // 8. アップロード済み画像をレビューに紐付け（UPDATE のみ）
-        if (requestDto.getImageList() != null) {
-            for (String fileName : requestDto.getImageList()) {
-                List<ReviewImage> images = reviewImageRepository.findAllByImageUrl(fileName);
-                for (ReviewImage image : images) {
-                    image.setReview(savedReview);
+        // 8. 既存の画像レコードをレビューに紐付け（UPDATE のみ）
+        if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
+            for (String imageUrl : requestDto.getImageList()) {
+                // 既存の未関連付け画像を検索
+                List<ReviewImage> existingImages = reviewImageRepository
+                        .findByImageUrlAndReviewIsNull(imageUrl);
 
-                    // contentTypeが未設定の場合に補完
-                    if (image.getContentType() == null) {
-                        if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
-                            image.setContentType("image/jpeg");
-                        } else if (fileName.endsWith(".png")) {
-                            image.setContentType("image/png");
-                        } else {
-                            image.setContentType("application/octet-stream");
-                        }
+                if (existingImages.isEmpty()) {
+                    System.out.println("[WARNING] 指定された画像が見つかりません: " + imageUrl);
+                    continue;
+                }
+
+                // 最初の1件のみ使用（通常は1件のはず）
+                ReviewImage imageToUpdate = existingImages.get(0);
+                imageToUpdate.setReview(savedReview);
+
+                // contentTypeが未設定の場合に補完
+                if (imageToUpdate.getContentType() == null) {
+                    if (imageUrl.endsWith(".jpg") || imageUrl.endsWith(".jpeg")) {
+                        imageToUpdate.setContentType("image/jpeg");
+                    } else if (imageUrl.endsWith(".png")) {
+                        imageToUpdate.setContentType("image/png");
+                    } else {
+                        imageToUpdate.setContentType("application/octet-stream");
                     }
                 }
+
+                // 明示的に保存（JPA管理下なので通常は不要だが、確実性のため）
+                reviewImageRepository.save(imageToUpdate);
+
+                System.out.println("[REVIEW] 画像関連付け完了: " + imageUrl + " -> reviewId: " + savedReview.getReviewId());
             }
         }
 
