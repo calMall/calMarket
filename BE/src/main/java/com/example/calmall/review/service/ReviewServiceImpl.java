@@ -331,18 +331,28 @@ public class ReviewServiceImpl implements ReviewService {
      * レビュー詳細取得
      */
     @Override
-    public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long reviewId, String userId) {
+    public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long reviewId, String currentUserId) {
+        // 指定された reviewId に該当するレビューを取得（存在しなければ例外を投げる）
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
 
+        // 投稿者のユーザーID（UUID）
+        String reviewAuthorId = review.getUser().getUserId();
+
+        // 現在ログインしているユーザーがこのレビューの所有者かを判定
+        boolean isOwner = currentUserId != null && currentUserId.equals(reviewAuthorId);
+
+        // DTO を構築
         ReviewDetailResponseDto detail = ReviewDetailResponseDto.builder()
-                .title(review.getTitle())
-                .comment(review.getComment())
-                .rating(review.getRating())
-                .imageList(review.getImageList())
-                .createdAt(review.getCreatedAt())
-                .updatedAt(review.getUpdatedAt())
-                .likeCount(reviewLikeRepository.countByReviewReviewId(reviewId))
+                .title(review.getTitle()) // レビュータイトル
+                .comment(review.getComment()) // レビュー本文
+                .rating(review.getRating()) // 評価スコア
+                .imageList(review.getImageList()) // 画像URLリスト
+                .createdAt(review.getCreatedAt()) // 作成日時
+                .updatedAt(review.getUpdatedAt()) // 更新日時
+                .likeCount(reviewLikeRepository.countByReviewReviewId(reviewId)) // いいね数
+                .userId(reviewAuthorId) // 新規追加: 投稿者のユーザーID
+                .isOwner(isOwner) // 新規追加: 所有者判定
                 .build();
 
         return ResponseEntity.ok(detail);
