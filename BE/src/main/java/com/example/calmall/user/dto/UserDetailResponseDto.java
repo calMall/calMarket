@@ -1,5 +1,6 @@
 package com.example.calmall.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -59,6 +60,7 @@ public class UserDetailResponseDto {
         private String title;
 
         // レビュー投稿日時（ISO形式、例："2025-07-17T10:30:00"）
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
         private String createdAt;
 
         // 評価スコア（1〜5）

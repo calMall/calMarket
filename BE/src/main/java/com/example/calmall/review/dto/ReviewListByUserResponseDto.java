@@ -1,5 +1,6 @@
 package com.example.calmall.review.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -66,7 +67,8 @@ public class ReviewListByUserResponseDto {
         // 画像URLのリスト
         private List<String> imageList;
 
-        // 投稿日時（JST + 秒精度 + 無微秒でJacksonにより自動フォーマット）
+        // 投稿日時
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
         private LocalDateTime createdAt;
 
         // ★ このレビューの総いいね数

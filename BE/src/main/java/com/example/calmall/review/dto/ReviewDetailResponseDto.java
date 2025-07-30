@@ -1,5 +1,6 @@
 package com.example.calmall.review.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -20,6 +21,8 @@ public class ReviewDetailResponseDto {
     private String comment; // コメント
     private int rating; // 評価（1〜5）
     private List<String> imageList; // 画像URLのリスト
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt; // 作成日時
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt; // 更新日時
 }
