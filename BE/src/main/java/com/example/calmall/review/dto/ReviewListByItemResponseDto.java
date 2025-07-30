@@ -71,7 +71,7 @@ public class ReviewListByItemResponseDto {
         private List<String> imageList;
 
         // 投稿日時
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Tokyo")
         private LocalDateTime createdAt;
 
         // ログインユーザーがいいねしているか
