@@ -122,6 +122,7 @@ public class ReviewListByItemResponseDto {
         private List<String> imageList;
 
         // ★ 投稿日時（JST）
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
         private LocalDateTime createdAt;
 
         // ★ このレビューの総いいね数
