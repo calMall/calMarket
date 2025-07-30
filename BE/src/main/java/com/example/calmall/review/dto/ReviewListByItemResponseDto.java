@@ -118,5 +118,11 @@ public class ReviewListByItemResponseDto {
 
         // 画像URLのリスト
         private List<String> imageList;
+
+        // ★ 投稿日時（JST）
+        private LocalDateTime createdAt;
+
+        // ★ このレビューの総いいね数
+        private long likeCount;
     }
 }

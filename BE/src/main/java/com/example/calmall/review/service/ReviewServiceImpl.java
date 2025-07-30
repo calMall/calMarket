@@ -176,6 +176,8 @@ public class ReviewServiceImpl implements ReviewService {
                         .title(r.getTitle())
                         .comment(r.getComment())
                         .imageList(r.getImageList())
+                        .createdAt(r.getCreatedAt()) // ★ 追加
+                        .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId())) // ★ 追加
                         .build();
             }
         }
@@ -216,6 +218,7 @@ public class ReviewServiceImpl implements ReviewService {
                         .comment(r.getComment())
                         .imageList(r.getImageList())
                         .createdAt(r.getCreatedAt()) // 修正
+                        .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId())) // ★ 追加
                         .build()
         ).collect(Collectors.toList());
 

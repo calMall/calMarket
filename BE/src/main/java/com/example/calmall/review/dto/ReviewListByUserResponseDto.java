@@ -68,5 +68,8 @@ public class ReviewListByUserResponseDto {
 
         // 投稿日時（JST + 秒精度 + 無微秒でJacksonにより自動フォーマット）
         private LocalDateTime createdAt;
+
+        // ★ このレビューの総いいね数
+        private long likeCount;
     }
 }
