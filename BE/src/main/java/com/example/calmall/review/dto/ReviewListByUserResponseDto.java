@@ -2,6 +2,7 @@ package com.example.calmall.review.dto;
 
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -65,7 +66,7 @@ public class ReviewListByUserResponseDto {
         // 画像URLのリスト
         private List<String> imageList;
 
-        // 投稿日時
-        private String createdAt;
+        // 投稿日時（JST + 秒精度 + 無微秒でJacksonにより自動フォーマット）
+        private LocalDateTime createdAt;
     }
 }

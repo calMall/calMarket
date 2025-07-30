@@ -3,6 +3,7 @@ package com.example.calmall.review.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -68,8 +69,8 @@ public class ReviewListByItemResponseDto {
         // 画像URLのリスト（1枚以上）
         private List<String> imageList;
 
-        // 投稿日時
-        private String createdAt;
+        // 投稿日時（JST + 秒精度 + 無微秒でJacksonにより自動フォーマット）
+        private LocalDateTime createdAt;
 
         // ログインユーザーがいいねしているか
         private boolean isLike;

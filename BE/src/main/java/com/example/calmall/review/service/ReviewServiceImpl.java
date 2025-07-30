@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 
 /**
  * レビュー機能に関するサービス実装クラス
- * - レビューの投稿、取得（商品別・ユーザー別）、編集、削除、詳細取得を担当
+ * - レビュー投稿、取得（商品別・ユーザー別）、編集、削除、詳細取得を担当
  */
 @Service
 @RequiredArgsConstructor
@@ -45,7 +45,7 @@ public class ReviewServiceImpl implements ReviewService {
      * - 購入1ヶ月以内のみ投稿可能
      * - 同一商品への複数レビューは禁止
      * - 削除済みレビューがある場合は再投稿不可
-     * - 画像の review_id 紐付けは UPDATE のみで行う（新規 insert しない）
+     * - 画像の review_id 紐付けは UPDATE のみで行う
      */
     @Override
     @Transactional
@@ -105,10 +105,8 @@ public class ReviewServiceImpl implements ReviewService {
         // 8. アップロード済み画像をレビューに紐付け（UPDATE のみ）
         if (requestDto.getImageList() != null) {
             for (String fileName : requestDto.getImageList()) {
-                // ファイル名に一致する既存のアップロード画像を取得
                 List<ReviewImage> images = reviewImageRepository.findAllByImageUrl(fileName);
                 for (ReviewImage image : images) {
-                    // レビューIDを設定
                     image.setReview(savedReview);
 
                     // contentTypeが未設定の場合に補完
@@ -121,8 +119,6 @@ public class ReviewServiceImpl implements ReviewService {
                             image.setContentType("application/octet-stream");
                         }
                     }
-
-                    // save() は呼ばない → @Transactional により自動で UPDATE が行われる
                 }
             }
         }
@@ -153,7 +149,7 @@ public class ReviewServiceImpl implements ReviewService {
                     .build());
         }
 
-        // レビューリスト変換
+        // レビューリスト変換（createdAtはLocalDateTimeのまま渡す）
         List<ReviewListByItemResponseDto.ReviewInfo> reviewInfos = reviewPage.getContent().stream()
                 .map(r -> ReviewListByItemResponseDto.ReviewInfo.builder()
                         .reviewId(r.getReviewId())
@@ -162,7 +158,7 @@ public class ReviewServiceImpl implements ReviewService {
                         .title(r.getTitle())
                         .comment(r.getComment())
                         .imageList(r.getImageList())
-                        .createdAt(r.getCreatedAt().toString())
+                        .createdAt(r.getCreatedAt()) // 修正ポイント
                         .isLike(userId != null && reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, r.getReviewId()))
                         .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId()))
                         .build())
@@ -219,7 +215,7 @@ public class ReviewServiceImpl implements ReviewService {
                         .title(r.getTitle())
                         .comment(r.getComment())
                         .imageList(r.getImageList())
-                        .createdAt(r.getCreatedAt().toString())
+                        .createdAt(r.getCreatedAt()) // 修正
                         .build()
         ).collect(Collectors.toList());
 
@@ -236,7 +232,6 @@ public class ReviewServiceImpl implements ReviewService {
     /**
      * レビュー編集処理
      * - 本人のみ編集可能
-     * - 画像の review_id 更新は UPDATE のみ
      */
     @Override
     @Transactional
@@ -255,13 +250,12 @@ public class ReviewServiceImpl implements ReviewService {
         review.setImageList(requestDto.getImageList());
         review.setUpdatedAt(LocalDateTime.now());
 
-        // 画像の関連付け更新（UPDATE のみ）
+        // 画像の関連付け更新
         if (requestDto.getImageList() != null) {
             for (String fileName : requestDto.getImageList()) {
                 List<ReviewImage> images = reviewImageRepository.findAllByImageUrl(fileName);
                 for (ReviewImage image : images) {
                     image.setReview(review);
-                    // save() は不要 → UPDATE のみ
                 }
             }
         }
@@ -271,7 +265,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * レビュー削除（論理削除）
-     * - 本人のみ削除可能
      */
     @Override
     @Transactional
