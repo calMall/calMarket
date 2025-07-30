@@ -2,9 +2,13 @@ package com.example.calmall.review.repository;
 
 import com.example.calmall.review.entity.ReviewImage;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * ReviewImage（レビュー画像）に対するDB操作を提供するリポジトリインターフェース。
@@ -40,4 +44,11 @@ public interface ReviewImageRepository extends JpaRepository<ReviewImage, Long> 
      * @return レビュー未関連付けの古いReviewImageリスト
      */
     List<ReviewImage> findByReviewIsNullAndCreatedAtBefore(LocalDateTime cutoff);
+
+    /**
+     * 指定された画像URLでかつレビューに未関連付けの画像を1件取得（最新順）
+     * @param imageUrl 対象画像のURL
+     * @return レビュー未関連付けの最新のReviewImage（Optional）
+     */
+    Optional<ReviewImage> findTopByImageUrlAndReviewIsNullOrderByCreatedAtDesc(String imageUrl);
 }

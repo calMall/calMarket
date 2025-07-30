@@ -106,17 +106,16 @@ public class ReviewServiceImpl implements ReviewService {
         // 8. 既存の画像レコードをレビューに紐付け（UPDATE のみ）
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
             for (String imageUrl : requestDto.getImageList()) {
-                // 既存の未関連付け画像を検索
-                List<ReviewImage> existingImages = reviewImageRepository
-                        .findByImageUrlAndReviewIsNull(imageUrl);
+                // 既存の未関連付け画像を検索（最新の1件のみ取得）
+                Optional<ReviewImage> existingImageOpt = reviewImageRepository
+                        .findTopByImageUrlAndReviewIsNullOrderByCreatedAtDesc(imageUrl);
 
-                if (existingImages.isEmpty()) {
+                if (existingImageOpt.isEmpty()) {
                     System.out.println("[WARNING] 指定された画像が見つかりません: " + imageUrl);
                     continue;
                 }
 
-                // 最初の1件のみ使用（通常は1件のはず）
-                ReviewImage imageToUpdate = existingImages.get(0);
+                ReviewImage imageToUpdate = existingImageOpt.get();
                 imageToUpdate.setReview(savedReview);
 
                 // contentTypeが未設定の場合に補完
@@ -129,9 +128,6 @@ public class ReviewServiceImpl implements ReviewService {
                         imageToUpdate.setContentType("application/octet-stream");
                     }
                 }
-
-                // JPA管理下のエンティティは自動的に更新されるため、save()は不要
-                // @Transactional により、トランザクション終了時に自動的にDBに反映される
 
                 System.out.println("[REVIEW] 画像関連付け完了: " + imageUrl + " -> reviewId: " + savedReview.getReviewId());
             }
