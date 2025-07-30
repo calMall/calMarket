@@ -1,44 +1,44 @@
 package com.example.calmall.global.config;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.TimeZone;
 
 /**
- * 全体の Jackson（JSON シリアライズ）設定を行うクラス
- * - 全 API の LocalDateTime を JST（日本時間）+ 秒単位に統一
- * - ミリ秒・マイクロ秒を除外
- * - null フィールドはレスポンスに含めない
+ * Jackson の全域設定クラス
+ * - LocalDateTime を "yyyy-MM-dd HH:mm:ss"（JST・秒精度・ミリ秒なし）でシリアライズ
+ * - 全ての LocalDateTime に適用されるため、各 Service/DTO 側で手動変換は不要
  */
 @Configuration
 public class JacksonConfig {
 
+    /** LocalDateTime 用の共通フォーマッタ（JST・秒精度） */
+    private static final DateTimeFormatter FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     /**
-     * Spring Boot で使用される ObjectMapper をカスタマイズ
+     * ObjectMapper の Bean 設定
+     * @return 設定済み ObjectMapper
      */
     @Bean
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
 
-        // Java 8 の日時 API (LocalDateTime など) に対応するモジュールを登録
-        mapper.registerModule(new JavaTimeModule());
-
-        // タイムゾーンを JST（Asia/Tokyo）に固定
+        // 全域時區設定（JST）
         mapper.setTimeZone(TimeZone.getTimeZone("Asia/Tokyo"));
 
-        // 日付時刻フォーマット（秒単位まで、ミリ秒・マイクロ秒なし）
-        mapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss"));
+        // JavaTimeModule を作成し、LocalDateTime 専用シリアライザを登録
+        JavaTimeModule javaTimeModule = new JavaTimeModule();
+        javaTimeModule.addSerializer(java.time.LocalDateTime.class, new LocalDateTimeSerializer(FORMATTER));
+        mapper.registerModule(javaTimeModule);
 
-        // null のフィールドは JSON 出力しない設定
-        mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-
-        // LocalDateTime のシリアライズ時にタイムスタンプ形式を無効化（フォーマットで出力するため）
+        // タイムスタンプ（数値）ではなく文字列で出力する設定
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
         return mapper;
