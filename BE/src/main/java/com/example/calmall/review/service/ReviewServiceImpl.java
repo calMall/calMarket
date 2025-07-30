@@ -40,6 +40,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final ProductRepository productRepository;             // 商品用リポジトリ
     private final OrdersRepository ordersRepository;               // 注文履歴用リポジトリ
 
+
     /**
      * レビュー投稿処理
      * - 購入1ヶ月以内のみ投稿可能
@@ -129,8 +130,8 @@ public class ReviewServiceImpl implements ReviewService {
                     }
                 }
 
-                // 明示的に保存（JPA管理下なので通常は不要だが、確実性のため）
-                reviewImageRepository.save(imageToUpdate);
+                // JPA管理下のエンティティは自動的に更新されるため、save()は不要
+                // @Transactional により、トランザクション終了時に自動的にDBに反映される
 
                 System.out.println("[REVIEW] 画像関連付け完了: " + imageUrl + " -> reviewId: " + savedReview.getReviewId());
             }
