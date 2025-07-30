@@ -121,8 +121,8 @@ public class ReviewListByItemResponseDto {
         // 画像URLのリスト
         private List<String> imageList;
 
-        // ★ 投稿日時（JST）
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
+        // 投稿日時（JST固定）
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Tokyo")
         private LocalDateTime createdAt;
 
         // ★ このレビューの総いいね数
