@@ -46,7 +46,7 @@ public class ReviewServiceImpl implements ReviewService {
      * - 購入1ヶ月以内のみ投稿可能
      * - 同一商品への複数レビューは禁止
      * - 削除済みレビューがある場合は再投稿不可
-     * - 画像の review_id 紐付けは UPDATE のみで行う
+     * - 画像の review_id 紐付け時に重複を排除
      */
     @Override
     @Transactional
@@ -111,9 +111,12 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        // 8. アップロード済み画像の紐付け（DB排他ロックで重複防止）
+        // 8. アップロード済み画像の紐付け（DB排他ロック＋重複排除）
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
-            for (String imageUrl : requestDto.getImageList()) {
+            // LinkedHashSetを使用して順序を維持しつつ重複を排除
+            Set<String> uniqueImageUrls = new LinkedHashSet<>(requestDto.getImageList());
+
+            for (String imageUrl : uniqueImageUrls) {
                 Optional<ReviewImage> unlinkedImageOpt =
                         reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
                 if (unlinkedImageOpt.isEmpty()) {
@@ -122,6 +125,8 @@ public class ReviewServiceImpl implements ReviewService {
                 }
                 ReviewImage imageToUpdate = unlinkedImageOpt.get();
                 imageToUpdate.setReview(savedReview);
+
+                // Content-Type を補完
                 if (imageToUpdate.getContentType() == null) {
                     if (imageUrl.endsWith(".jpg") || imageUrl.endsWith(".jpeg")) {
                         imageToUpdate.setContentType("image/jpeg");
@@ -244,6 +249,7 @@ public class ReviewServiceImpl implements ReviewService {
     /**
      * レビュー編集処理
      * - 本人のみ編集可能
+     * - 画像紐付け時に重複を排除
      */
     @Override
     @Transactional
@@ -261,15 +267,19 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("本人のみ編集可能です"));
         }
 
+        // レビュー内容更新
         review.setRating(requestDto.getRating());
         review.setTitle(requestDto.getTitle());
         review.setComment(requestDto.getComment());
         review.setImageList(requestDto.getImageList());
         review.setUpdatedAt(LocalDateTime.now());
 
-        // アップロード済み画像の紐付け（DB排他ロックで重複防止）
+        // アップロード済み画像の紐付け（DB排他ロック＋重複排除）
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
-            for (String imageUrl : requestDto.getImageList()) {
+            // LinkedHashSetを使用して順序を維持しつつ重複を排除
+            Set<String> uniqueImageUrls = new LinkedHashSet<>(requestDto.getImageList());
+
+            for (String imageUrl : uniqueImageUrls) {
                 Optional<ReviewImage> unlinkedImageOpt =
                         reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
                 if (unlinkedImageOpt.isEmpty()) {
@@ -289,7 +299,6 @@ public class ReviewServiceImpl implements ReviewService {
                         imageToUpdate.setContentType("application/octet-stream");
                     }
                 }
-
                 reviewImageRepository.save(imageToUpdate);
                 System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl + " -> reviewId: " + review.getReviewId());
             }
