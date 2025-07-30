@@ -52,12 +52,20 @@ public class ReviewServiceImpl implements ReviewService {
     @Transactional
     public ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto, String userId) {
         // 1. ユーザー取得
-        User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
+        Optional<User> userOpt = userRepository.findByUserId(userId);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponseDto("ユーザーが存在しません"));
+        }
+        User user = userOpt.get();
 
         // 2. 商品取得
-        Product product = productRepository.findByItemCode(requestDto.getItemCode())
-                .orElseThrow(() -> new IllegalArgumentException("商品が存在しません"));
+        Optional<Product> productOpt = productRepository.findByItemCode(requestDto.getItemCode());
+        if (productOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponseDto("商品が存在しません"));
+        }
+        Product product = productOpt.get();
 
         // 3. 再投稿制限（論理削除済レビューが存在する場合）
         if (!reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedTrue(userId, product.getItemCode()).isEmpty()) {
@@ -103,22 +111,17 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        // 8. 既存の画像レコードをレビューに紐付け（UPDATE のみ）
+        // 8. アップロード済み画像の紐付け（DB排他ロックで重複防止）
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
             for (String imageUrl : requestDto.getImageList()) {
-                // 既存の未関連付け画像を検索（最新の1件のみ取得）
-                Optional<ReviewImage> existingImageOpt = reviewImageRepository
-                        .findTopByImageUrlAndReviewIsNullOrderByCreatedAtDesc(imageUrl);
-
-                if (existingImageOpt.isEmpty()) {
-                    System.out.println("[WARNING] 指定された画像が見つかりません: " + imageUrl);
+                Optional<ReviewImage> unlinkedImageOpt =
+                        reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
+                if (unlinkedImageOpt.isEmpty()) {
+                    System.out.println("[SKIP] 未紐付け画像が存在しないか、既に他レビューに紐付け済: " + imageUrl);
                     continue;
                 }
-
-                ReviewImage imageToUpdate = existingImageOpt.get();
+                ReviewImage imageToUpdate = unlinkedImageOpt.get();
                 imageToUpdate.setReview(savedReview);
-
-                // contentTypeが未設定の場合に補完
                 if (imageToUpdate.getContentType() == null) {
                     if (imageUrl.endsWith(".jpg") || imageUrl.endsWith(".jpeg")) {
                         imageToUpdate.setContentType("image/jpeg");
@@ -128,8 +131,8 @@ public class ReviewServiceImpl implements ReviewService {
                         imageToUpdate.setContentType("application/octet-stream");
                     }
                 }
-
-                System.out.println("[REVIEW] 画像関連付け完了: " + imageUrl + " -> reviewId: " + savedReview.getReviewId());
+                reviewImageRepository.save(imageToUpdate);
+                System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl + " -> reviewId: " + savedReview.getReviewId());
             }
         }
 
@@ -143,11 +146,9 @@ public class ReviewServiceImpl implements ReviewService {
      */
     @Override
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(String itemCode, String userId, int page, int size) {
-        // ページング取得
         Page<Review> reviewPage = reviewRepository.findByProduct_ItemCodeAndDeletedFalse(itemCode, PageRequest.of(page, size));
         List<Review> allReviews = reviewRepository.findByProduct_ItemCodeAndDeletedFalse(itemCode);
 
-        // 評価統計データ作成
         Map<Integer, Long> ratingStatsMap = allReviews.stream()
                 .collect(Collectors.groupingBy(Review::getRating, Collectors.counting()));
 
@@ -159,7 +160,6 @@ public class ReviewServiceImpl implements ReviewService {
                     .build());
         }
 
-        // レビューリスト変換（createdAtはLocalDateTimeのまま渡す）
         List<ReviewListByItemResponseDto.ReviewInfo> reviewInfos = reviewPage.getContent().stream()
                 .map(r -> ReviewListByItemResponseDto.ReviewInfo.builder()
                         .reviewId(r.getReviewId())
@@ -168,13 +168,12 @@ public class ReviewServiceImpl implements ReviewService {
                         .title(r.getTitle())
                         .comment(r.getComment())
                         .imageList(r.getImageList())
-                        .createdAt(r.getCreatedAt()) // 修正ポイント
+                        .createdAt(r.getCreatedAt())
                         .isLike(userId != null && reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, r.getReviewId()))
                         .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId()))
                         .build())
                 .collect(Collectors.toList());
 
-        // マイレビュー取得
         ReviewListByItemResponseDto.MyReview myReview = null;
         if (userId != null) {
             List<Review> myList = reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(itemCode, userId);
@@ -186,8 +185,8 @@ public class ReviewServiceImpl implements ReviewService {
                         .title(r.getTitle())
                         .comment(r.getComment())
                         .imageList(r.getImageList())
-                        .createdAt(r.getCreatedAt()) // ★ 追加
-                        .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId())) // ★ 追加
+                        .createdAt(r.getCreatedAt())
+                        .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId()))
                         .build();
             }
         }
@@ -227,8 +226,8 @@ public class ReviewServiceImpl implements ReviewService {
                         .title(r.getTitle())
                         .comment(r.getComment())
                         .imageList(r.getImageList())
-                        .createdAt(r.getCreatedAt()) // 修正
-                        .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId())) // ★ 追加
+                        .createdAt(r.getCreatedAt())
+                        .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId()))
                         .build()
         ).collect(Collectors.toList());
 
@@ -252,6 +251,11 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
 
+        if (review.isDeleted()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponseDto("削除済みレビューは編集できません"));
+        }
+
         if (!review.getUser().getUserId().equals(userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(new ApiResponseDto("本人のみ編集可能です"));
@@ -263,13 +267,31 @@ public class ReviewServiceImpl implements ReviewService {
         review.setImageList(requestDto.getImageList());
         review.setUpdatedAt(LocalDateTime.now());
 
-        // 画像の関連付け更新
-        if (requestDto.getImageList() != null) {
-            for (String fileName : requestDto.getImageList()) {
-                List<ReviewImage> images = reviewImageRepository.findAllByImageUrl(fileName);
-                for (ReviewImage image : images) {
-                    image.setReview(review);
+        // アップロード済み画像の紐付け（DB排他ロックで重複防止）
+        if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
+            for (String imageUrl : requestDto.getImageList()) {
+                Optional<ReviewImage> unlinkedImageOpt =
+                        reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
+                if (unlinkedImageOpt.isEmpty()) {
+                    System.out.println("[SKIP] 未紐付け画像が存在しないか、既に他レビューに紐付け済: " + imageUrl);
+                    continue;
                 }
+                ReviewImage imageToUpdate = unlinkedImageOpt.get();
+                imageToUpdate.setReview(review);
+
+                // Content-Type を補完
+                if (imageToUpdate.getContentType() == null) {
+                    if (imageUrl.endsWith(".jpg") || imageUrl.endsWith(".jpeg")) {
+                        imageToUpdate.setContentType("image/jpeg");
+                    } else if (imageUrl.endsWith(".png")) {
+                        imageToUpdate.setContentType("image/png");
+                    } else {
+                        imageToUpdate.setContentType("application/octet-stream");
+                    }
+                }
+
+                reviewImageRepository.save(imageToUpdate);
+                System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl + " -> reviewId: " + review.getReviewId());
             }
         }
 
@@ -311,6 +333,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .imageList(review.getImageList())
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())
+                .likeCount(reviewLikeRepository.countByReviewReviewId(reviewId))
                 .build();
 
         return ResponseEntity.ok(detail);

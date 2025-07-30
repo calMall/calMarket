@@ -2,10 +2,11 @@ package com.example.calmall.review.repository;
 
 import com.example.calmall.review.entity.ReviewImage;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -51,4 +52,14 @@ public interface ReviewImageRepository extends JpaRepository<ReviewImage, Long> 
      * @return レビュー未関連付けの最新のReviewImage（Optional）
      */
     Optional<ReviewImage> findTopByImageUrlAndReviewIsNullOrderByCreatedAtDesc(String imageUrl);
+
+    /**
+     * 高並列環境での重複防止用：指定URLの未関連付け画像を排他ロック付きで取得
+     * - これにより同時に複数スレッドが同じ画像を取得・更新することを防止
+     * @param imageUrl 対象画像のURL
+     * @return レビュー未関連付けの最新のReviewImage（Optional）
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT ri FROM ReviewImage ri WHERE ri.imageUrl = :imageUrl AND ri.review IS NULL ORDER BY ri.createdAt DESC")
+    Optional<ReviewImage> findTopUnlinkedImageForUpdate(@Param("imageUrl") String imageUrl);
 }

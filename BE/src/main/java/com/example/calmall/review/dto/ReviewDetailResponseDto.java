@@ -21,8 +21,14 @@ public class ReviewDetailResponseDto {
     private String comment; // コメント
     private int rating; // 評価（1〜5）
     private List<String> imageList; // 画像URLのリスト
+
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Tokyo")
     private LocalDateTime createdAt; // 作成日時
+
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Tokyo")
     private LocalDateTime updatedAt; // 更新日時
+
+    private boolean like; // いいね済みか
+
+    private long likeCount; // いいね数
 }
