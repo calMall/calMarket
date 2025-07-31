@@ -3,6 +3,7 @@ package com.example.calmall.product.service;
 import com.example.calmall.product.dto.ProductDetailResponseDto;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
+import com.example.calmall.review.repository.ReviewRepository; // ★追加
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -10,16 +11,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Random;
 
 /**
  * 商品情報に関する業務ロジックを実装するサービスクラス
- *
- * 以下の方針で商品詳細を返却する:
- * 1) DBに商品が存在すればそれを返却。[ソース=DB]
- * 2) 存在しなければ楽天APIで取得を試行。[ソース=DB無し→API照会]
- *    - API成功時: DBへ保存し返却。[ソース=楽天API] + [DB登録]
- *    - API失敗時: 失敗レスポンスを返却。[ソース=楽天API無し]
  */
 @Service
 @RequiredArgsConstructor
@@ -28,6 +22,7 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final RakutenApiService rakutenApiService;
+    private final ReviewRepository reviewRepository; // ★レビュー情報の取得用
 
     /**
      * 商品詳細取得処理
@@ -37,14 +32,14 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public ResponseEntity<ProductDetailResponseDto> getProductDetail(String itemCode) {
 
-        // --- 1) まずDB検索 ---------------------------------------------------
+        // --- 1) DBから商品を取得（あれば） ---
         Product product = productRepository.findByItemCode(itemCode).orElse(null);
         if (product != null) {
             log.info("[ソース=DB] DBに既存商品を発見 itemCode={} name={}", product.getItemCode(), product.getItemName());
             return ResponseEntity.ok(buildSuccessResponse(product));
         }
 
-        // --- 2) DBに無い → 楽天API照会 ---------------------------------------
+        // --- 2) DBに無い → 楽天API照会 ---
         log.info("[ソース=DB無し→楽天API照会] itemCode={}", itemCode);
         product = rakutenApiService.fetchProductFromRakuten(itemCode).orElse(null);
 
@@ -53,7 +48,7 @@ public class ProductServiceImpl implements ProductService {
             return new ResponseEntity<>(buildFailResponse(), HttpStatus.BAD_REQUEST);
         }
 
-        // --- 3) API成功 → DB保存 ---------------------------------------------
+        // --- 3) API成功 → DB保存 ---
         Product saved = productRepository.save(product);
         log.info("[ソース=楽天API] 取得成功 → [DB登録] 完了 itemCode={} name={}", saved.getItemCode(), saved.getItemName());
 
@@ -62,7 +57,6 @@ public class ProductServiceImpl implements ProductService {
 
     /**
      * 在庫による購入可否判定
-     * true = 在庫1以上, false = 在庫0以下 または商品無し
      */
     @Override
     public ResponseEntity<Boolean> isPurchasable(String itemCode) {
@@ -78,21 +72,21 @@ public class ProductServiceImpl implements ProductService {
                 });
     }
 
-    /* ======================================================================
-     * 内部ユーティリティ: レスポンスDTO組み立て
-     * ====================================================================== */
-
     /**
-     * 成功レスポンス組み立て
+     * 成功レスポンスDTOの組み立て
      */
     private ProductDetailResponseDto buildSuccessResponse(Product product) {
+        // ★ 平均スコアとレビュー件数を取得
+        Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode());
+        int reviewCount = reviewRepository.countByProduct_ItemCode(product.getItemCode());
+
         ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
                 .itemCode(product.getItemCode())
                 .itemName(product.getItemName())
                 .itemCaption(product.getItemCaption())
                 .catchcopy(product.getCatchcopy())
-                .score(4)            // ここでは仮固定
-                .reviewCount(10)     // ここでは仮固定
+                .score(score != null ? (int) Math.round(score) : 0)  // 小数点を四捨五入して整数に
+                .reviewCount(reviewCount)
                 .price(product.getPrice())
                 .imageUrls(product.getImages() != null ? product.getImages() : List.of())
                 .build();
@@ -104,7 +98,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     /**
-     * 失敗レスポンス組み立て（商品情報なし）
+     * 失敗レスポンスDTOの組み立て
      */
     private ProductDetailResponseDto buildFailResponse() {
         return ProductDetailResponseDto.builder()

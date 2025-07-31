@@ -4,6 +4,8 @@ import com.example.calmall.review.entity.Review;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,21 +16,28 @@ import java.util.Optional;
  */
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
-    // 商品ごとのレビューをページング付きで取得
+    // 対象商品のレビューをページング付きで取得
     Page<Review> findByProduct_ItemCode(String itemCode, Pageable pageable);
 
-    // 商品ごとの全レビューを取得（ページングなし）
+    // 対象商品の全レビューを取得（ページングなし）
     List<Review> findByProduct_ItemCode(String itemCode);
 
-    // ユーザーのレビュー一覧を取得（ページング付き）
+    // 対象ユーザーのレビューをページング付きで取得
     Page<Review> findByUser_UserId(String userId, Pageable pageable);
 
-    // 商品とユーザーを指定してレビューを取得（マイレビュー用）
+    // 指定商品・ユーザーのレビュー（マイレビュー）を取得
     Optional<Review> findByProduct_ItemCodeAndUser_UserId(String itemCode, String userId);
 
-    // 指定されたユーザーIDと商品コードに一致し、かつ削除済みのレビューが存在するかを検索
+    // 指定ユーザー・商品で削除済みレビューがあるか（再投稿制限用）
     Optional<Review> findByUser_UserIdAndProduct_ItemCodeAndDeletedIsTrue(String userId, String itemCode);
 
     // 商品・ユーザー・作成日時から削除済みレビューを検索（再投稿制限用）
     Optional<Review> findByProduct_ItemCodeAndUser_UserIdAndDeletedTrue(String itemCode, String userId);
+
+    // 指定商品のレビュー件数を取得（Product詳細取得で使用）
+    int countByProduct_ItemCode(String itemCode);
+
+    // 指定商品の評価平均（score）を取得（Product詳細取得で使用）
+    @Query("SELECT AVG(r.rating) FROM Review r WHERE r.product.itemCode = :itemCode")
+    Double findAverageRatingByItemCode(@Param("itemCode") String itemCode);
 }

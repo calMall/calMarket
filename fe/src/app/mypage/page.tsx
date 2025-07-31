@@ -57,27 +57,45 @@ export default function Mypage() {
             もっと見る
           </Link>
         </div>
-        <div className="wf simple-order-contain">
-          {orders.slice(0, 4).map((order) => (
-            <Link key={order.id} href={`/`} className="rt simple-order-img">
-              <ContainImage
-                alt="poduct"
-                url={newImageSizing(order.imageUrl, 512)}
-              />
-            </Link>
-          ))}
+        <h2>注文履歴</h2>
+        {orders.map((order) => (
+          <div>{order.imageUrl}</div>
+        ))}
+        <div className="bb mypage-horizens">
+          <h2>注文履歴</h2>
+          {orders.length === 0 ? (
+            <div>注文履歴がありません</div>
+          ) : (
+            orders.map((order) => <div key={order.id}>{order.imageUrl}</div>)
+          )}
         </div>
-      </div>
-      <div className="mypage-horizens">
-        <div className="flex jb">
-          <h2>「{userStore.userInfo?.nickname}」さんのレビュー</h2>
-          <Link
-            className="color-deep-dark-main flex ac"
-            href={"/mypage/reviews"}
-          >
-            もっと見る
+        {/* オーダーできたら上に移す */}
+        <div className="wf simple-order-contain">
+          <Link href={`/`} className="rt simple-order-img">
+            <ContainImage alt="product" url="/a.png" />
           </Link>
         </div>
+      </div>
+      <div>
+        <div className="mypage-horizens">
+          <h2>「{userStore.userInfo?.nickname}」さんのレビュー</h2>
+          {reviews.length === 0 ? (
+            <div>レビューがありません</div>
+          ) : (
+            <>
+              {reviews.map((review) => (
+                <div key={review.id}>
+                  <div>{review.title}</div>
+                  <Star score={review.score} />
+                  <div>{review.createdAt}</div>
+                  <div>{review.content}</div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        {/* レビューできたら上に移す */}
         <div className="wf simple-order-contain">
           {reviews.slice(0, 4).map((review) => (
             <Link
