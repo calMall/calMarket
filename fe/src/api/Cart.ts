@@ -1,5 +1,19 @@
 const url = process.env.NEXT_PUBLIC_BASE_URL;
 
+export const getCart = async (): Promise<CartListResponseDto> => {
+  const data = await fetch(`${url}/cart`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+
+  if (!data.ok) {
+    const error: any = new Error(data.statusText);
+    error.status = data.status;
+    throw error;
+  }
+  return data.json();
+};
 export const postCart = async (
   itemCode: string,
   quantity: number
