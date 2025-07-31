@@ -1,6 +1,7 @@
 package com.example.calmall.review.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -72,12 +73,14 @@ public class ReviewListByUserResponseDto {
         private LocalDateTime createdAt;
 
         // ログインユーザーがいいねしているか
+        @JsonProperty("isLike")
         private boolean isLike;
 
         // このレビューの総いいね数
         private long likeCount;
 
         // ★ レビューの所有者かどうか
+        @JsonProperty("isOwner")
         private boolean isOwner;
     }
 }

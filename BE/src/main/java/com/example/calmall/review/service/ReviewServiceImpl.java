@@ -169,6 +169,7 @@ public class ReviewServiceImpl implements ReviewService {
                 Review r = myList.get(0);
                 myReview = ReviewListByItemResponseDto.MyReview.builder()
                         .reviewId(r.getReviewId())
+                        .userId(r.getUser().getUserId())
                         .rating(r.getRating())
                         .title(r.getTitle())
                         .comment(r.getComment())

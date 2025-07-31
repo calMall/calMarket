@@ -2,6 +2,7 @@ package com.example.calmall.review.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -114,6 +115,8 @@ public class ReviewListByItemResponseDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MyReview {
+        /** 投稿者のユーザーID */
+        private String userId;
 
         /** レビューID */
         private Long reviewId;
@@ -138,9 +141,11 @@ public class ReviewListByItemResponseDto {
         private long likeCount;
 
         /** ログインユーザーがこのレビューにいいねしているか */
+        @JsonProperty("isLike")
         private boolean isLike;
 
         /** ログインユーザー自身かどうか */
+        @JsonProperty("isOwner")
         private boolean isOwner;
     }
 }
