@@ -71,10 +71,13 @@ public class ReviewListByUserResponseDto {
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Tokyo")
         private LocalDateTime createdAt;
 
-        // ログインユーザーが「いいね」しているか
+        // ログインユーザーがいいねしているか
         private boolean isLike;
 
-        // ★ このレビューの総いいね数
+        // このレビューの総いいね数
         private long likeCount;
+
+        // ★ レビューの所有者かどうか
+        private boolean isOwner;
     }
 }

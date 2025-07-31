@@ -136,5 +136,11 @@ public class ReviewListByItemResponseDto {
 
         /** このレビューの総いいね数 */
         private long likeCount;
+
+        /** ログインユーザーがこのレビューにいいねしているか */
+        private boolean isLike;
+
+        /** ログインユーザー自身かどうか */
+        private boolean isOwner;
     }
 }

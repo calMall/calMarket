@@ -174,6 +174,8 @@ public class ReviewServiceImpl implements ReviewService {
                         .comment(r.getComment())
                         .imageList(r.getImageList())
                         .createdAt(r.getCreatedAt())
+                        .isLike(reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, r.getReviewId()))
+                        .isOwner(userId.equals(r.getUser().getUserId()))
                         .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId()))
                         .build();
             }
@@ -210,6 +212,7 @@ public class ReviewServiceImpl implements ReviewService {
                         .createdAt(r.getCreatedAt())
                         .isLike(reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, r.getReviewId()))
                         .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId()))
+                        .isOwner(true)
                         .build())
                 .collect(Collectors.toList());
 
