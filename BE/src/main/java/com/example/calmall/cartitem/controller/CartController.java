@@ -5,7 +5,9 @@ import com.example.calmall.cartitem.dto.CartListResponseDto;
 import com.example.calmall.cartitem.entity.CartItem;
 import com.example.calmall.cartitem.service.CartItemService;
 import com.example.calmall.global.dto.ApiResponseDto;
+import com.example.calmall.user.entity.User;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -25,9 +27,11 @@ import java.util.Optional;
 public class CartController {
 
     private final CartItemService cartItemService;
-    private String getUserIdFromSession(HttpServletRequest request) {
+    private String getUserIdFromSession(
+                                        HttpSession session) {
         //ユーザセッション確認
-        String userId = (String) request.getSession().getAttribute("userId");
+        User user = (User) session.getAttribute("user");
+        String userId = user.getUserId();
         if (userId == null) {
             log.warn("セッションにユーザーIDが見つかりませんでした。");
             // ログインが必要な場合はnullを返す
@@ -47,8 +51,9 @@ public class CartController {
      */
     @PostMapping
     public ResponseEntity<ApiResponseDto> addOrUpdateCartItem(@RequestBody CartAddRequestDto requestDto,
-                                                              HttpServletRequest request) {
-        String userId = getUserIdFromSession(request);
+                                                              HttpServletRequest request,
+                                                              HttpSession session) {
+        String userId  = getUserIdFromSession(session);
         if (userId == null) {
             log.warn("ログインが必要です。");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponseDto("ログインが必要です"));
@@ -80,8 +85,9 @@ public class CartController {
      * @return カートアイテムのリストを含むCartListResponseDto
      */
     @GetMapping
-    public ResponseEntity<CartListResponseDto> getCartItems(HttpServletRequest request) {
-        String userId = getUserIdFromSession(request);
+    public ResponseEntity<CartListResponseDto> getCartItems(HttpServletRequest request,
+                                                            HttpSession session) {
+        String userId = getUserIdFromSession(session);
         if (userId == null) {
             log.warn("ログインが必要です。");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
@@ -116,8 +122,10 @@ public class CartController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponseDto> removeCartItem(@PathVariable("id") Long cartItemId,
-                                                         HttpServletRequest request) {
-        String userId = getUserIdFromSession(request);
+                                                         HttpServletRequest request,
+                                                         HttpSession session) {
+        String userId  = getUserIdFromSession(session);
+
         if (userId == null) {
             log.warn("ログインが必要です。");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponseDto("ログインが必要です"));
@@ -145,8 +153,10 @@ public class CartController {
      * @return 成功または失敗を示すApiResponseDto
      */
     @DeleteMapping("/clear")
-    public ResponseEntity<ApiResponseDto> clearUserCart(HttpServletRequest request) {
-        String userId = getUserIdFromSession(request);
+    public ResponseEntity<ApiResponseDto> clearUserCart(HttpServletRequest request,
+                                                        HttpSession session) {
+        String userId  = getUserIdFromSession(session);
+
         if (userId == null) {
             log.warn("ログインが必要です。");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponseDto("ログインが必要です"));

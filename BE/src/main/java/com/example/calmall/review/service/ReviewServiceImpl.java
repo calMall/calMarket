@@ -350,6 +350,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .imageList(review.getImageList()) // 画像URLリスト
                 .createdAt(review.getCreatedAt()) // 作成日時
                 .updatedAt(review.getUpdatedAt()) // 更新日時
+//                .like(isLiked)
                 .likeCount(reviewLikeRepository.countByReviewReviewId(reviewId)) // いいね数
                 .userId(reviewAuthorId) // 新規追加: 投稿者のユーザーID
                 .isOwner(isOwner) // 新規追加: 所有者判定
