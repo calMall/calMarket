@@ -105,19 +105,24 @@ public class ReviewServiceImpl implements ReviewService {
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
             Set<String> uniqueImageUrls = new LinkedHashSet<>(requestDto.getImageList());
             for (String imageUrl : uniqueImageUrls) {
-                Optional<ReviewImage> imageOpt = reviewImageRepository.findByImageUrl(imageUrl);
-                if (imageOpt.isPresent()) {
-                    ReviewImage image = imageOpt.get();
-                    // reviewがnull（未紐付け）なら今回のレビューに紐付け
-                    if (image.getReview() == null) {
-                        image.setReview(savedReview);
-                        reviewImageRepository.save(image);
-                        System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl + " -> reviewId: " + savedReview.getReviewId());
-                    } else {
-                        System.out.println("[SKIP] すでに他のレビューと紐付け済: " + imageUrl);
+                // 最新の未紐付け画像1件のみ取得し、レビューに紐付け
+                Optional<ReviewImage> unlinkedImageOpt = reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
+                if (unlinkedImageOpt.isPresent()) {
+                    ReviewImage image = unlinkedImageOpt.get();
+                    image.setReview(savedReview);
+                    reviewImageRepository.save(image);
+                    System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl + " -> reviewId: " + savedReview.getReviewId());
+
+                    // （進階）同一imageUrlの未紐付けが他にもあれば、自動で物理削除しておく（データ整合）
+                    List<ReviewImage> duplicates = reviewImageRepository.findByImageUrlAndReviewIsNull(imageUrl);
+                    for (ReviewImage dup : duplicates) {
+                        if (!dup.getId().equals(image.getId())) {
+                            reviewImageRepository.delete(dup);
+                            System.out.println("[DELETE] 重複未紐付け画像を自動削除: id=" + dup.getId());
+                        }
                     }
                 } else {
-                    System.out.println("[SKIP] DBに画像URLが存在しない: " + imageUrl);
+                    System.out.println("[SKIP] 未紐付け画像が存在しない: " + imageUrl);
                 }
             }
         }
@@ -254,18 +259,24 @@ public class ReviewServiceImpl implements ReviewService {
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
             Set<String> uniqueImageUrls = new LinkedHashSet<>(requestDto.getImageList());
             for (String imageUrl : uniqueImageUrls) {
-                Optional<ReviewImage> imageOpt = reviewImageRepository.findByImageUrl(imageUrl);
-                if (imageOpt.isPresent()) {
-                    ReviewImage image = imageOpt.get();
-                    if (image.getReview() == null) {
-                        image.setReview(review);
-                        reviewImageRepository.save(image);
-                        System.out.println("[LINKED] 画像をレビューに再紐付け完了: " + imageUrl + " -> reviewId: " + review.getReviewId());
-                    } else {
-                        System.out.println("[SKIP] すでに他のレビューと紐付け済: " + imageUrl);
+                // 最新の未紐付け画像1件のみ取得し、レビューに紐付け
+                Optional<ReviewImage> unlinkedImageOpt = reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
+                if (unlinkedImageOpt.isPresent()) {
+                    ReviewImage image = unlinkedImageOpt.get();
+                    image.setReview(review);
+                    reviewImageRepository.save(image);
+                    System.out.println("[LINKED] 画像をレビューに再紐付け完了: " + imageUrl + " -> reviewId: " + review.getReviewId());
+
+                    // そのimageUrlで他にも未紐付け（review=null）があれば削除（自動クリーンアップ）
+                    List<ReviewImage> duplicates = reviewImageRepository.findByImageUrlAndReviewIsNull(imageUrl);
+                    for (ReviewImage dup : duplicates) {
+                        if (!dup.getId().equals(image.getId())) {
+                            reviewImageRepository.delete(dup);
+                            System.out.println("[DELETE] 重複未紐付け画像を自動削除: id=" + dup.getId());
+                        }
                     }
                 } else {
-                    System.out.println("[SKIP] DBに画像URLが存在しない: " + imageUrl);
+                    System.out.println("[SKIP] 未紐付け画像が存在しない: " + imageUrl);
                 }
             }
         }
