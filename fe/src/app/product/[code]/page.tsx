@@ -5,7 +5,7 @@ import ProductDetailImage from "@/components/product/ProductDetailImage";
 import ProductDetailOrReview from "@/components/product/ProductDetailOrReview";
 import ProductDetailTitle from "@/components/product/ProductDetailTitle";
 
-export default async function animeDetail({
+export default async function ProductDetail({
   params,
 }: {
   params: Promise<{ code: string }>;

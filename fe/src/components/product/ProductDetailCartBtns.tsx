@@ -5,6 +5,7 @@ import { FiShoppingCart } from "react-icons/fi";
 import Link from "next/link";
 import { RiShoppingBag4Line } from "react-icons/ri";
 import { LuShare } from "react-icons/lu";
+import { postCart } from "@/api/Cart";
 
 interface props {
   itemCode: string;
@@ -24,7 +25,23 @@ export default function ProductDetailCartBtns({ itemCode }: props) {
     setQuantity(num);
   };
 
-  const onCart = () => {};
+  const onCart = async () => {
+    if (quantity < 1) {
+      return alert("数量は1以上でなければなりません。");
+    }
+    if (quantity > 30) {
+      return alert("注文は30件以下可能です。");
+    }
+    try {
+      const res = await postCart(itemCode, quantity);
+      if (res.message === "success") {
+        alert("カートに商品が追加されました。");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("カートに商品を追加する際にエラーが発生しました。");
+    }
+  };
 
   function copy() {
     navigator.clipboard.writeText(url);
@@ -36,6 +53,9 @@ export default function ProductDetailCartBtns({ itemCode }: props) {
     setUrl(window.location.href);
   }, []);
   useEffect(() => {
+    if (quantity < 1) {
+      return setQuantity(1);
+    }
     if (quantity > 30) {
       alert("注文は30件以下可能です。");
       return setQuantity(30);
@@ -50,7 +70,7 @@ export default function ProductDetailCartBtns({ itemCode }: props) {
           text="-"
           func={() =>
             setQuantity((prev) => {
-              if (prev > 0) return prev - 1;
+              if (prev > 1) return prev - 1;
               return prev;
             })
           }

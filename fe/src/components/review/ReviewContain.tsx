@@ -6,6 +6,7 @@ import Star from "../product/Star";
 import BarChart from "./BarChart";
 import Image from "next/image";
 import ReviewItem from "./ReviewItem";
+import InfiniteReview from "./InfiniteReview";
 
 interface props {
   itemCode: string;
@@ -13,17 +14,22 @@ interface props {
 }
 export default function ReviewContain({ itemCode, rating }: props) {
   const [reviews, setReviews] = useState<ReviewDTOonProduct[]>([]);
+  const [myReview, setMyReview] = useState<ReviewDTOonProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [reviewCount, setReviewCount] = useState(0);
   const [ratingStats, setRatingStats] = useState<RatingStats | null>(null);
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const res = await getReviewByProduct(itemCode);
+        const res = await getReviewByProduct(itemCode, 0, 10);
         setReviews(res.reviews);
         setReviewCount(res.totalElements);
         setRatingStats(res.ratingStats);
         setLoading(false);
+        if (res.myReview) {
+          setMyReview(res.myReview);
+        }
+        console.log(res);
       } catch (e: any) {}
     };
     fetchReviews();
@@ -47,7 +53,7 @@ export default function ReviewContain({ itemCode, rating }: props) {
                   alt="loading"
                   width={50}
                   height={50}
-                ></Image>
+                />
               </div>
             </div>
           ) : (
@@ -62,6 +68,14 @@ export default function ReviewContain({ itemCode, rating }: props) {
           )}
         </div>
       </div>
+      {myReview && (
+        <div className="my-review-contain">
+          <h3>あなたのレビュー</h3>
+          <div className="my-review">
+            <ReviewItem review={myReview} isMy={true} />
+          </div>
+        </div>
+      )}
       <div className="flex-col gap-1 mt-2 ">
         {loading ? (
           <div>
@@ -75,9 +89,10 @@ export default function ReviewContain({ itemCode, rating }: props) {
             </div>
           </div>
         ) : reviews.length > 0 ? (
-          reviews.map((review) => (
-            <ReviewItem key={review.reviewId} review={review} />
-          ))
+          // reviews.map((review) => (
+          //   <ReviewItem key={review.reviewId} review={review} />
+          // ))
+          <InfiniteReview itemCode={itemCode} size={10} isNextPage={true} />
         ) : (
           <div>レビューはまだありません。</div>
         )}
