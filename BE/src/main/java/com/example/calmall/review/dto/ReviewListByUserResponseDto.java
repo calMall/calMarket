@@ -71,6 +71,9 @@ public class ReviewListByUserResponseDto {
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Tokyo")
         private LocalDateTime createdAt;
 
+        // ログインユーザーが「いいね」しているか
+        private boolean isLike;
+
         // ★ このレビューの総いいね数
         private long likeCount;
     }
