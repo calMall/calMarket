@@ -18,6 +18,23 @@ export const postReview = async (
   }
   return data.json();
 };
+export const postReviewLike = async (
+  reviewId: number
+): Promise<ResponseDTO> => {
+  const data = await fetch(`${url}/review-likes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ reviewId }),
+  });
+
+  if (!data.ok) {
+    const error: any = new Error(data.statusText);
+    error.status = data.status;
+    throw error;
+  }
+  return data.json();
+};
 
 export const getReviewDetail = async (id: number): Promise<Review> => {
   const data = await fetch(`${url}/reviews/${id}`, {
@@ -33,12 +50,17 @@ export const getReviewDetail = async (id: number): Promise<Review> => {
   return data.json();
 };
 export const getReviewByProduct = async (
-  itemCode: string
+  itemCode: string,
+  page: number,
+  size: number
 ): Promise<ReviewListDTO> => {
-  const data = await fetch(`${url}/reviews?itemCode=${itemCode}`, {
-    method: "GET",
-    credentials: "include",
-  });
+  const data = await fetch(
+    `${url}/reviews?itemCode=${itemCode}&page=${page}&size=${size}`,
+    {
+      method: "GET",
+      credentials: "include",
+    }
+  );
 
   if (!data.ok) {
     const error: any = new Error(data.statusText);

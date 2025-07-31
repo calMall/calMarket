@@ -5,6 +5,7 @@ import CustomButton from "../common/CustomBtn";
 import { postReview } from "@/api/Review";
 import { useRouter } from "next/navigation";
 import CustomInput from "../common/CustomInput";
+import UserStore from "@/store/user";
 interface props {
   itemCode: string;
 }
@@ -14,6 +15,7 @@ export default function ReviewWriteContain({ itemCode }: props) {
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
   const router = useRouter();
+  const userStore = UserStore();
   const decodedItemCode = decodeURIComponent(itemCode as string);
   const onPostReview = async () => {
     if (!rating) return alert("レビューには星の評価が必要です。");
@@ -36,6 +38,7 @@ export default function ReviewWriteContain({ itemCode }: props) {
       console.log(e);
       if (e.status === 401) {
         alert("ログインが必要です。ログインページに移動します。");
+        userStore.logout();
         router.push("/login");
       } else {
         alert("レビューの投稿中にエラーが発生しました。");

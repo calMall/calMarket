@@ -836,7 +836,7 @@ textarea {
 }
 .review-item {
   border-top: 1px solid rgba($color: #000000, $alpha: 0.3);
-  padding: 1rem;
+  padding-top: 1rem;
   box-sizing: border-box;
 }
 .date-font {
@@ -861,4 +861,25 @@ textarea {
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.btn-like {
+  height: 2rem;
+  border: solid 1px rgba($color: #000000, $alpha: 0.5);
+  border-radius: 20px;
+  margin-top: 1rem;
+  padding: 0.5rem;
+
+  &:hover {
+    background-color: $main-color;
+    transition: 0.3s;
+  }
+}
+.btn-liked {
+  color: white;
+  background-color: $main-deep-dark-color;
+}
+.like-comment {
+  font-size: small;
+  color: rgba($color: #000000, $alpha: 0.7);
 }

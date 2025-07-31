@@ -1,3 +1,3 @@
 export const dateFormat = (date: string) => {
-  return date.split("T")[0];
+  return date.split(" ")[0];
 };
