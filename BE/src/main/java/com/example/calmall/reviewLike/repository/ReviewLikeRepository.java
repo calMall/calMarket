@@ -3,6 +3,10 @@ package com.example.calmall.reviewLike.repository;
 
 import com.example.calmall.reviewLike.entity.ReviewLike;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.Collection;
 import java.util.List;
 
 
@@ -20,4 +24,11 @@ public interface ReviewLikeRepository extends JpaRepository<ReviewLike, Long> {
 
     // 指定レビューに対する「いいね」一覧取得
     List<ReviewLike> findAllByReviewReviewId(Long reviewId);
+
+    /**
+     * 指定ユーザーが「いいね」したレビューID一覧を取得
+     */
+    @Query("SELECT rl.review.reviewId FROM ReviewLike rl WHERE rl.user.userId = :userId")
+    List<Long> findReviewIdsLikedByUser(@Param("userId") String userId);
+
 }

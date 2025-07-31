@@ -69,5 +69,11 @@ public interface ReviewService {
      */
     ResponseEntity<ApiResponseDto> deleteReview(Long reviewId, String userId);
 
-    ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long id, String userId);
+    /**
+     * レビュー詳細を取得する
+     * @param reviewId 対象レビューのID
+     * @param currentUserId 現在ログイン中のユーザーID（未ログイン時は null）
+     * @return レビュー詳細情報
+     */
+    ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long reviewId, String currentUserId);
 }

@@ -147,13 +147,20 @@ public class ReviewServiceImpl implements ReviewService {
     /**
      * 商品別レビュー取得
      * - ページネーション対応
-     * - 評価統計、マイレビュー、いいね状態を含む
+     * - 評価統計、マイレビュー、いいね状態
      */
     @Override
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(String itemCode, String userId, int page, int size) {
-        Page<Review> reviewPage = reviewRepository.findByProduct_ItemCodeAndDeletedFalse(itemCode, PageRequest.of(page, size));
+
+        // ページネーションでレビュー取得（削除されていないもの）
+        Page<Review> reviewPage = reviewRepository.findByProduct_ItemCodeAndDeletedFalse(
+                itemCode, PageRequest.of(page, size)
+        );
+
+        // 評価統計用に全レビュー取得（削除されていないもの）
         List<Review> allReviews = reviewRepository.findByProduct_ItemCodeAndDeletedFalse(itemCode);
 
+        // 点数ごとの件数を集計
         Map<Integer, Long> ratingStatsMap = allReviews.stream()
                 .collect(Collectors.groupingBy(Review::getRating, Collectors.counting()));
 
@@ -165,10 +172,12 @@ public class ReviewServiceImpl implements ReviewService {
                     .build());
         }
 
+        // ページごとのレビュー情報をDTOに変換
         List<ReviewListByItemResponseDto.ReviewInfo> reviewInfos = reviewPage.getContent().stream()
                 .map(r -> ReviewListByItemResponseDto.ReviewInfo.builder()
                         .reviewId(r.getReviewId())
                         .userNickname(r.getUser().getNickname())
+                        .userId(r.getUser().getUserId()) // ← 発表者のユーザーIDをセット
                         .rating(r.getRating())
                         .title(r.getTitle())
                         .comment(r.getComment())
@@ -176,9 +185,11 @@ public class ReviewServiceImpl implements ReviewService {
                         .createdAt(r.getCreatedAt())
                         .isLike(userId != null && reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, r.getReviewId()))
                         .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId()))
+                        .isOwner(userId != null && userId.equals(r.getUser().getUserId())) // ← 所有者判定
                         .build())
                 .collect(Collectors.toList());
 
+        // ログインユーザーのマイレビュー取得（存在する場合のみ）
         ReviewListByItemResponseDto.MyReview myReview = null;
         if (userId != null) {
             List<Review> myList = reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(itemCode, userId);
@@ -196,6 +207,7 @@ public class ReviewServiceImpl implements ReviewService {
             }
         }
 
+        // レスポンスDTOを返却
         return ResponseEntity.ok(ReviewListByItemResponseDto.builder()
                 .message("success")
                 .reviews(reviewInfos)
@@ -343,6 +355,12 @@ public class ReviewServiceImpl implements ReviewService {
         boolean isOwner = currentUserId != null && currentUserId.equals(reviewAuthorId);
 
         // DTO を構築
+        // ログインユーザーがこのレビューを「いいね」しているかを判定
+        boolean isLiked = false;
+        if (currentUserId != null) {
+            isLiked = reviewLikeRepository.existsByUserUserIdAndReviewReviewId(currentUserId, reviewId);
+        }
+
         ReviewDetailResponseDto detail = ReviewDetailResponseDto.builder()
                 .title(review.getTitle()) // レビュータイトル
                 .comment(review.getComment()) // レビュー本文
@@ -350,7 +368,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .imageList(review.getImageList()) // 画像URLリスト
                 .createdAt(review.getCreatedAt()) // 作成日時
                 .updatedAt(review.getUpdatedAt()) // 更新日時
-//                .like(isLiked)
+                .like(isLiked)
                 .likeCount(reviewLikeRepository.countByReviewReviewId(reviewId)) // いいね数
                 .userId(reviewAuthorId) // 新規追加: 投稿者のユーザーID
                 .isOwner(isOwner) // 新規追加: 所有者判定
