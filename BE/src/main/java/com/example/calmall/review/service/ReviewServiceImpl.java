@@ -44,6 +44,8 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * レビュー投稿（認証済userIdのみ受け取る）
+     * - 画像は既存DBに登録済みのみ紐付け可
+     * - 画像は「未紐付け状態（review=null）」のみ紐付けし、重複insertを禁止
      */
     @Override
     @Transactional
@@ -99,28 +101,24 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
+        // 画像リストが指定されている場合、「既存画像の未紐付け分のみ」レビューと紐付け
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
             Set<String> uniqueImageUrls = new LinkedHashSet<>(requestDto.getImageList());
             for (String imageUrl : uniqueImageUrls) {
-                Optional<ReviewImage> unlinkedImageOpt =
-                        reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
-                if (unlinkedImageOpt.isEmpty()) {
-                    System.out.println("[SKIP] 未紐付け画像が存在しないか、既に他レビューに紐付け済: " + imageUrl);
-                    continue;
-                }
-                ReviewImage imageToUpdate = unlinkedImageOpt.get();
-                imageToUpdate.setReview(savedReview);
-                if (imageToUpdate.getContentType() == null) {
-                    if (imageUrl.endsWith(".jpg") || imageUrl.endsWith(".jpeg")) {
-                        imageToUpdate.setContentType("image/jpeg");
-                    } else if (imageUrl.endsWith(".png")) {
-                        imageToUpdate.setContentType("image/png");
+                Optional<ReviewImage> imageOpt = reviewImageRepository.findByImageUrl(imageUrl);
+                if (imageOpt.isPresent()) {
+                    ReviewImage image = imageOpt.get();
+                    // reviewがnull（未紐付け）なら今回のレビューに紐付け
+                    if (image.getReview() == null) {
+                        image.setReview(savedReview);
+                        reviewImageRepository.save(image);
+                        System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl + " -> reviewId: " + savedReview.getReviewId());
                     } else {
-                        imageToUpdate.setContentType("application/octet-stream");
+                        System.out.println("[SKIP] すでに他のレビューと紐付け済: " + imageUrl);
                     }
+                } else {
+                    System.out.println("[SKIP] DBに画像URLが存在しない: " + imageUrl);
                 }
-                reviewImageRepository.save(imageToUpdate);
-                System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl + " -> reviewId: " + savedReview.getReviewId());
             }
         }
         return ResponseEntity.ok(new ApiResponseDto("success"));
@@ -229,6 +227,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     /**
      * レビュー編集（Controllerで認証済userIdのみ受け取る）
+     * - 画像の再紐付けも同様、既存画像且つ未紐付けのみ可
      */
     @Override
     @Transactional
@@ -251,28 +250,23 @@ public class ReviewServiceImpl implements ReviewService {
         review.setImageList(requestDto.getImageList());
         review.setUpdatedAt(LocalDateTime.now());
 
+        // 画像の再紐付けも「既存DB、未紐付け分のみ」許可
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
             Set<String> uniqueImageUrls = new LinkedHashSet<>(requestDto.getImageList());
             for (String imageUrl : uniqueImageUrls) {
-                Optional<ReviewImage> unlinkedImageOpt =
-                        reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
-                if (unlinkedImageOpt.isEmpty()) {
-                    System.out.println("[SKIP] 未紐付け画像が存在しないか、既に他レビューに紐付け済: " + imageUrl);
-                    continue;
-                }
-                ReviewImage imageToUpdate = unlinkedImageOpt.get();
-                imageToUpdate.setReview(review);
-                if (imageToUpdate.getContentType() == null) {
-                    if (imageUrl.endsWith(".jpg") || imageUrl.endsWith(".jpeg")) {
-                        imageToUpdate.setContentType("image/jpeg");
-                    } else if (imageUrl.endsWith(".png")) {
-                        imageToUpdate.setContentType("image/png");
+                Optional<ReviewImage> imageOpt = reviewImageRepository.findByImageUrl(imageUrl);
+                if (imageOpt.isPresent()) {
+                    ReviewImage image = imageOpt.get();
+                    if (image.getReview() == null) {
+                        image.setReview(review);
+                        reviewImageRepository.save(image);
+                        System.out.println("[LINKED] 画像をレビューに再紐付け完了: " + imageUrl + " -> reviewId: " + review.getReviewId());
                     } else {
-                        imageToUpdate.setContentType("application/octet-stream");
+                        System.out.println("[SKIP] すでに他のレビューと紐付け済: " + imageUrl);
                     }
+                } else {
+                    System.out.println("[SKIP] DBに画像URLが存在しない: " + imageUrl);
                 }
-                reviewImageRepository.save(imageToUpdate);
-                System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl + " -> reviewId: " + review.getReviewId());
             }
         }
         return ResponseEntity.ok(new ApiResponseDto("success"));

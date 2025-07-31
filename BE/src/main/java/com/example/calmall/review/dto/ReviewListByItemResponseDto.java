@@ -80,12 +80,14 @@ public class ReviewListByItemResponseDto {
         private LocalDateTime createdAt;
 
         /** ログインユーザーがこのレビューに「いいね」しているか */
+        @JsonProperty("isLike")
         private boolean isLike;
 
         /** このレビューの総いいね数 */
         private long likeCount;
 
         /** ログインユーザーがこのレビューの投稿者かどうか */
+        @JsonProperty("isOwner")
         private boolean isOwner;
     }
 

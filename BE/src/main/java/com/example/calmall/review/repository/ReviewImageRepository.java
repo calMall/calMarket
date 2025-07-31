@@ -12,54 +12,30 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * ReviewImage（レビュー画像）に対するDB操作を提供するリポジトリインターフェース。
+ * ReviewImage（レビュー画像）に対するDB操作を提供するリポジトリインターフェース
  */
 public interface ReviewImageRepository extends JpaRepository<ReviewImage, Long> {
 
-    /**
-     * 指定された画像URLに一致するレビュー画像のレコードを削除する
-     * @param imageUrl 対象画像のURL
-     * @return 削除件数（1件なら1、見つからなければ0）
-     */
+    // 画像URL完全一致で1件削除
     int deleteByImageUrl(String imageUrl);
 
-    /**
-     * 指定された画像URLに一致する画像をすべて取得する（レビュー紐付けのため）
-     * - Optional ではなく List にすることで、同一URLが複数存在しても例外が発生しない
-     * @param imageUrl 対象画像のURL
-     * @return 一致するReviewImageのリスト（存在しなければ空リスト）
-     */
+    // 画像URL完全一致で全件取得（同一URLの重複がある場合にも対応）
     List<ReviewImage> findAllByImageUrl(String imageUrl);
 
-    /**
-     * 指定された画像URLでかつレビューに未関連付けの画像を取得する
-     * - レビュー投稿時に既存の未関連付け画像のみを更新するために使用
-     * @param imageUrl 対象画像のURL
-     * @return レビュー未関連付けのReviewImageリスト
-     */
+    // 指定URL＋未関連付け画像のみ全件取得（未紐付けの全てを取得したい時用）
     List<ReviewImage> findByImageUrlAndReviewIsNull(String imageUrl);
 
-    /**
-     * レビューに関連付けられていない古い画像を取得する（クリーンアップ用）
-     * @param cutoff この日時より前に作成された画像が対象
-     * @return レビュー未関連付けの古いReviewImageリスト
-     */
+    // 未関連付けの画像で、指定日時より前のもの
     List<ReviewImage> findByReviewIsNullAndCreatedAtBefore(LocalDateTime cutoff);
 
-    /**
-     * 指定された画像URLでかつレビューに未関連付けの画像を1件取得（最新順）
-     * @param imageUrl 対象画像のURL
-     * @return レビュー未関連付けの最新のReviewImage（Optional）
-     */
+    // 指定URL＋未関連付け画像のうち最新1件
     Optional<ReviewImage> findTopByImageUrlAndReviewIsNullOrderByCreatedAtDesc(String imageUrl);
 
-    /**
-     * 高並列環境での重複防止用：指定URLの未関連付け画像を排他ロック付きで取得
-     * - これにより同時に複数スレッドが同じ画像を取得・更新することを防止
-     * @param imageUrl 対象画像のURL
-     * @return レビュー未関連付けの最新のReviewImage（Optional）
-     */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT ri FROM ReviewImage ri WHERE ri.imageUrl = :imageUrl AND ri.review IS NULL ORDER BY ri.createdAt DESC")
     Optional<ReviewImage> findTopUnlinkedImageForUpdate(@Param("imageUrl") String imageUrl);
+
+    // imageUrlで1件取得（DB上URLはユニーク保証しないのでOptional）
+    Optional<ReviewImage> findByImageUrl(String imageUrl);
+
 }

@@ -28,21 +28,16 @@ import java.util.*;
  */
 @Service
 @RequiredArgsConstructor
-@Transactional // ← 全メソッドにトランザクションを適用（delete用）
+@Transactional
 public class ReviewImageServiceImpl implements ReviewImageService {
 
-    // application.properties に設定されたアップロード先パス
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    // 画像URLのprefix（例：/uploads/xxx.png）
     private static final String FILE_URL_PREFIX = "/uploads/";
 
     private final ReviewImageRepository reviewImageRepository;
 
-    /**
-     * 起動時にアップロード先を出力（確認用）
-     */
     @PostConstruct
     public void init() {
         System.out.println("[CONFIG] file.upload-dir: " + uploadDir);
@@ -62,8 +57,6 @@ public class ReviewImageServiceImpl implements ReviewImageService {
 
         for (MultipartFile file : files) {
             String contentType = file.getContentType();
-
-            // JPG/PNG 以外は拒否
             if (!Objects.equals(contentType, "image/jpeg") && !Objects.equals(contentType, "image/png")) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(new ImageUploadResponseDto("JPGまたはPNG形式のみアップロード可能です", List.of()));
@@ -73,11 +66,16 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                 String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
                 String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
                 String filename = UUID.randomUUID() + extension;
+                String imageUrl = FILE_URL_PREFIX + filename;
+
+                if (reviewImageRepository.findByImageUrl(imageUrl).isPresent()) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(new ImageUploadResponseDto("この画像は既にアップロードされています: " + imageUrl, List.of()));
+                }
 
                 Path uploadPath = Paths.get(uploadDir).resolve(filename);
                 Files.write(uploadPath, file.getBytes());
 
-                String imageUrl = FILE_URL_PREFIX + filename;
                 imageUrls.add(imageUrl);
 
                 // DBに保存（レビュー未連携状態）
@@ -108,13 +106,10 @@ public class ReviewImageServiceImpl implements ReviewImageService {
     public ResponseEntity<ApiResponseDto> deleteImages(ImageDeleteRequestDto requestDto) {
         for (String url : requestDto.getImageUrls()) {
             try {
-                // ファイル名抽出
                 String filename = Paths.get(url).getFileName().toString();
                 Path filePath = Paths.get(uploadDir).resolve(filename);
-
                 System.out.println("[DELETE] 嘗試刪除路徑: " + filePath.toAbsolutePath());
 
-                // 実ファイル削除
                 File file = filePath.toFile();
                 if (file.exists()) {
                     if (file.delete()) {
@@ -126,7 +121,6 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                     System.out.println("[DELETE] 対象ファイルが存在しません: " + filename);
                 }
 
-                // DBレコード削除（トランザクション下で実行）
                 int count = reviewImageRepository.deleteByImageUrl(url);
                 System.out.println("[DELETE] DB削除件数: " + count + "（URL: " + url + "）");
 
