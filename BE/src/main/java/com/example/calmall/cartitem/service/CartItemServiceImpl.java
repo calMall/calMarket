@@ -54,9 +54,12 @@ public class CartItemServiceImpl implements CartItemService {
                 .findFirst();
 
         if (existingCartItem.isPresent()) {
-            // 既存のアイテムがある場合、数量を更新
+            // 既存のアイテムがある場合、数量を加算
             CartItem cartItem = existingCartItem.get();
-            cartItem.setQuantity(requestDto.getQuantity());
+            int currentQuantity = cartItem.getQuantity(); // 現在の数量を取得
+            int newQuantity = currentQuantity + requestDto.getQuantity(); // 現在の数量にリクエストの数量を加算
+            cartItem.setQuantity(newQuantity); // 新しい数量をセット   
+
 
             if (cartItem.getQuantity() <= 0) {
                 // 数量が0以下になった場合、カートアイテムを削除
