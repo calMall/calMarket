@@ -25,11 +25,6 @@ public class Orders {
     @JoinColumn(name = "user_id", referencedColumnName = "user_id", nullable = false)
     private User user;
 
-    /** 注文商品 */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_code", referencedColumnName = "item_code", nullable = false)
-    private Product product;
-
     /** 注文状態 */
     private String status;
 

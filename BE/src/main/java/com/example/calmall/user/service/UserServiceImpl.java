@@ -17,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -119,19 +121,20 @@ public class UserServiceImpl implements UserService {
                         .trim())
                 .collect(Collectors.toList());
 
-        // 注文履歴（最新10件）を取得し、OrderSummary に変換
-        List<UserDetailResponseDto.OrderSummary> orderSummaries = ordersRepository.findTop10ByUserOrderByCreatedAtDesc(user)
-                .stream()
-                .map(order -> {
-                    Product product = order.getProduct();
-                    String imageUrl = (product != null && product.getImages() != null && !product.getImages().isEmpty())
-                            ? product.getImages().get(0) : null;
-                    return UserDetailResponseDto.OrderSummary.builder()
-                            .id(order.getId())
-                            .imageUrl(imageUrl)
-                            .build();
-                })
-                .collect(Collectors.toList());
+//        todo
+//        // 注文履歴（最新10件）を取得し、OrderSummary に変換
+//        List<UserDetailResponseDto.OrderSummary> orderSummaries = ordersRepository.findTop10ByUserOrderByCreatedAtDesc(user)
+//                .stream()
+//                .map(order -> {
+//                    Product product = order.getProduct();
+//                    String imageUrl = (product != null && product.getImages() != null && !product.getImages().isEmpty())
+//                            ? product.getImages().get(0) : null;
+//                    return UserDetailResponseDto.OrderSummary.builder()
+//                            .id(order.getId())
+//                            .imageUrl(imageUrl)
+//                            .build();
+//                })
+//                .collect(Collectors.toList());
 
         // レビュー履歴（最新10件）を取得し、ReviewSummary に変換
         List<UserDetailResponseDto.ReviewSummary> reviewSummaries = new ArrayList<>();
@@ -156,7 +159,7 @@ public class UserServiceImpl implements UserService {
                 .message("success")
                 .point(Optional.ofNullable(user.getPoint()).orElse(0))
                 .deliveryAddresses(addressList)
-                .orders(orderSummaries)
+//                .orders(orderSummaries)   注文履歴
                 .reviews(reviewSummaries)
                 .build();
 
@@ -202,42 +205,49 @@ public class UserServiceImpl implements UserService {
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
-    /**
-     * 注文の払い戻し処理
-     */
-    @Override
+//    todo:
+//    /**
+//     * 注文の払い戻し処理
+//     */
+//    @Override
     public ResponseEntity<RefundResponseDto> refund(RefundRequestDto requestDto) {
-        Optional<Orders> orderOpt = ordersRepository.findById(requestDto.getOrderId());
-        if (orderOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(
-                    RefundResponseDto.builder().message("fail").coupons(null).build());
-        }
-
-        Orders order = orderOpt.get();
-
-        if ("REFUNDED".equals(order.getStatus())) {
-            return ResponseEntity.badRequest().body(
-                    RefundResponseDto.builder().message("fail").coupons(null).build());
-        }
-
-        User user = order.getUser();
-        Product product = order.getProduct();
-
-        if (user == null || product == null) {
-            return ResponseEntity.badRequest().body(
-                    RefundResponseDto.builder().message("fail").coupons(null).build());
-        }
-
-        user.setPoint(user.getPoint() + product.getPrice());
-        userRepository.save(user);
-
-        order.setStatus("REFUNDED");
-        ordersRepository.save(order);
-
-        return ResponseEntity.ok(
-                RefundResponseDto.builder()
-                        .message("success")
-                        .coupons(new ArrayList<>())
+//        Optional<Orders> orderOpt = ordersRepository.findById(requestDto.getOrderId());
+//        if (orderOpt.isEmpty()) {
+//            return ResponseEntity.badRequest().body(
+//                    RefundResponseDto.builder().message("fail").coupons(null).build());
+//        }
+//
+//        Orders order = orderOpt.get();
+//
+//        if ("REFUNDED".equals(order.getStatus())) {
+//            return ResponseEntity.badRequest().body(
+//                    RefundResponseDto.builder().message("fail").coupons(null).build());
+//        }
+//
+//        User user = order.getUser();
+//        Product product = order.getProduct();
+//
+//        if (user == null || product == null) {
+//            return ResponseEntity.badRequest().body(
+//                    RefundResponseDto.builder().message("fail").coupons(null).build());
+//        }
+//
+//        user.setPoint(user.getPoint() + product.getPrice());
+//        userRepository.save(user);
+//
+//        order.setStatus("REFUNDED");
+//        ordersRepository.save(order);
+//
+//        return ResponseEntity.ok(
+//                RefundResponseDto.builder()
+//                        .message("success")
+//                        .coupons(new ArrayList<>())
+//                        .build());
+        // TODO: 後で払い戻しロジックを実装する
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                .body(RefundResponseDto.builder()
+                        .message("未実装")
+                        .coupons(null)
                         .build());
     }
 }
