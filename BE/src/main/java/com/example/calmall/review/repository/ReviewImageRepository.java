@@ -33,7 +33,7 @@ public interface ReviewImageRepository extends JpaRepository<ReviewImage, Long> 
     Optional<ReviewImage> findTopByImageUrlAndReviewIsNullOrderByCreatedAtDesc(String imageUrl);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT ri FROM ReviewImage ri WHERE ri.imageUrl = :imageUrl AND ri.review IS NULL ORDER BY ri.createdAt DESC")
+    @Query("SELECT ri FROM ReviewImage ri WHERE ri.imageUrl = :imageUrl AND ri.review IS NULL ORDER BY ri.createdAt ASC")
     Optional<ReviewImage> findTopUnlinkedImageForUpdate(@Param("imageUrl") String imageUrl);
 
     // imageUrlで1件取得（DB上URLはユニーク保証しないのでOptional）
