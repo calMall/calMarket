@@ -71,16 +71,16 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         // 購入履歴チェック
-        List<Orders> orders = ordersRepository.findByUser_UserIdAndProduct_ItemCode(userId, product.getItemCode());
+        List<Orders> orders = ordersRepository.findOrdersByUserAndItemCode(userId, product.getItemCode());
         if (orders.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("未購入の商品にはレビューできません"));
         }
 
-        // 購入1ヶ月以内チェック
+// 購入1ヶ月以内チェック
         LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
-        boolean purchasedWithinOneMonth = orders.stream()
-                .anyMatch(order -> order.getCreatedAt().isAfter(oneMonthAgo));
+        boolean purchasedWithinOneMonth =
+                ordersRepository.existsPurchaseWithinPeriod(userId, product.getItemCode(), oneMonthAgo);
         if (!purchasedWithinOneMonth) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("購入後1ヶ月以内のユーザーのみレビュー可能です"));
