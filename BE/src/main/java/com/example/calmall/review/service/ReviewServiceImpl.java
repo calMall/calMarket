@@ -105,6 +105,10 @@ public class ReviewServiceImpl implements ReviewService {
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
             Set<String> uniqueImageUrls = new LinkedHashSet<>(requestDto.getImageList());
             for (String imageUrl : uniqueImageUrls) {
+                if (reviewImageRepository.existsByImageUrlAndReview(imageUrl, savedReview)) {
+                    System.out.println("[SKIP] このレビューには既に紐付け済み: " + imageUrl);
+                    continue;
+                }
                 // 最新の未紐付け画像1件のみ取得し、レビューに紐付け
                 Optional<ReviewImage> unlinkedImageOpt = reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
                 if (unlinkedImageOpt.isPresent()) {
@@ -259,6 +263,10 @@ public class ReviewServiceImpl implements ReviewService {
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
             Set<String> uniqueImageUrls = new LinkedHashSet<>(requestDto.getImageList());
             for (String imageUrl : uniqueImageUrls) {
+                if (reviewImageRepository.existsByImageUrlAndReview(imageUrl, review)) {
+                    System.out.println("[SKIP] このレビューには既に紐付け済み: " + imageUrl);
+                    continue;
+                }
                 // 最新の未紐付け画像1件のみ取得し、レビューに紐付け
                 Optional<ReviewImage> unlinkedImageOpt = reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
                 if (unlinkedImageOpt.isPresent()) {

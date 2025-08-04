@@ -48,6 +48,8 @@ public class ReviewImageServiceImpl implements ReviewImageService {
      */
     @Override
     public ResponseEntity<ImageUploadResponseDto> uploadImages(List<MultipartFile> files) {
+        System.out.println("[DEBUG] uploadImages() 被呼叫！");
+
         if (files.size() > 3) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ImageUploadResponseDto("画像は最大3枚までです", List.of()));

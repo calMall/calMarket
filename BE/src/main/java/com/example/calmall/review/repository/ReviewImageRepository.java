@@ -1,5 +1,6 @@
 package com.example.calmall.review.repository;
 
+import com.example.calmall.review.entity.Review;
 import com.example.calmall.review.entity.ReviewImage;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -37,5 +38,7 @@ public interface ReviewImageRepository extends JpaRepository<ReviewImage, Long> 
 
     // imageUrlで1件取得（DB上URLはユニーク保証しないのでOptional）
     Optional<ReviewImage> findByImageUrl(String imageUrl);
+
+    boolean existsByImageUrlAndReview(String imageUrl, Review review);
 
 }
