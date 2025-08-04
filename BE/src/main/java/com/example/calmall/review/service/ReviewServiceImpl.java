@@ -101,23 +101,26 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        // 画像リストが指定されている場合、「既存画像の未紐付け分のみ」レビューと紐付け
+        // 画像リストが指定されている場合、未紐付け（review=null）のみ紐付け
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
             Set<String> uniqueImageUrls = new LinkedHashSet<>(requestDto.getImageList());
             for (String imageUrl : uniqueImageUrls) {
+                // 既にこのレビューに紐付けられていたらスキップ
                 if (reviewImageRepository.existsByImageUrlAndReview(imageUrl, savedReview)) {
                     System.out.println("[SKIP] このレビューには既に紐付け済み: " + imageUrl);
                     continue;
                 }
-                // 最新の未紐付け画像1件のみ取得し、レビューに紐付け
+
+                // ★ 未紐付け状態（review=null）の画像1件を取得してレビューに紐付ける
                 Optional<ReviewImage> unlinkedImageOpt = reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
+
                 if (unlinkedImageOpt.isPresent()) {
                     ReviewImage image = unlinkedImageOpt.get();
                     image.setReview(savedReview);
                     reviewImageRepository.save(image);
                     System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl + " -> reviewId: " + savedReview.getReviewId());
 
-                    // （進階）同一imageUrlの未紐付けが他にもあれば、自動で物理削除しておく（データ整合）
+                    // 同じimageUrlの未紐付け（review=null）が他にもあれば自動削除
                     List<ReviewImage> duplicates = reviewImageRepository.findByImageUrlAndReviewIsNull(imageUrl);
                     for (ReviewImage dup : duplicates) {
                         if (!dup.getId().equals(image.getId())) {
@@ -126,7 +129,9 @@ public class ReviewServiceImpl implements ReviewService {
                         }
                     }
                 } else {
-                    System.out.println("[SKIP] 未紐付け画像が存在しない: " + imageUrl);
+                    // ★ 未紐付け画像が存在しない場合は何もせずlogのみ
+                    System.out.println("[SKIP] 未紐付け画像が存在しない: " + imageUrl + "。絶対に新規登録しない！");
+                    // 絶対に新規insertやファイル保存はしない
                 }
             }
         }
@@ -241,33 +246,39 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> updateReview(Long reviewId, ReviewUpdateRequestDto requestDto, String userId) {
+        // レビュー存在チェック
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
 
+        // 論理削除済みは編集不可
         if (review.isDeleted()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("削除済みレビューは編集できません"));
         }
+        // 本人のみ編集可能
         if (!review.getUser().getUserId().equals(userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(new ApiResponseDto("本人のみ編集可能です"));
         }
 
+        // レビュー内容を更新
         review.setRating(requestDto.getRating());
         review.setTitle(requestDto.getTitle());
         review.setComment(requestDto.getComment());
         review.setImageList(requestDto.getImageList());
         review.setUpdatedAt(LocalDateTime.now());
 
-        // 画像の再紐付けも「既存DB、未紐付け分のみ」許可
+        // 画像の再紐付けも「既存DBの未紐付け画像（review=null）のみ」許可。新規insert禁止。
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
             Set<String> uniqueImageUrls = new LinkedHashSet<>(requestDto.getImageList());
             for (String imageUrl : uniqueImageUrls) {
+                // 既にこのレビューに紐付け済みならスキップ
                 if (reviewImageRepository.existsByImageUrlAndReview(imageUrl, review)) {
                     System.out.println("[SKIP] このレビューには既に紐付け済み: " + imageUrl);
                     continue;
                 }
-                // 最新の未紐付け画像1件のみ取得し、レビューに紐付け
+
+                // ★ 未紐付け画像（review=null）のみ紐付け対象
                 Optional<ReviewImage> unlinkedImageOpt = reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
                 if (unlinkedImageOpt.isPresent()) {
                     ReviewImage image = unlinkedImageOpt.get();
@@ -284,7 +295,9 @@ public class ReviewServiceImpl implements ReviewService {
                         }
                     }
                 } else {
-                    System.out.println("[SKIP] 未紐付け画像が存在しない: " + imageUrl);
+                    // ★ 未紐付け画像が存在しない場合は何もせずlogのみ
+                    System.out.println("[SKIP] 未紐付け画像が存在しない: " + imageUrl + "。絶対に新規登録しない！");
+                    // 新規insertやファイル保存はしない
                 }
             }
         }
