@@ -42,5 +42,4 @@ public interface ReviewImageRepository extends JpaRepository<ReviewImage, Long> 
     boolean existsByImageUrlAndReview(String imageUrl, Review review);
     Optional<ReviewImage> findFirstByImageUrlAndReviewIsNull(String imageUrl);
 
-
 }
