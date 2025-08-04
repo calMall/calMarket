@@ -50,6 +50,7 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto, String userId) {
+        // ユーザー存在チェック
         Optional<User> userOpt = userRepository.findByUserId(userId);
         if (userOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -57,6 +58,7 @@ public class ReviewServiceImpl implements ReviewService {
         }
         User user = userOpt.get();
 
+        // 商品存在チェック
         Optional<Product> productOpt = productRepository.findByItemCode(requestDto.getItemCode());
         if (productOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -64,21 +66,25 @@ public class ReviewServiceImpl implements ReviewService {
         }
         Product product = productOpt.get();
 
+        // 過去に削除済みレビューが存在する場合、再投稿不可
         if (!reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedTrue(userId, product.getItemCode()).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("削除済レビューが存在するため再投稿できません"));
         }
+        // 既に未削除のレビューがある場合も不可
         if (!reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(product.getItemCode(), userId).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("この商品には既にレビューを投稿済みです"));
         }
 
+        // 購入履歴チェック
         List<Orders> orders = ordersRepository.findByUser_UserIdAndProduct_ItemCode(userId, product.getItemCode());
         if (orders.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("未購入の商品にはレビューできません"));
         }
 
+        // 購入1ヶ月以内チェック
         LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
         boolean purchasedWithinOneMonth = orders.stream()
                 .anyMatch(order -> order.getCreatedAt().isAfter(oneMonthAgo));
@@ -87,6 +93,7 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("購入後1ヶ月以内のユーザーのみレビュー可能です"));
         }
 
+        // レビューエンティティ生成
         Review review = Review.builder()
                 .user(user)
                 .product(product)
@@ -99,39 +106,37 @@ public class ReviewServiceImpl implements ReviewService {
                 .deleted(false)
                 .build();
 
+        // DBに保存（ReviewId発番）
         Review savedReview = reviewRepository.save(review);
 
-        // 画像リストが指定されている場合、未紐付け（review=null）のみ紐付け
+        // 画像リストが指定されている場合、未紐付け画像（review=null）だけを1件だけ紐付け、残りは削除
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
             Set<String> uniqueImageUrls = new LinkedHashSet<>(requestDto.getImageList());
             for (String imageUrl : uniqueImageUrls) {
-                // 既にこのレビューに紐付けられていたらスキップ
+                // すでにこのレビューに紐付け済みならスキップ
                 if (reviewImageRepository.existsByImageUrlAndReview(imageUrl, savedReview)) {
                     System.out.println("[SKIP] このレビューには既に紐付け済み: " + imageUrl);
                     continue;
                 }
 
-                // ★ 未紐付け状態（review=null）の画像1件を取得してレビューに紐付ける
-                Optional<ReviewImage> unlinkedImageOpt = reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
+                // 未紐付け（review=null）の同一imageUrl画像を全件取得
+                List<ReviewImage> unlinkedImages = reviewImageRepository.findByImageUrlAndReviewIsNull(imageUrl);
 
-                if (unlinkedImageOpt.isPresent()) {
-                    ReviewImage image = unlinkedImageOpt.get();
-                    image.setReview(savedReview);
-                    reviewImageRepository.save(image);
-                    System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl + " -> reviewId: " + savedReview.getReviewId());
+                if (!unlinkedImages.isEmpty()) {
+                    // 一番古い画像1件だけレビューに紐付け
+                    ReviewImage imageToBind = unlinkedImages.get(0);
+                    imageToBind.setReview(savedReview);
+                    reviewImageRepository.save(imageToBind);
 
-                    // 同じimageUrlの未紐付け（review=null）が他にもあれば自動削除
-                    List<ReviewImage> duplicates = reviewImageRepository.findByImageUrlAndReviewIsNull(imageUrl);
-                    for (ReviewImage dup : duplicates) {
-                        if (!dup.getId().equals(image.getId())) {
-                            reviewImageRepository.delete(dup);
-                            System.out.println("[DELETE] 重複未紐付け画像を自動削除: id=" + dup.getId());
-                        }
+                    // 残りの未紐付け画像（ゴミデータ）は物理削除
+                    for (int i = 1; i < unlinkedImages.size(); i++) {
+                        reviewImageRepository.delete(unlinkedImages.get(i));
+                        System.out.println("[DELETE] 重複未紐付け画像を自動削除: id=" + unlinkedImages.get(i).getId());
                     }
+                    System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl + " -> reviewId: " + savedReview.getReviewId());
                 } else {
-                    // ★ 未紐付け画像が存在しない場合は何もせずlogのみ
-                    System.out.println("[SKIP] 未紐付け画像が存在しない: " + imageUrl + "。絶対に新規登録しない！");
-                    // 絶対に新規insertやファイル保存はしない
+                    // 未紐付け画像が存在しない場合は何もしない
+                    System.out.println("[SKIP] 未紐付け画像が存在しない: " + imageUrl + "（新規登録は禁止）");
                 }
             }
         }
@@ -261,43 +266,41 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("本人のみ編集可能です"));
         }
 
-        // レビュー内容を更新
+        // レビュー内容更新
         review.setRating(requestDto.getRating());
         review.setTitle(requestDto.getTitle());
         review.setComment(requestDto.getComment());
         review.setImageList(requestDto.getImageList());
         review.setUpdatedAt(LocalDateTime.now());
 
-        // 画像の再紐付けも「既存DBの未紐付け画像（review=null）のみ」許可。新規insert禁止。
+        // 画像の再紐付け処理
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
             Set<String> uniqueImageUrls = new LinkedHashSet<>(requestDto.getImageList());
             for (String imageUrl : uniqueImageUrls) {
-                // 既にこのレビューに紐付け済みならスキップ
+                // 既にこのレビューに紐付け済みの場合はスキップ
                 if (reviewImageRepository.existsByImageUrlAndReview(imageUrl, review)) {
                     System.out.println("[SKIP] このレビューには既に紐付け済み: " + imageUrl);
                     continue;
                 }
 
-                // ★ 未紐付け画像（review=null）のみ紐付け対象
-                Optional<ReviewImage> unlinkedImageOpt = reviewImageRepository.findTopUnlinkedImageForUpdate(imageUrl);
-                if (unlinkedImageOpt.isPresent()) {
-                    ReviewImage image = unlinkedImageOpt.get();
-                    image.setReview(review);
-                    reviewImageRepository.save(image);
-                    System.out.println("[LINKED] 画像をレビューに再紐付け完了: " + imageUrl + " -> reviewId: " + review.getReviewId());
+                // 未紐付け（review=null）の同一imageUrl画像を全件取得
+                List<ReviewImage> unlinkedImages = reviewImageRepository.findByImageUrlAndReviewIsNull(imageUrl);
 
-                    // そのimageUrlで他にも未紐付け（review=null）があれば削除（自動クリーンアップ）
-                    List<ReviewImage> duplicates = reviewImageRepository.findByImageUrlAndReviewIsNull(imageUrl);
-                    for (ReviewImage dup : duplicates) {
-                        if (!dup.getId().equals(image.getId())) {
-                            reviewImageRepository.delete(dup);
-                            System.out.println("[DELETE] 重複未紐付け画像を自動削除: id=" + dup.getId());
-                        }
+                if (!unlinkedImages.isEmpty()) {
+                    // 一番古い画像1件だけレビューに紐付け
+                    ReviewImage imageToBind = unlinkedImages.get(0);
+                    imageToBind.setReview(review);
+                    reviewImageRepository.save(imageToBind);
+
+                    // 残りの未紐付け画像（ゴミデータ）は物理削除
+                    for (int i = 1; i < unlinkedImages.size(); i++) {
+                        reviewImageRepository.delete(unlinkedImages.get(i));
+                        System.out.println("[DELETE] 重複未紐付け画像を自動削除: id=" + unlinkedImages.get(i).getId());
                     }
+                    System.out.println("[LINKED] 画像をレビューに再紐付け完了: " + imageUrl + " -> reviewId: " + review.getReviewId());
                 } else {
-                    // ★ 未紐付け画像が存在しない場合は何もせずlogのみ
-                    System.out.println("[SKIP] 未紐付け画像が存在しない: " + imageUrl + "。絶対に新規登録しない！");
-                    // 新規insertやファイル保存はしない
+                    // 未紐付け画像が存在しない場合は何もしない
+                    System.out.println("[SKIP] 未紐付け画像が存在しない: " + imageUrl + "（新規登録は禁止）");
                 }
             }
         }
