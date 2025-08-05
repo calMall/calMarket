@@ -45,8 +45,10 @@ public class ReviewServiceImpl implements ReviewService {
     /**
      * レビュー投稿（認証済userIdのみ受け取る）
      * - 画像は既存DBに登録済みのみ紐付け可
-     * - 画像は「未紐付け状態（review=null）」のみ紐付けし、重複insertを禁止
+     * - 画像は「未紐付け状態（review=null）」のみ紐付け
+     * - 他レビューに紐付いている画像はスキップ（エラーにしない）
      * - Review.imageList には「実際に紐付けに成功した画像のみ」を格納
+     * - ★ INSERT を絶対発生させず、UPDATE のみ行う
      */
     @Override
     @Transactional
@@ -103,19 +105,22 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        // 実際に紐付け成功した画像URLを保持（重複除去済み）
+        // 実際に紐付け成功した画像URL（重複除去）
         Set<String> finalImageList = new LinkedHashSet<>();
 
+        // リクエストに画像がある場合のみ処理
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
 
-            // ★ 一回のリクエスト内での重複URLを除去
+            // ★ 1回のリクエスト内の重複URLを除去
             Set<String> uniqueUrls = new LinkedHashSet<>(requestDto.getImageList());
 
             for (String imageUrl : uniqueUrls) {
+
+                // DBに同じURLの画像があるか確認
                 Optional<ReviewImage> optionalReviewImage = reviewImageRepository.findByImageUrl(imageUrl);
 
                 if (optionalReviewImage.isEmpty()) {
-                    // DBに存在しないURLは無視（エラーにしない）
+                    // DBに存在しない → スキップ（エラーにしない）
                     System.out.println("[SKIP] DBに存在しない画像: " + imageUrl);
                     continue;
                 }
@@ -136,20 +141,22 @@ public class ReviewServiceImpl implements ReviewService {
                     continue;
                 }
 
-                // ★ 未紐付け（review=null）のみ直接UPDATEで紐付け（save()しない）
+                // ★ 未紐付け（review=null）の場合のみ UPDATE で紐付け（INSERT は絶対しない）
                 reviewImageRepository.updateReviewBinding(reviewImage.getId(), savedReview);
 
+                // 紐付け成功したURLを保存
                 finalImageList.add(imageUrl);
                 System.out.println("[LINKED] 紐付け完了: " + imageUrl);
             }
         }
 
-        // 紐付け成功した画像のみセット
+        // 紐付け成功した画像だけセット
         savedReview.setImageList(new ArrayList<>(finalImageList));
         reviewRepository.save(savedReview);
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
+
 
     /**
      * 商品別レビュー取得（ログイン有無はControllerで判定、userIdのみ受け取る）
