@@ -54,34 +54,34 @@ public class ReviewServiceImpl implements ReviewService {
     @Transactional
     public ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto, String userId) {
 
-        // ユーザー存在チェック
+        // ===== ユーザー存在チェック =====
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
 
-        // 商品存在チェック
+        // ===== 商品存在チェック =====
         Product product = productRepository.findByItemCode(requestDto.getItemCode())
                 .orElseThrow(() -> new IllegalArgumentException("商品が存在しません"));
 
-        // 再投稿防止（削除済みレビューあり）
+        // ===== 再投稿防止チェック（削除済みレビューあり） =====
         if (!reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedTrue(userId, product.getItemCode()).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("削除済レビューが存在するため再投稿できません"));
         }
 
-        // 再投稿防止（既に投稿済み）
+        // ===== 再投稿防止チェック（既に投稿済み） =====
         if (!reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(product.getItemCode(), userId).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("この商品には既にレビューを投稿済みです"));
         }
 
-        // 購入履歴チェック
+        // ===== 購入履歴チェック =====
         List<Orders> orders = ordersRepository.findOrdersByUserAndItemCode(userId, product.getItemCode());
         if (orders.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("未購入の商品にはレビューできません"));
         }
 
-        // 購入1ヶ月以内チェック
+        // ===== 購入1ヶ月以内チェック =====
         LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
         boolean purchasedWithinOneMonth =
                 ordersRepository.existsPurchaseWithinPeriod(userId, product.getItemCode(), oneMonthAgo);
@@ -90,14 +90,14 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("購入後1ヶ月以内のユーザーのみレビュー可能です"));
         }
 
-        // レビュー作成（画像リストは後で正しいものだけセット）
+        // ===== レビューエンティティ作成（画像は後でセット） =====
         Review review = Review.builder()
                 .user(user)
                 .product(product)
                 .rating(requestDto.getRating())
                 .title(requestDto.getTitle())
                 .comment(requestDto.getComment())
-                .imageList(new ArrayList<>()) // 後で正しい画像のみセット
+                .imageList(new ArrayList<>()) // URLだけ別テーブルに保存
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .deleted(false)
@@ -105,17 +105,18 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        // 紐付け成功した画像URLだけ保持（重複除去）
+        // ===== 紐付け成功した画像URLだけを保持（重複除去済み） =====
         Set<String> finalImageList = new LinkedHashSet<>();
 
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
 
-            // リクエスト内のURL重複除去
+            // 1リクエスト内の重複URLを除去
             Set<String> uniqueUrls = new LinkedHashSet<>(requestDto.getImageList());
 
             for (String imageUrl : uniqueUrls) {
                 Optional<ReviewImage> optionalReviewImage = reviewImageRepository.findByImageUrl(imageUrl);
 
+                // DBに存在しない画像はスキップ（エラーにしない）
                 if (optionalReviewImage.isEmpty()) {
                     System.out.println("[SKIP] DBに存在しない画像: " + imageUrl);
                     continue;
@@ -130,22 +131,23 @@ public class ReviewServiceImpl implements ReviewService {
                     continue;
                 }
 
-                // このレビューに既に紐付け済みの場合もスキップ
+                // このレビューに既に紐付いている場合もスキップ
                 if (reviewImage.getReview() != null &&
                         reviewImage.getReview().getReviewId().equals(savedReview.getReviewId())) {
                     System.out.println("[SKIP] このレビューに既に紐付け済: " + imageUrl);
                     continue;
                 }
 
-                // ★ Hibernateのsave()を使わず、原生SQL UPDATEで外部キーのみ更新（INSERT完全防止）
+                // ===== HibernateのINSERTを回避するため、ネイティブSQLで外部キーだけ更新 =====
                 reviewImageRepository.updateReviewBindingNative(reviewImage.getId(), savedReview.getReviewId());
 
+                // 表示用URLリストに追加
                 finalImageList.add(imageUrl);
                 System.out.println("[LINKED] 紐付け完了: " + imageUrl);
             }
         }
 
-        // 紐付け成功した画像のみセット
+        // ===== 紐付け成功したURLのみ Review.imageList にセット =====
         savedReview.setImageList(new ArrayList<>(finalImageList));
         reviewRepository.save(savedReview);
 
