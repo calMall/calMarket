@@ -1,11 +1,22 @@
-<<<<<<< HEAD
 # IntelliJ
 .idea/
 *.iml
+*.iws
+*.ipr
 
 # Build
 /build/
-/out/
+out/
+bin/
+
+# Gradle
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+.nb-gradle/
 
 # OS files
 .DS_Store
@@ -13,15 +24,8 @@ Thumbs.db
 
 # Logs
 *.log
-=======
-HELP.md
-.gradle
-build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
 
-### STS ###
+# STS
 .apt_generated
 .classpath
 .factorypath
@@ -29,26 +33,12 @@ build/
 .settings
 .springBeans
 .sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
-
-### NetBeans ###
+# NetBeans
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
-/.nb-gradle/
 
-### VS Code ###
+# VS Code
 .vscode/
->>>>>>> BE
