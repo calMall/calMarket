@@ -43,8 +43,9 @@ public interface ReviewImageRepository extends JpaRepository<ReviewImage, Long> 
     boolean existsByImageUrlAndReview(String imageUrl, Review review);
 
     @Modifying
-    @Query("UPDATE ReviewImage ri SET ri.review = :review WHERE ri.id = :id")
-    void updateReviewBinding(@Param("id") Long id, @Param("review") Review review);
+    @Query(value = "UPDATE review_images SET review_id = :reviewId WHERE id = :id", nativeQuery = true)
+    void updateReviewBindingNative(@Param("id") Long id, @Param("reviewId") Long reviewId);
+
 
 
 }

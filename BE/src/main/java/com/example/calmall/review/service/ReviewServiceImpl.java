@@ -141,8 +141,8 @@ public class ReviewServiceImpl implements ReviewService {
                     continue;
                 }
 
-                // ★ 未紐付け（review=null）の場合のみ UPDATE で紐付け（INSERT は絶対しない）
-                reviewImageRepository.updateReviewBinding(reviewImage.getId(), savedReview);
+                // ★ Hibernateを通さず、直接DBに外鍵を更新（INSERTは発生しない）
+                reviewImageRepository.updateReviewBindingNative(reviewImage.getId(), savedReview.getReviewId());
 
                 // 紐付け成功したURLを保存
                 finalImageList.add(imageUrl);
