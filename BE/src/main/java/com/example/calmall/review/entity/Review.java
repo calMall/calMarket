@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 商品レビューを管理するエンティティクラス
+ * 商品に対するレビュー情報を管理するエンティティクラス
  */
 @Entity
 @Getter
@@ -31,7 +31,7 @@ public class Review {
     @JoinColumn(name = "user_id", referencedColumnName = "user_id", nullable = false)
     private User user;
 
-    /** 対象商品（Productエンティティと多対一） */
+    /** 対象商品（Productエンティティと多対一、itemCodeで紐付け） */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "item_code", referencedColumnName = "item_code", nullable = false)
     private Product product;
@@ -47,18 +47,12 @@ public class Review {
     private String comment;
 
     /**
-     * ★ 画像URLのリスト
-     * - @ElementCollection を使用して別テーブル（review_image_urls）で管理
-     * - review_images（画像実体テーブル）とは完全に別管理にする
-     * - これにより Hibernate が review_images に INSERT することを防止
-     * - 外部キーの紐付けは別途 ReviewImage エンティティ＋ネイティブSQLで行う
+     * ★ レビューに関連付けられた画像URL一覧
+     * - @Transient を付けてDBテーブルとはマッピングしない
+     * - DBに保存された review_images テーブルのURLを表示用として格納する
+     * - 永続化は行わず、サービス層で明示的に取得・設定する
      */
-    @ElementCollection
-    @CollectionTable(
-            name = "review_image_urls",
-            joinColumns = @JoinColumn(name = "review_id")
-    )
-    @Column(name = "image_url")
+    @Transient
     private List<String> imageList = new ArrayList<>();
 
     /** 作成日時（JST固定） */
@@ -69,7 +63,7 @@ public class Review {
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "Asia/Tokyo")
     private LocalDateTime updatedAt;
 
-    /** 論理削除フラグ（true = 削除扱い） */
+    /** 論理削除フラグ（true の場合は削除扱い） */
     @Column(nullable = false)
     private boolean deleted;
 }
