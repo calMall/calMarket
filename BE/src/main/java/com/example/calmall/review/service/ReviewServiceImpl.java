@@ -97,7 +97,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .rating(requestDto.getRating())
                 .title(requestDto.getTitle())
                 .comment(requestDto.getComment())
-                .imageList(new ArrayList<>())
+                .imageList(new ArrayList<>()) // 後で正しい画像のみセット
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .deleted(false)
@@ -105,22 +105,18 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        // 実際に紐付け成功した画像URL（重複除去）
+        // 紐付け成功した画像URLだけ保持（重複除去）
         Set<String> finalImageList = new LinkedHashSet<>();
 
-        // リクエストに画像がある場合のみ処理
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
 
-            // ★ 1回のリクエスト内の重複URLを除去
+            // リクエスト内のURL重複除去
             Set<String> uniqueUrls = new LinkedHashSet<>(requestDto.getImageList());
 
             for (String imageUrl : uniqueUrls) {
-
-                // DBに同じURLの画像があるか確認
                 Optional<ReviewImage> optionalReviewImage = reviewImageRepository.findByImageUrl(imageUrl);
 
                 if (optionalReviewImage.isEmpty()) {
-                    // DBに存在しない → スキップ（エラーにしない）
                     System.out.println("[SKIP] DBに存在しない画像: " + imageUrl);
                     continue;
                 }
@@ -141,16 +137,15 @@ public class ReviewServiceImpl implements ReviewService {
                     continue;
                 }
 
-                // ★ Hibernateを通さず、直接DBに外鍵を更新（INSERTは発生しない）
+                // ★ Hibernateのsave()を使わず、原生SQL UPDATEで外部キーのみ更新（INSERT完全防止）
                 reviewImageRepository.updateReviewBindingNative(reviewImage.getId(), savedReview.getReviewId());
 
-                // 紐付け成功したURLを保存
                 finalImageList.add(imageUrl);
                 System.out.println("[LINKED] 紐付け完了: " + imageUrl);
             }
         }
 
-        // 紐付け成功した画像だけセット
+        // 紐付け成功した画像のみセット
         savedReview.setImageList(new ArrayList<>(finalImageList));
         reviewRepository.save(savedReview);
 
