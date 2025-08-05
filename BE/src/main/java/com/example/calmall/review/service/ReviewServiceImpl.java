@@ -90,14 +90,14 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("購入後1ヶ月以内のユーザーのみレビュー可能です"));
         }
 
-        // ===== レビューエンティティ作成（画像は後でセット） =====
+        // ===== レビュー作成（画像は後でセット） =====
         Review review = Review.builder()
                 .user(user)
                 .product(product)
                 .rating(requestDto.getRating())
                 .title(requestDto.getTitle())
                 .comment(requestDto.getComment())
-                .imageList(new ArrayList<>()) // URLだけ別テーブルに保存
+                .imageList(new ArrayList<>()) // 表示用のみ、DBには保存しない
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .deleted(false)
@@ -116,7 +116,7 @@ public class ReviewServiceImpl implements ReviewService {
             for (String imageUrl : uniqueUrls) {
                 Optional<ReviewImage> optionalReviewImage = reviewImageRepository.findByImageUrl(imageUrl);
 
-                // DBに存在しない画像はスキップ（エラーにしない）
+                // DBに存在しない画像はスキップ
                 if (optionalReviewImage.isEmpty()) {
                     System.out.println("[SKIP] DBに存在しない画像: " + imageUrl);
                     continue;
@@ -138,7 +138,7 @@ public class ReviewServiceImpl implements ReviewService {
                     continue;
                 }
 
-                // ===== HibernateのINSERTを回避するため、ネイティブSQLで外部キーだけ更新 =====
+                // ===== Hibernate の INSERT を完全防止し、ネイティブ SQL で外部キーだけ更新 =====
                 reviewImageRepository.updateReviewBindingNative(reviewImage.getId(), savedReview.getReviewId());
 
                 // 表示用URLリストに追加
@@ -147,9 +147,8 @@ public class ReviewServiceImpl implements ReviewService {
             }
         }
 
-        // ===== 紐付け成功したURLのみ Review.imageList にセット =====
+        // ===== 紐付け成功したURLのみ Review.imageList にセット（DBには保存されない） =====
         savedReview.setImageList(new ArrayList<>(finalImageList));
-        reviewRepository.save(savedReview);
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
