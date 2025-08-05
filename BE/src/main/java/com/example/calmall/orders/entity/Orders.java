@@ -1,6 +1,8 @@
 package com.example.calmall.orders.entity;
 
 import com.example.calmall.user.entity.User;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,6 +25,7 @@ public class Orders {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "user_id", nullable = false)
+    @JsonIgnore
     private User user;
 
     @Column(name = "delivery_address", nullable = false)

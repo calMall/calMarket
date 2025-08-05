@@ -1,6 +1,8 @@
 package com.example.calmall.orders.entity;
 
 import com.example.calmall.product.entity.Product;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -21,6 +23,7 @@ public class OrderItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
     private Orders order;
 
     // このフィールドは削除せず、関連付けと独立したカラムの両方を定義する

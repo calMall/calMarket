@@ -5,9 +5,12 @@ import com.example.calmall.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 注文履歴を扱うJPAリポジトリ
@@ -48,4 +51,12 @@ public interface OrdersRepository extends JpaRepository<Orders, Long> {
     );
 
     List<Orders> findTop10ByUserOrderByCreatedAtDesc(User user);
+
+    //ユーザの注文履歴
+    List<Orders> findByUser_UserId(String userId);
+    //ページネーション
+    Page<Orders> findByUser_UserId(String userId, Pageable pageable);
+    //注文詳細
+    Optional<Orders> findByIdAndUser_UserId(Long orderId, String userId);
+    
 }

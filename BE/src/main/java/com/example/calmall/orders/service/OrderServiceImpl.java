@@ -12,6 +12,9 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,14 +31,16 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public Orders createOrder(OrderRequestDto requestDto, String userId) {
+        //userRepositoryからユーザー情報を取得
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("ログイン中のユーザーが見つかりません: " + userId));
 
+        //新しい注文の作成
         Orders newOrder = Orders.builder()
                 .user(user)
                 .deliveryAddress(requestDto.getDeliveryAddress())
                 .build();
-
+        //注文商品の処理
         List<OrderItem> orderItems = new ArrayList<>();
         for (OrderRequestDto.OrderItemDto itemDto : requestDto.getItems()) {
             Optional<Product> productOptional = productRepository.findByItemCode(itemDto.getItemCode());
@@ -61,14 +66,9 @@ public class OrderServiceImpl implements OrderService {
 
             product.setInventory(product.getInventory() - itemDto.getQuantity());
         }
-
+        //注文の保存
         newOrder.setOrderItems(orderItems);
         return ordersRepository.save(newOrder);
-    }
-
-    @Override
-    public List<Orders> getAllOrders() {
-        return ordersRepository.findAll();
     }
 
     @Override
@@ -90,6 +90,73 @@ public class OrderServiceImpl implements OrderService {
                 ordersRepository.save(order);
             }
         }
+    }
+
+
+    //PENDING状態か確認
+    @Override
+    public boolean canCancel(Long orderId) {
+        // 注文ステータスが "PENDING" の場合にtrueを返す
+        return ordersRepository.findById(orderId)
+                .map(order -> "PENDING".equals(order.getStatus()))
+                .orElse(false);
+    }
+
+    @Override
+    @Transactional
+    public void cancelOrder(Long orderId) {
+        // PENDING状態の注文をキャンセルしてCANCELLED状態にする。
+        Orders order = ordersRepository.findById(orderId)
+            .orElseThrow(() -> new RuntimeException("注文が見つかりません: " + orderId));
+        if (!canCancel(orderId)) {
+            throw new RuntimeException("キャンセルは注文受付（PENDING）状態のときのみ可能です。");
+        }
+        for (OrderItem item : order.getOrderItems()) {
+            Product product = item.getProduct();
+            product.setInventory(product.getInventory() + item.getQuantity());
+        }
+        order.setStatus("CANCELLED");
+        ordersRepository.save(order);
+    }
+
+    //DELIVEREDの状態か確認
+    @Override
+    public boolean canRefund(Long orderId) {
+        // 注文ステータスが "DELIVERED" の場合にtrueを返す
+        return ordersRepository.findById(orderId)
+                .map(order -> "DELIVERED".equals(order.getStatus()))
+                .orElse(false);
+    }
+    
+    //DELIVERED状態の注文を払い戻してREFUNDEDの状態にする
+    @Override
+    @Transactional
+    public void refundOrder(Long orderId) {
+        Orders order = ordersRepository.findById(orderId)
+            .orElseThrow(() -> new RuntimeException("注文が見つかりません: " + orderId));
+        if (!canRefund(orderId)) {
+            throw new RuntimeException("払い戻しは配達完了（DELIVERED）状態のときのみ可能です。");
+        }
+        order.setStatus("REFUNDED");
+        ordersRepository.save(order);
+    }
+
+    //指定されたuserIdを持つユーザーのすべての注文をリストとして取得
+    @Override
+    public List<Orders> findOrdersByUserId(String userId) {
+        return ordersRepository.findByUser_UserId(userId);
+    }
+
+    //ページネーションを適用して取得
+    @Override
+    public Page<Orders> findOrdersByUserId(String userId, Pageable pageable) {
+        return ordersRepository.findByUser_UserId(userId, pageable);
+    }
+
+    //特定のorderIdとuserIdの両方に一致する1件の注文を取得
+    @Override
+    public Optional<Orders> getOrderByIdAndUserId(Long orderId, String userId) {
+        return ordersRepository.findByIdAndUser_UserId(orderId, userId);
     }
 
 }
