@@ -51,28 +51,34 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto, String userId) {
+        // ユーザー存在チェック
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
 
+        // 商品存在チェック
         Product product = productRepository.findByItemCode(requestDto.getItemCode())
                 .orElseThrow(() -> new IllegalArgumentException("商品が存在しません"));
 
+        // 再投稿防止（削除済みレビューあり）
         if (!reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedTrue(userId, product.getItemCode()).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("削除済レビューが存在するため再投稿できません"));
         }
 
+        // 再投稿防止（既に投稿済み）
         if (!reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(product.getItemCode(), userId).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("この商品には既にレビューを投稿済みです"));
         }
 
+        // 購入履歴チェック
         List<Orders> orders = ordersRepository.findOrdersByUserAndItemCode(userId, product.getItemCode());
         if (orders.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("未購入の商品にはレビューできません"));
         }
 
+        // 購入1ヶ月以内チェック
         LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
         boolean purchasedWithinOneMonth =
                 ordersRepository.existsPurchaseWithinPeriod(userId, product.getItemCode(), oneMonthAgo);
@@ -81,13 +87,14 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("購入後1ヶ月以内のユーザーのみレビュー可能です"));
         }
 
+        // レビュー作成
         Review review = Review.builder()
                 .user(user)
                 .product(product)
                 .rating(requestDto.getRating())
                 .title(requestDto.getTitle())
                 .comment(requestDto.getComment())
-                .imageList(new ArrayList<>())
+                .imageList(new ArrayList<>()) // 後で正しい画像のみセット
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .deleted(false)
@@ -95,26 +102,46 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
+        // 実際に紐付け成功した画像URLを保持（重複除去済み）
         Set<String> finalImageList = new LinkedHashSet<>();
+
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
-            for (String imageUrl : requestDto.getImageList()) {
-                Optional<ReviewImage> optionalReviewImage =
-                        reviewImageRepository.findFirstByImageUrlAndReviewIsNull(imageUrl);
+            // ★ 先に LinkedHashSet で重複除去
+            Set<String> uniqueUrls = new LinkedHashSet<>(requestDto.getImageList());
+
+            for (String imageUrl : uniqueUrls) {
+                Optional<ReviewImage> optionalReviewImage = reviewImageRepository.findByImageUrl(imageUrl);
 
                 if (optionalReviewImage.isPresent()) {
                     ReviewImage reviewImage = optionalReviewImage.get();
+
+                    // 既に他のレビューに紐付いている場合はスキップ（エラーにしない）
+                    if (reviewImage.getReview() != null && !reviewImage.getReview().getReviewId().equals(savedReview.getReviewId())) {
+                        System.out.println("[SKIP] 既に他のレビューに紐付け済: " + imageUrl);
+                        continue;
+                    }
+
+                    // 既にこのレビューに紐付いている場合もスキップ
+                    if (reviewImage.getReview() != null && reviewImage.getReview().getReviewId().equals(savedReview.getReviewId())) {
+                        System.out.println("[SKIP] 既にこのレビューに紐付け済: " + imageUrl);
+                        continue;
+                    }
+
+                    // 未紐付けの場合のみ紐付け
                     reviewImage.setReview(savedReview);
                     reviewImageRepository.save(reviewImage);
                     finalImageList.add(imageUrl);
-                    System.out.println("[LINKED] 圖片已成功紐付：" + imageUrl);
+                    System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl);
+
                 } else {
-                    // ★新增嚴格拒絕插入不存在的圖片
+                    // DB に存在しない URL → エラー
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                             .body(new ApiResponseDto("指定された画像URLは存在しません: " + imageUrl));
                 }
             }
         }
 
+        // 紐付け成功した画像のみセット
         savedReview.setImageList(new ArrayList<>(finalImageList));
         reviewRepository.save(savedReview);
 
