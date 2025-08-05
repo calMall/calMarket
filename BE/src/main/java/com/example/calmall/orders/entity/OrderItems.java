@@ -6,14 +6,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
-/**
- * 注文明細エンティティ（注文商品テーブル）
- * - 注文主（order）
- * - 商品コード（itemCode）
- * - 商品情報（product）
- * - 数量（quantity）
- * - 購入時価格（priceAtOrder）
- */
 @Entity
 @Getter
 @Setter
@@ -23,37 +15,33 @@ import lombok.*;
 @Table(name = "order_items")
 public class OrderItems {
 
-    /** 明細ID（PK） */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** 注文主（FK → orders.id） */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     @JsonIgnore
     private Orders order;
 
-    /** 商品コード（FK → product.item_code） */
-    @Column(name = "item_code")
-    private String itemCode;
-
-    /** 商品情報（Productエンティティへの参照） */
+    // 商品へのリレーションシップのみを定義し、itemCodeはエンティティから取得する
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_code", referencedColumnName = "item_code", insertable = false, updatable = false)
+    @JoinColumn(name = "item_code", referencedColumnName = "item_code", nullable = false)
     private Product product;
 
-    /** 数量 */
     private Integer quantity;
 
-    /** 購入時価格 */
     @Column(name = "price_at_order")
-    private Integer priceAtOrder;
+    private Double priceAtOrder; // データ型をDoubleに変更
 
-    //イメージURL
     @Column(name = "image_list_urls", length = 1000)
     private String imageListUrls;
 
     @Column(name = "item_name", nullable = false)
     private String itemName;
+    
+    // このフィールドは削除
+    // @Column(name = "item_code")
+    // private String itemCode;
+
 }

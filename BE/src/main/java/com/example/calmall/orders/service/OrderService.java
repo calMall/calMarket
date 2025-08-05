@@ -13,11 +13,11 @@ public interface OrderService {
     //注文状況
     void updateOrderStatus();
     //キャンセル
-    boolean canCancel(Long orderId);
-    void cancelOrder(Long orderId);
+    boolean canCancel(Long orderId, String userId);
+    void cancelOrder(Long orderId, String userId);
     //払い戻し
-    boolean canRefund(Long orderId);
-    void refundOrder(Long orderId);
+    boolean canRefund(Long orderId, String userId);
+    void refundOrder(Long orderId, String userId);
     //注文リスト
     List<Orders> findOrdersByUserId(String userId);
     //ページネーション

@@ -26,7 +26,7 @@ public interface OrdersRepository extends JpaRepository<Orders, Long> {
         FROM Orders o
         JOIN o.orderItems oi
         WHERE o.user.userId = :userId
-          AND oi.itemCode = :itemCode
+          AND oi.product.itemCode = :itemCode  
           AND o.createdAt > :after
     """)
     boolean existsPurchaseWithinPeriod(
@@ -43,7 +43,7 @@ public interface OrdersRepository extends JpaRepository<Orders, Long> {
         FROM Orders o
         JOIN o.orderItems oi
         WHERE o.user.userId = :userId
-          AND oi.itemCode = :itemCode
+          AND oi.product.itemCode = :itemCode 
     """)
     List<Orders> findOrdersByUserAndItemCode(
             @Param("userId") String userId,
