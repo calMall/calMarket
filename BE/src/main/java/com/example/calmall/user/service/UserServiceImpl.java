@@ -121,7 +121,7 @@ public class UserServiceImpl implements UserService {
                         .trim())
                 .collect(Collectors.toList());
 
-//        todo
+//        TODO:
 //        // 注文履歴（最新10件）を取得し、OrderSummary に変換
 //        List<UserDetailResponseDto.OrderSummary> orderSummaries = ordersRepository.findTop10ByUserOrderByCreatedAtDesc(user)
 //                .stream()
@@ -205,7 +205,7 @@ public class UserServiceImpl implements UserService {
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
-//    todo:
+//    TODO:
 //    /**
 //     * 注文の払い戻し処理
 //     */
