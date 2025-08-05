@@ -4,6 +4,7 @@ import com.example.calmall.review.entity.Review;
 import com.example.calmall.review.entity.ReviewImage;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -40,7 +41,11 @@ public interface ReviewImageRepository extends JpaRepository<ReviewImage, Long> 
     Optional<ReviewImage> findByImageUrl(String imageUrl);
 
     boolean existsByImageUrlAndReview(String imageUrl, Review review);
-    Optional<ReviewImage> findFirstByImageUrlAndReviewIsNull(String imageUrl);
+
+    @Modifying
+    @Query(value = "UPDATE review_images SET review_id = :reviewId WHERE id = :id", nativeQuery = true)
+    void updateReviewBindingNative(@Param("id") Long id, @Param("reviewId") Long reviewId);
+
 
 
 }

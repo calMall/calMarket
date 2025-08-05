@@ -45,39 +45,43 @@ public class ReviewServiceImpl implements ReviewService {
     /**
      * レビュー投稿（認証済userIdのみ受け取る）
      * - 画像は既存DBに登録済みのみ紐付け可
-     * - 画像は「未紐付け状態（review=null）」のみ紐付けし、重複insertを禁止
+     * - 画像は「未紐付け状態（review=null）」のみ紐付け
+     * - 他レビューに紐付いている画像はスキップ（エラーにしない）
      * - Review.imageList には「実際に紐付けに成功した画像のみ」を格納
+     * - ★ INSERT を絶対発生させず、UPDATE のみ行う
      */
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto, String userId) {
-        // ユーザー存在チェック
+
+        // ===== ユーザー存在チェック =====
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
 
-        // 商品存在チェック
+        // ===== 商品存在チェック =====
         Product product = productRepository.findByItemCode(requestDto.getItemCode())
                 .orElseThrow(() -> new IllegalArgumentException("商品が存在しません"));
 
-        // 再投稿防止チェック（削除済レビューがある場合）
+        // ===== 再投稿防止チェック（削除済みレビューあり） =====
         if (!reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedTrue(userId, product.getItemCode()).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("削除済レビューが存在するため再投稿できません"));
         }
-        // 再投稿防止チェック（既に未削除レビューがある場合）
+
+        // ===== 再投稿防止チェック（既に投稿済み） =====
         if (!reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(product.getItemCode(), userId).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("この商品には既にレビューを投稿済みです"));
         }
 
-        // 購入履歴チェック
+        // ===== 購入履歴チェック =====
         List<Orders> orders = ordersRepository.findOrdersByUserAndItemCode(userId, product.getItemCode());
         if (orders.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("未購入の商品にはレビューできません"));
         }
 
-// 購入1ヶ月以内チェック
+        // ===== 購入1ヶ月以内チェック =====
         LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
         boolean purchasedWithinOneMonth =
                 ordersRepository.existsPurchaseWithinPeriod(userId, product.getItemCode(), oneMonthAgo);
@@ -86,54 +90,70 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("購入後1ヶ月以内のユーザーのみレビュー可能です"));
         }
 
-        // レビューエンティティ生成（初期状態ではimageListを空にする）
+        // ===== レビューエンティティ作成（画像は後でセット） =====
         Review review = Review.builder()
                 .user(user)
                 .product(product)
                 .rating(requestDto.getRating())
                 .title(requestDto.getTitle())
                 .comment(requestDto.getComment())
-                .imageList(new ArrayList<>()) // ★ ここで空にしておく
+                .imageList(new ArrayList<>()) // URLだけ別テーブルに保存
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .deleted(false)
                 .build();
 
-        // 先に保存して reviewId を確定
         Review savedReview = reviewRepository.save(review);
 
-        // 紐付け成功した画像URLを格納するリスト
+        // ===== 紐付け成功した画像URLだけを保持（重複除去済み） =====
         Set<String> finalImageList = new LinkedHashSet<>();
 
-        // 画像紐付け処理
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
-            for (String imageUrl : new LinkedHashSet<>(requestDto.getImageList())) {
-                Optional<ReviewImage> optionalReviewImage =
-                        reviewImageRepository.findFirstByImageUrlAndReviewIsNull(imageUrl);
 
-                if (optionalReviewImage.isPresent()) {
-                    // 未紐付け画像をレビューに紐付け
-                    ReviewImage reviewImage = optionalReviewImage.get();
-                    reviewImage.setReview(savedReview);
-                    reviewImageRepository.save(reviewImage);
+            // 1リクエスト内の重複URLを除去
+            Set<String> uniqueUrls = new LinkedHashSet<>(requestDto.getImageList());
 
-                    // 紐付け成功したURLをリストに追加
-                    finalImageList.add(imageUrl);
-                    System.out.println("[LINKED] 画像をレビューに紐付け完了: " + imageUrl);
-                } else {
-                    System.out.println("[SKIP] 未紐付け画像が存在しない、または既に紐付け済: " + imageUrl);
+            for (String imageUrl : uniqueUrls) {
+                Optional<ReviewImage> optionalReviewImage = reviewImageRepository.findByImageUrl(imageUrl);
+
+                // DBに存在しない画像はスキップ（エラーにしない）
+                if (optionalReviewImage.isEmpty()) {
+                    System.out.println("[SKIP] DBに存在しない画像: " + imageUrl);
+                    continue;
                 }
+
+                ReviewImage reviewImage = optionalReviewImage.get();
+
+                // 他のレビューに紐付いている場合はスキップ
+                if (reviewImage.getReview() != null &&
+                        !reviewImage.getReview().getReviewId().equals(savedReview.getReviewId())) {
+                    System.out.println("[SKIP] 他のレビューに紐付け済: " + imageUrl);
+                    continue;
+                }
+
+                // このレビューに既に紐付いている場合もスキップ
+                if (reviewImage.getReview() != null &&
+                        reviewImage.getReview().getReviewId().equals(savedReview.getReviewId())) {
+                    System.out.println("[SKIP] このレビューに既に紐付け済: " + imageUrl);
+                    continue;
+                }
+
+                // ===== HibernateのINSERTを回避するため、ネイティブSQLで外部キーだけ更新 =====
+                reviewImageRepository.updateReviewBindingNative(reviewImage.getId(), savedReview.getReviewId());
+
+                // 表示用URLリストに追加
+                finalImageList.add(imageUrl);
+                System.out.println("[LINKED] 紐付け完了: " + imageUrl);
             }
         }
 
-        // 紐付け成功した画像のみ Review.imageList にセット
+        // ===== 紐付け成功したURLのみ Review.imageList にセット =====
         savedReview.setImageList(new ArrayList<>(finalImageList));
-
-        // 最終的に更新を保存
         reviewRepository.save(savedReview);
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
+
 
     /**
      * 商品別レビュー取得（ログイン有無はControllerで判定、userIdのみ受け取る）

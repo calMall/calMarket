@@ -48,16 +48,35 @@ public class ReviewImageServiceImpl implements ReviewImageService {
      */
     @Override
     public ResponseEntity<ImageUploadResponseDto> uploadImages(List<MultipartFile> files) {
-        System.out.println("[DEBUG] uploadImages() 被呼叫！");
+        System.out.println("[DEBUG] uploadImages() が呼び出されました");
 
+        // --- 枚数チェック（最大3枚） ---
         if (files.size() > 3) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ImageUploadResponseDto("画像は最大3枚までです", List.of()));
         }
 
+        // --- 同一リクエスト内での重複ファイルを除外する処理 ---
+        // key として「元ファイル名 + サイズ」を利用して一意性を判定
+        Set<String> seenFileKeys = new HashSet<>();
+        List<MultipartFile> uniqueFiles = new ArrayList<>();
+        for (MultipartFile file : files) {
+            String key = file.getOriginalFilename() + "-" + file.getSize();
+            if (seenFileKeys.add(key)) {
+                // 初めてのファイル → 処理対象に追加
+                uniqueFiles.add(file);
+            } else {
+                // 同一ファイルが既に存在 → スキップ
+                System.out.println("[SKIP] 同一リクエスト内で重複したファイル: " + file.getOriginalFilename());
+            }
+        }
+
+        // 実際にアップロードされた画像のURLを格納するリスト
         List<String> imageUrls = new ArrayList<>();
 
-        for (MultipartFile file : files) {
+        // --- 各ファイルを順に処理 ---
+        for (MultipartFile file : uniqueFiles) {
+            // --- ファイル形式チェック ---
             String contentType = file.getContentType();
             if (!Objects.equals(contentType, "image/jpeg") && !Objects.equals(contentType, "image/png")) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -65,22 +84,26 @@ public class ReviewImageServiceImpl implements ReviewImageService {
             }
 
             try {
+                // --- 新しいファイル名（UUID）を生成 ---
                 String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
                 String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
                 String filename = UUID.randomUUID() + extension;
                 String imageUrl = FILE_URL_PREFIX + filename;
 
+                // --- DB上に同一URLが存在するかチェック（理論上は衝突しないが保険として） ---
                 if (reviewImageRepository.findByImageUrl(imageUrl).isPresent()) {
-                    return ResponseEntity.status(HttpStatus.CONFLICT)
-                            .body(new ImageUploadResponseDto("この画像は既にアップロードされています: " + imageUrl, List.of()));
+                    System.out.println("[SKIP] DB上に既に存在するURL: " + imageUrl);
+                    continue;
                 }
 
+                // --- ファイル保存 ---
                 Path uploadPath = Paths.get(uploadDir).resolve(filename);
                 Files.write(uploadPath, file.getBytes());
 
+                // --- レスポンス用のURLを追加 ---
                 imageUrls.add(imageUrl);
 
-                // DBに保存（レビュー未連携状態）
+                // --- DBに保存（レビュー未紐付け状態で登録） ---
                 ReviewImage reviewImage = ReviewImage.builder()
                         .imageUrl(imageUrl)
                         .contentType(contentType)
@@ -98,6 +121,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
             }
         }
 
+        // --- 成功したURLのみ返却 ---
         return ResponseEntity.ok(new ImageUploadResponseDto("success", imageUrls));
     }
 
