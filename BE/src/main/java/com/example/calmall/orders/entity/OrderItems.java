@@ -1,6 +1,8 @@
 package com.example.calmall.orders.entity;
 
 import com.example.calmall.product.entity.Product;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -29,6 +31,7 @@ public class OrderItems {
     /** 注文主（FK → orders.id） */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
     private Orders order;
 
     /** 商品コード（FK → product.item_code） */
@@ -46,4 +49,11 @@ public class OrderItems {
     /** 購入時価格 */
     @Column(name = "price_at_order")
     private Integer priceAtOrder;
+
+    //イメージURL
+    @Column(name = "image_list_urls", length = 1000)
+    private String imageListUrls;
+
+    @Column(name = "item_name", nullable = false)
+    private String itemName;
 }
