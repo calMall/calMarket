@@ -32,6 +32,11 @@ public class CartController {
                                         HttpSession session) {
         //ユーザセッション確認
         User user = (User) session.getAttribute("user");
+        if(user == null){
+            log.warn("ログインしてください。");
+            return null;
+        }
+
         String userId = user.getUserId();
         if (userId == null) {
             log.warn("セッションにユーザーIDが見つかりませんでした。");
@@ -87,7 +92,7 @@ public class CartController {
      */
     @GetMapping
     public ResponseEntity<CartListResponseDto> getCartItems(HttpServletRequest request,
-                                                            HttpSession session) {
+                                                            HttpSession session) {                                                          
         String userId = getUserIdFromSession(session);
         if (userId == null) {
             log.warn("ログインが必要です。");
@@ -115,13 +120,6 @@ public class CartController {
     }
 
     /**
-     * カートから特定のアイテムを削除します。
-     *
-     * @param cartItemId 削除するカートアイテムのID
-     * @param request HttpServletRequest (ユーザーID取得のため)
-     * @return 成功または失敗を示すApiResponseDto
-     */
- /**
      * 特定のカートアイテムの数量を更新します。
      *
      * @param cartItemId 更新するカートアイテムのID

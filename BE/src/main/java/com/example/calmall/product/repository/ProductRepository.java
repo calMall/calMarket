@@ -3,6 +3,7 @@ package com.example.calmall.product.repository;
 import com.example.calmall.product.entity.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -16,4 +17,5 @@ public interface ProductRepository extends JpaRepository<Product, String> {
      * @return 商品が存在すればOptionalにラップして返す
      */
     Optional<Product> findByItemCode(String itemCode);
+    List<Product> findByItemCodeIn(List<String> itemCodes);
 }

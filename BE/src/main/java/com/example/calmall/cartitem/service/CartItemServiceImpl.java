@@ -244,7 +244,7 @@ public class CartItemServiceImpl implements CartItemService {
         return false;
     }
 
-     @Override
+    @Override
     @Transactional
     public boolean changeCartItemQuantity(String userId, Long cartItemId, int change) {
         Optional<CartItem> optionalCartItem = cartItemRepository.findByUserIdAndId(userId, cartItemId);

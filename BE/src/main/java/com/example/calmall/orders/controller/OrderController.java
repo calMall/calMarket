@@ -13,16 +13,21 @@ import com.example.calmall.orders.dto.OrderDetailResponseDto;
 import com.example.calmall.orders.dto.OrderDetailResponseDto.OrderDetail;
 import com.example.calmall.orders.dto.OrderDetailResponseDto.OrderItemDto;
 import com.example.calmall.orders.dto.OrderListResponseDto;
-import com.example.calmall.orders.dto.OrderRequestDto;
+// import com.example.calmall.orders.dto.OrderRequestDto; // 従来のDTOは削除
+import com.example.calmall.orders.dto.OrderListResponseDto.OrderSummary;
+import com.example.calmall.orders.dto.FinalOrderRequestDto;
+import com.example.calmall.orders.dto.OrderCheckResponseDto;
+import com.example.calmall.orders.dto.ProvisionalOrderRequestDto; // 仮注文リクエストDTOを追加
+
 import com.example.calmall.orders.entity.Orders;
 import com.example.calmall.orders.service.OrderService;
 import com.example.calmall.user.entity.User;
-import com.example.calmall.orders.dto.OrderListResponseDto.OrderSummary;
 
 import jakarta.servlet.http.HttpSession;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.time.format.DateTimeFormatter;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -31,45 +36,70 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
-    @PostMapping
-    public ResponseEntity<ApiResponseDto> createOrder(@RequestBody OrderRequestDto requestDto, HttpSession session) {
-        User user = (User) session.getAttribute("user");
+    private User getUserFromSession(HttpSession session) {
+        return (User) session.getAttribute("user");
+    }
+
+    private ResponseEntity<ApiResponseDto> createErrorResponse(String message, HttpStatus status) {
+        return ResponseEntity.status(status).body(new ApiResponseDto("fail: " + message));
+    }
+
+    // 注文前チェックAPI（仮注文の作成）
+    @PostMapping("/provisional")
+    public ResponseEntity<?> checkOrder(@RequestBody ProvisionalOrderRequestDto requestDto, HttpSession session) {
+        User user = getUserFromSession(session);
         if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponseDto("fail: ログインが必要です"));
+            return createErrorResponse("ログインが必要です", HttpStatus.UNAUTHORIZED);
         }
         try {
-            orderService.createOrder(requestDto, user.getUserId());
+            // Service層で在庫チェックと合計金額の計算を行う
+            OrderCheckResponseDto responseDto = orderService.checkOrder(requestDto.getItemCodes(), user.getUserId());
+            return ResponseEntity.ok(responseDto);
+        } catch (RuntimeException e) {
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    // 注文確定API
+    @PostMapping("/finalize")
+    public ResponseEntity<ApiResponseDto> finalizeOrder(@RequestBody FinalOrderRequestDto requestDto, HttpSession session) {
+        User user = getUserFromSession(session);
+        if (user == null) {
+            return createErrorResponse("ログインが必要です", HttpStatus.UNAUTHORIZED);
+        }
+        try {
+            orderService.finalizeOrder(requestDto, user.getUserId());
             return ResponseEntity.ok(new ApiResponseDto("success"));
         } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponseDto("fail: " + e.getMessage()));
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
 
     @PostMapping("/cancel/{orderId}")
     public ResponseEntity<ApiResponseDto> cancelOrder(@PathVariable Long orderId, HttpSession session) {
-        User user = (User) session.getAttribute("user");
+        User user = getUserFromSession(session);
         if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponseDto("fail: ログインが必要です"));
+            return createErrorResponse("ログインが必要です", HttpStatus.UNAUTHORIZED);
         }
         try {
-            orderService.cancelOrder(orderId, user.getUserId()); // 修正: userIdを追加
+            orderService.cancelOrder(orderId, user.getUserId());
             return ResponseEntity.ok(new ApiResponseDto("success"));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(new ApiResponseDto("fail: " + e.getMessage()));
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
 
     @PostMapping("/refund/{orderId}")
     public ResponseEntity<ApiResponseDto> refundOrder(@PathVariable Long orderId, HttpSession session) {
-        User user = (User) session.getAttribute("user");
+        User user = getUserFromSession(session);
         if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponseDto("fail: ログインが必要です"));
+            return createErrorResponse("ログインが必要です", HttpStatus.UNAUTHORIZED);
         }
         try {
-            orderService.refundOrder(orderId, user.getUserId()); // 修正: userIdを追加
+            orderService.refundOrder(orderId, user.getUserId());
             return ResponseEntity.ok(new ApiResponseDto("success"));
         } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponseDto("fail: " + e.getMessage()));
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -79,7 +109,7 @@ public class OrderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        User user = (User) session.getAttribute("user");
+        User user = getUserFromSession(session);
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                 OrderListResponseDto.builder().message("fail").build());
@@ -92,11 +122,11 @@ public class OrderController {
             .flatMap(order -> order.getOrderItems().stream()
                 .map(item -> OrderSummary.builder()
                     .orderId(order.getId())
-                    .itemCode(item.getProduct().getItemCode()) // 修正: item.getProduct().getItemCode()
+                    .itemCode(item.getProduct().getItemCode())
                     .itemName(item.getItemName())
                     .price(item.getPriceAtOrder().intValue())
                     .quantity(item.getQuantity())
-                    .date(order.getCreatedAt().toLocalDate().toString())
+                    .date(order.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE))
                     .imageList(List.of(item.getImageListUrls().split(",")))
                     .orderDate(order.getCreatedAt().toString())
                     .build()))
@@ -112,7 +142,7 @@ public class OrderController {
 
     @GetMapping("/{orderId}")
     public ResponseEntity<OrderDetailResponseDto> getOrderDetails(@PathVariable Long orderId, HttpSession session) {
-        User user = (User) session.getAttribute("user");
+        User user = getUserFromSession(session);
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                 OrderDetailResponseDto.builder().message("fail").build());
@@ -125,7 +155,7 @@ public class OrderController {
 
             List<OrderItemDto> itemDtos = order.getOrderItems().stream()
                 .map(item -> OrderItemDto.builder()
-                    .itemCode(item.getProduct().getItemCode()) // 修正: item.getProduct().getItemCode()
+                    .itemCode(item.getProduct().getItemCode())
                     .itemName(item.getItemName())
                     .price(item.getPriceAtOrder().intValue())
                     .quantity(item.getQuantity())
