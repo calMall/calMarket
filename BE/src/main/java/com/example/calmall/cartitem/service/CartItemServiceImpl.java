@@ -204,4 +204,64 @@ public class CartItemServiceImpl implements CartItemService {
         log.info("ユーザーのカートアイテム数を取得しました。userId={}, count={}", userId, count);
         return count;
     }
+
+    @Override
+    @Transactional
+    public void removeSelectedCartItems(String userId, List<Long> cartItemIds) {
+        if (cartItemIds == null || cartItemIds.isEmpty()) {
+            return;
+        }
+
+        // ユーザーIDとIDリストに一致するカートアイテムをすべて取得
+        List<CartItem> itemsToDelete = cartItemRepository.findByUserIdAndIdIn(userId, cartItemIds);
+        
+        if (!itemsToDelete.isEmpty()) {
+            cartItemRepository.deleteAll(itemsToDelete);
+            log.info("選択されたカートアイテムが削除されました。userId={}, deletedItemsCount={}", userId, itemsToDelete.size());
+        } else {
+             log.warn("指定されたIDに一致するカートアイテムが見つかりませんでした。userId={}, cartItemIds={}", userId, cartItemIds);
+        }
+    }
+
+    @Override
+    @Transactional
+    public boolean updateCartItemQuantity(String userId, Long cartItemId, int newQuantity) {
+        if (newQuantity <= 0) {
+            // 数量が0以下の場合は削除する
+            return removeCartItemById(userId, cartItemId);
+        }
+
+        // ユーザーIDとカートアイテムIDに一致するアイテムを検索
+        Optional<CartItem> optionalCartItem = cartItemRepository.findByUserIdAndId(userId, cartItemId);
+
+        if (optionalCartItem.isPresent()) {
+            CartItem cartItem = optionalCartItem.get();
+            cartItem.setQuantity(newQuantity);
+            cartItemRepository.save(cartItem); // 数量を更新して保存
+            return true;
+        }
+
+        return false;
+    }
+
+     @Override
+    @Transactional
+    public boolean changeCartItemQuantity(String userId, Long cartItemId, int change) {
+        Optional<CartItem> optionalCartItem = cartItemRepository.findByUserIdAndId(userId, cartItemId);
+        if (optionalCartItem.isPresent()) {
+            CartItem cartItem = optionalCartItem.get();
+            int newQuantity = cartItem.getQuantity() + change;
+
+            if (newQuantity <= 0) {
+                // 数量が0以下になったら削除
+                cartItemRepository.delete(cartItem);
+            } else {
+                // 数量を更新して保存
+                cartItem.setQuantity(newQuantity);
+                cartItemRepository.save(cartItem);
+            }
+            return true;
+        }
+        return false;
+    }
 }

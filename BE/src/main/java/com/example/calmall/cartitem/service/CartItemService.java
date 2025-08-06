@@ -4,6 +4,7 @@ import com.example.calmall.cartitem.dto.CartAddRequestDto;
 import com.example.calmall.cartitem.dto.CartListResponseDto;
 import com.example.calmall.cartitem.entity.CartItem;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -52,4 +53,23 @@ public interface CartItemService {
      * @return カートアイテムの総数
      */
     int getCartItemCount(String userId);
+
+    /**
+     * 選択されたカートアイテムIDのリストに基づいて、カートアイテムを削除します。
+     * @param userId ユーザーID
+     * @param cartItemIds 削除するカートアイテムのIDリスト
+     */
+    void removeSelectedCartItems(String userId, List<Long> cartItemIds);
+
+     /**
+     * 特定のカートアイテムの数量を更新します。
+     * @param userId ユーザーID
+     * @param cartItemId 更新するカートアイテムのID
+     * @param newQuantity 新しい数量
+     * @return 更新に成功した場合はtrue、失敗した場合はfalse
+     */
+    boolean updateCartItemQuantity(String userId, Long cartItemId, int newQuantity);
+
+
+    boolean changeCartItemQuantity(String userId, Long cartItemId, int change);
 }
