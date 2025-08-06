@@ -29,6 +29,7 @@ public class CartListResponseDto {
     @AllArgsConstructor
     public static class CartItemDto {
 
+        private Long id;
         private String itemCode; // 商品コード
         private String itemName; // 商品名
         private int price;       // 価格

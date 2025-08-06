@@ -127,8 +127,9 @@ public class CartItemServiceImpl implements CartItemService {
                                 .build();
                     }
 
-                    // CartItemDtoをビルドして返す (CartItemDtoにはidフィールドがないため、idはマッピングしない)
+                    // CartItemDtoをビルドして返す 
                     return CartListResponseDto.CartItemDto.builder()
+                            .id(entity.getId())
                             .itemCode(entity.getItemCode())
                             .itemName(productDto.getItemName())
                             .price(productDto.getPrice())
