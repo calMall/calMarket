@@ -3,13 +3,10 @@ package com.example.calmall.review.repository;
 import com.example.calmall.review.entity.Review;
 import com.example.calmall.review.entity.ReviewImage;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import jakarta.persistence.LockModeType;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,34 +15,22 @@ import java.util.Optional;
  */
 public interface ReviewImageRepository extends JpaRepository<ReviewImage, Long> {
 
-    // 画像URL完全一致で1件削除
-    int deleteByImageUrl(String imageUrl);
-
-    // 画像URL完全一致で全件取得（同一URLの重複がある場合にも対応）
-    List<ReviewImage> findAllByImageUrl(String imageUrl);
-
-    // 指定URL＋未関連付け画像のみ全件取得（未紐付けの全てを取得したい時用）
-    List<ReviewImage> findByImageUrlAndReviewIsNull(String imageUrl);
-
-    // 未関連付けの画像で、指定日時より前のもの
-    List<ReviewImage> findByReviewIsNullAndCreatedAtBefore(LocalDateTime cutoff);
-
-    // 指定URL＋未関連付け画像のうち最新1件
-    Optional<ReviewImage> findTopByImageUrlAndReviewIsNullOrderByCreatedAtDesc(String imageUrl);
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT ri FROM ReviewImage ri WHERE ri.imageUrl = :imageUrl AND ri.review IS NULL ORDER BY ri.createdAt ASC")
-    Optional<ReviewImage> findTopUnlinkedImageForUpdate(@Param("imageUrl") String imageUrl);
-
-    // imageUrlで1件取得（DB上URLはユニーク保証しないのでOptional）
+    /** imageUrl で 1 件取得 */
     Optional<ReviewImage> findByImageUrl(String imageUrl);
 
-    boolean existsByImageUrlAndReview(String imageUrl, Review review);
+    /** imageUrl 完全一致で 1 件削除（削除件数を返す） */
+    int deleteByImageUrl(String imageUrl);
 
+    /** 指定レビューに紐付いている全画像を取得 */
+    List<ReviewImage> findAllByReview(Review review);
+
+    /** Native SQL で画像をレビューに紐付け（INSERT 回避） */
     @Modifying
     @Query(value = "UPDATE review_images SET review_id = :reviewId WHERE id = :id", nativeQuery = true)
     void updateReviewBindingNative(@Param("id") Long id, @Param("reviewId") Long reviewId);
 
-
-
+    /** 複数画像の紐付け解除（review_id を NULL にする） */
+    @Modifying
+    @Query(value = "UPDATE review_images SET review_id = NULL WHERE review_id = :reviewId AND image_url IN :urls", nativeQuery = true)
+    void unbindImagesFromReview(@Param("reviewId") Long reviewId, @Param("urls") List<String> urls);
 }
