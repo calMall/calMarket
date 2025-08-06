@@ -272,7 +272,7 @@ public class ReviewServiceImpl implements ReviewService {
 
         // ===== 2. 論理削除チェック =====
         if (review.isDeleted()) {
-            throw new IllegalArgumentException("削除済みレビューは編集できません");
+            throw new IllegalStateException("削除済みレビューは編集できません");
         }
 
         // ===== 3. 本人確認 =====
@@ -280,80 +280,59 @@ public class ReviewServiceImpl implements ReviewService {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        // ===== 4. 評価・タイトル・コメントを更新 =====
+        // ===== 4. 評価・タイトル・コメント更新 =====
         review.setRating(requestDto.getRating());
         review.setTitle(requestDto.getTitle());
         review.setComment(requestDto.getComment());
         review.setUpdatedAt(LocalDateTime.now());
 
-        // ===== 5. 現在の画像リストを DB から取得 =====
-        List<String> currentImageList = reviewImageRepository.findAllByReview(review).stream()
+        // ===== 5. 現在の画像（DBから取得） =====
+        List<ReviewImage> currentImages = reviewImageRepository.findAllByReview(review);
+        Set<String> currentUrls = currentImages.stream()
                 .map(ReviewImage::getImageUrl)
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
 
         // ===== 6. 新しい画像リスト（重複除去） =====
-        List<String> newImageList = requestDto.getImageList() != null
-                ? new ArrayList<>(new LinkedHashSet<>(requestDto.getImageList()))
-                : new ArrayList<>();
+        Set<String> newUrls = requestDto.getImageList() != null
+                ? new LinkedHashSet<>(requestDto.getImageList())
+                : new LinkedHashSet<>();
 
-        // ===== 7. 最大3枚チェック =====
-        long additionalCount = newImageList.stream()
-                .filter(url -> !currentImageList.contains(url))
-                .count();
-        if (currentImageList.size() + additionalCount > 3) {
+        // ===== 7. 最大3枚制限（既存 + 新規） =====
+        long totalAfterUpdate = currentUrls.size();
+        for (String url : newUrls) {
+            if (!currentUrls.contains(url)) totalAfterUpdate++;
+        }
+        if (totalAfterUpdate > 3) {
             throw new IllegalArgumentException("画像は最大3枚までです");
         }
 
-        // ===== 8. 削除対象（現在あるが、新しいリストに含まれない） =====
-        List<String> deleteUrls = currentImageList.stream()
-                .filter(url -> !newImageList.contains(url))
-                .collect(Collectors.toList());
+        // ===== 8. 新規追加対象（現在無い → 新規） =====
+        for (String imageUrl : newUrls) {
+            if (currentUrls.contains(imageUrl)) continue; // 既にある → スキップ
 
-        if (!deleteUrls.isEmpty()) {
-            reviewImageRepository.unbindImagesFromReview(reviewId, deleteUrls);
-            System.out.println("[UNBIND] 画像の紐付け解除: " + deleteUrls);
-        }
-
-        // ===== 9. 追加対象（新しいリストにあるが、現在ない） =====
-        List<String> addUrls = newImageList.stream()
-                .filter(url -> !currentImageList.contains(url))
-                .collect(Collectors.toList());
-
-        for (String imageUrl : addUrls) {
             Optional<ReviewImage> optionalImage = reviewImageRepository.findByImageUrl(imageUrl);
-
-            // DBに存在しない → スキップ
-            if (optionalImage.isEmpty()) {
-                System.out.println("[SKIP] DBに存在しない画像: " + imageUrl);
-                continue;
-            }
+            if (optionalImage.isEmpty()) continue;
             ReviewImage img = optionalImage.get();
 
-            // 他レビューに紐付いている → スキップ
+            // 他レビューに紐付いている場合はスキップ
             if (img.getReview() != null && !img.getReview().getReviewId().equals(reviewId)) {
-                System.out.println("[SKIP] 他のレビューに紐付いている画像: " + imageUrl);
                 continue;
             }
 
-            // 未紐付け or 同じレビュー → 更新
             reviewImageRepository.updateReviewBindingNative(img.getId(), reviewId);
-            System.out.println("[LINKED] 紐付け完了: " + imageUrl);
         }
 
-        // ===== 10. 最終的な画像リストを再取得 =====
+        // ===== 9. 最終的な画像リストを取得 =====
         List<String> finalImageList = reviewImageRepository.findAllByReview(review).stream()
                 .map(ReviewImage::getImageUrl)
                 .collect(Collectors.toList());
         review.setImageList(finalImageList);
 
-        // ===== 11. 保存 =====
         reviewRepository.save(review);
 
-        // ===== 12. 最新詳細 DTO 作成 =====
-        boolean isOwner = true; // 既に本人確認済み
+        // ===== 10. 更新後の詳細情報を返す =====
         boolean isLiked = reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, reviewId);
-
-        ReviewDetailResponseDto detail = ReviewDetailResponseDto.builder()
+        ReviewDetailResponseDto dto = ReviewDetailResponseDto.builder()
                 .userId(review.getUser().getUserId())
                 .title(review.getTitle())
                 .comment(review.getComment())
@@ -363,11 +342,12 @@ public class ReviewServiceImpl implements ReviewService {
                 .updatedAt(review.getUpdatedAt())
                 .like(isLiked)
                 .likeCount(reviewLikeRepository.countByReviewReviewId(reviewId))
-                .isOwner(isOwner)
+                .isOwner(true)
                 .build();
 
-        return ResponseEntity.ok(detail);
+        return ResponseEntity.ok(dto);
     }
+
 
     /**
      * レビュー削除（Controllerで認証済userIdのみ受け取る）
