@@ -57,7 +57,7 @@ public interface ReviewService {
      * @param userId セッションのユーザーID
      * @return 編集成功または失敗メッセージを含むレスポンス
      */
-    ResponseEntity<ApiResponseDto> updateReview(Long reviewId, ReviewUpdateRequestDto requestDto, String userId);
+    ResponseEntity<ReviewDetailResponseDto> updateReview(Long reviewId, ReviewUpdateRequestDto requestDto, String userId);
 
     /**
      * レビューを削除する（論理削除）

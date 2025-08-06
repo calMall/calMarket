@@ -50,6 +50,7 @@ public class Product {
     private List<String> images;
 
     /** 商品状態（true: 販売中） */
+    @Builder.Default
     @Column(name = "status")
     private Boolean status = true;
 

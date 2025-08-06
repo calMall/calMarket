@@ -264,7 +264,7 @@ public class ReviewServiceImpl implements ReviewService {
      * */
     @Override
     @Transactional
-    public ResponseEntity<ApiResponseDto> updateReview(Long reviewId, ReviewUpdateRequestDto requestDto, String userId) {
+    public ResponseEntity<ReviewDetailResponseDto> updateReview(Long reviewId, ReviewUpdateRequestDto requestDto, String userId) {
 
         // ===== 1. レビュー存在チェック =====
         Review review = reviewRepository.findById(reviewId)
@@ -272,14 +272,12 @@ public class ReviewServiceImpl implements ReviewService {
 
         // ===== 2. 論理削除チェック =====
         if (review.isDeleted()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ApiResponseDto("削除済みレビューは編集できません"));
+            throw new IllegalArgumentException("削除済みレビューは編集できません");
         }
 
         // ===== 3. 本人確認 =====
         if (!review.getUser().getUserId().equals(userId)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(new ApiResponseDto("本人のみ編集可能です"));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         // ===== 4. 評価・タイトル・コメントを更新 =====
@@ -299,13 +297,11 @@ public class ReviewServiceImpl implements ReviewService {
                 : new ArrayList<>();
 
         // ===== 7. 最大3枚チェック =====
-        // 現有 + 新規追加（まだ持ってないもの）
         long additionalCount = newImageList.stream()
                 .filter(url -> !currentImageList.contains(url))
                 .count();
         if (currentImageList.size() + additionalCount > 3) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new ApiResponseDto("画像は最大3枚までです"));
+            throw new IllegalArgumentException("画像は最大3枚までです");
         }
 
         // ===== 8. 削除対象（現在あるが、新しいリストに含まれない） =====
@@ -353,9 +349,25 @@ public class ReviewServiceImpl implements ReviewService {
         // ===== 11. 保存 =====
         reviewRepository.save(review);
 
-        return ResponseEntity.ok(new ApiResponseDto("success"));
-    }
+        // ===== 12. 最新詳細 DTO 作成 =====
+        boolean isOwner = true; // 既に本人確認済み
+        boolean isLiked = reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, reviewId);
 
+        ReviewDetailResponseDto detail = ReviewDetailResponseDto.builder()
+                .userId(review.getUser().getUserId())
+                .title(review.getTitle())
+                .comment(review.getComment())
+                .rating(review.getRating())
+                .imageList(finalImageList)
+                .createdAt(review.getCreatedAt())
+                .updatedAt(review.getUpdatedAt())
+                .like(isLiked)
+                .likeCount(reviewLikeRepository.countByReviewReviewId(reviewId))
+                .isOwner(isOwner)
+                .build();
+
+        return ResponseEntity.ok(detail);
+    }
 
     /**
      * レビュー削除（Controllerで認証済userIdのみ受け取る）

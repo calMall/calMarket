@@ -70,13 +70,13 @@ public class ReviewController {
 
     // レビュー編集
     @PatchMapping("/{id}")
-    public ResponseEntity<ApiResponseDto> updateReview(@PathVariable Long id,
-                                                       @Valid @RequestBody ReviewUpdateRequestDto requestDto,
-                                                       HttpServletRequest request) {
+    public ResponseEntity<ReviewDetailResponseDto> updateReview(@PathVariable Long id,
+                                                                @Valid @RequestBody ReviewUpdateRequestDto requestDto,
+                                                                HttpServletRequest request) {
         User user = getLoginUser(request);
         if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ApiResponseDto("ログインが必要です"));
+            // 未ログイン時は本文なしで 401 を返す
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return reviewService.updateReview(id, requestDto, user.getUserId());
     }
