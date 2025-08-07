@@ -220,7 +220,7 @@ public class CartController {
     }
     */
     //選択削除
-    @DeleteMapping("/remove-selected")
+    @PostMapping("/remove-selected") //test
     public ResponseEntity<ApiResponseDto> removeSelectedCartItems(@RequestBody List<Long> cartItemIds,HttpSession session) {
         String userId = getUserIdFromSession(session);
         if (userId == null) {
