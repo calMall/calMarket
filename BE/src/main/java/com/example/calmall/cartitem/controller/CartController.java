@@ -1,6 +1,7 @@
 package com.example.calmall.cartitem.controller;
 
 import com.example.calmall.cartitem.dto.CartAddRequestDto;
+import com.example.calmall.cartitem.dto.CartListForOrderResponseDto;
 import com.example.calmall.cartitem.dto.CartListResponseDto;
 import com.example.calmall.cartitem.entity.CartItem;
 import com.example.calmall.cartitem.service.CartItemService;
@@ -242,5 +243,20 @@ public class CartController {
             log.error("選択アイテム削除中に予期せぬエラーが発生しました。userId={}, cartItemIds={}: {}", userId, cartItemIds, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponseDto("fail: 選択商品の削除に失敗しました"));
         }
+    }
+
+    @PostMapping("/list-for-order")
+    public ResponseEntity<CartListForOrderResponseDto> getCartItemsForOrderPage(HttpSession session) {
+        User user = (User) session.getAttribute("user");
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(CartListForOrderResponseDto.builder().message("fail").build());
+        }
+    
+        // Serviceから情報を取得
+        CartListForOrderResponseDto response = cartItemService.getCartItemsForOrderPage(user.getUserId());
+    
+        // 成功した場合は200 OKを返す
+        return ResponseEntity.ok(response);
     }
 }

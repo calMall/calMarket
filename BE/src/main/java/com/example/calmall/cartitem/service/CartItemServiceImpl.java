@@ -1,6 +1,8 @@
 package com.example.calmall.cartitem.service;
 
 import com.example.calmall.cartitem.dto.CartAddRequestDto;
+import com.example.calmall.cartitem.dto.CartItemForOrderPageDto;
+import com.example.calmall.cartitem.dto.CartListForOrderResponseDto;
 import com.example.calmall.cartitem.dto.CartListResponseDto;
 import com.example.calmall.cartitem.entity.CartItem;
 import com.example.calmall.cartitem.repository.CartItemRepository;
@@ -244,7 +246,7 @@ public class CartItemServiceImpl implements CartItemService {
         return false;
     }
 
-     @Override
+    @Override
     @Transactional
     public boolean changeCartItemQuantity(String userId, Long cartItemId, int change) {
         Optional<CartItem> optionalCartItem = cartItemRepository.findByUserIdAndId(userId, cartItemId);
@@ -263,5 +265,55 @@ public class CartItemServiceImpl implements CartItemService {
             return true;
         }
         return false;
+    }
+
+    /**
+     * 指定された商品のIDリストとユーザーIDを使って、カートアイテムを削除する
+     *
+     * @param itemCodes 注文された商品のIDリスト
+     * @param userId    ログイン中のユーザーID
+     */
+    @Override
+    @Transactional
+    public void removeCartItemsByItemCodes(List<String> itemCodes, String userId) {
+        log.info("注文確定後のカートアイテム削除処理を開始します。userId: {}, itemCodes: {}", userId, itemCodes);
+        cartItemRepository.deleteByItemCodeInAndUserId(itemCodes, userId);
+        log.info("注文確定後のカートアイテム削除が完了しました。userId: {}", userId);
+    }
+
+    @Override
+    public CartListForOrderResponseDto getCartItemsForOrderPage(String userId) {
+        List<CartItem> entityCartItems = cartItemRepository.findByUserId(userId);
+        
+        List<CartItemForOrderPageDto> dtoList = entityCartItems.stream()
+            .map(entity -> {
+                ResponseEntity<ProductDetailResponseDto> productDetailResponse = productService.getProductDetail(entity.getItemCode());
+                ProductDetailResponseDto.ProductDto productDto = null;
+                if (productDetailResponse.getStatusCode().is2xxSuccessful() && productDetailResponse.getBody() != null && productDetailResponse.getBody().getProduct() != null) {
+                    productDto = productDetailResponse.getBody().getProduct();
+                } else {
+                    log.warn("商品詳細が取得できませんでした。itemCode={}, HTTP Status={}", entity.getItemCode(), productDetailResponse.getStatusCode());
+                    productDto = ProductDetailResponseDto.ProductDto.builder()
+                            .itemCode(entity.getItemCode())
+                            .itemName("不明な商品")
+                            .price(0)
+                            .imageUrls(List.of("https://placehold.co/100x100/CCCCCC/000000?text=NoImage"))
+                            .build();
+                }
+                return CartItemForOrderPageDto.builder()
+                        .id(entity.getId())
+                        .itemCode(entity.getItemCode())
+                        .itemName(productDto.getItemName())
+                        .price(productDto.getPrice())
+                        .quantity(entity.getQuantity())
+                        .imageUrl(productDto.getImageUrls().get(0))
+                        .build();
+            })
+            .collect(Collectors.toList());
+            
+        return CartListForOrderResponseDto.builder()
+                .message("success")
+                .cartList(dtoList)
+                .build();
     }
 }

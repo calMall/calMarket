@@ -1,6 +1,7 @@
 package com.example.calmall.cartitem.service;
 
 import com.example.calmall.cartitem.dto.CartAddRequestDto;
+import com.example.calmall.cartitem.dto.CartListForOrderResponseDto;
 import com.example.calmall.cartitem.dto.CartListResponseDto;
 import com.example.calmall.cartitem.entity.CartItem;
 
@@ -72,4 +73,8 @@ public interface CartItemService {
 
 
     boolean changeCartItemQuantity(String userId, Long cartItemId, int change);
+
+    void removeCartItemsByItemCodes(List<String> itemCodes, String userId);
+
+    CartListForOrderResponseDto getCartItemsForOrderPage(String userId);
 }
