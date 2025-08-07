@@ -1,5 +1,6 @@
 package com.example.calmall.orders.service;
 
+import com.example.calmall.orders.dto.OrderCheckResponseDto;
 import com.example.calmall.orders.dto.OrderRequestDto;
 import com.example.calmall.orders.entity.Orders;
 import org.springframework.data.domain.Page;
@@ -24,5 +25,7 @@ public interface OrderService {
     Page<Orders> findOrdersByUserId(String userId, Pageable pageable);
     //注文詳細
     Optional<Orders> getOrderByIdAndUserId(Long orderId, String userId);
+    //仮注文
+    OrderCheckResponseDto checkOrder(OrderRequestDto requestDto, String userId);
 
 }

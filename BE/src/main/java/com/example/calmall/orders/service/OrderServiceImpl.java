@@ -1,5 +1,7 @@
 package com.example.calmall.orders.service;
 
+import com.example.calmall.cartitem.service.CartItemService;
+import com.example.calmall.orders.dto.OrderCheckResponseDto;
 import com.example.calmall.orders.dto.OrderRequestDto;
 import com.example.calmall.orders.entity.Orders;
 import com.example.calmall.orders.entity.OrderItems;
@@ -16,8 +18,11 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +31,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrdersRepository ordersRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final CartItemService cartItemService;
 
     @Override
     @Transactional
@@ -50,22 +56,33 @@ public class OrderServiceImpl implements OrderService {
                 throw new RuntimeException("在庫不足: " + product.getItemName());
             }
 
-         OrderItems orderItem = OrderItems.builder()
-            .order(newOrder)
-            .product(product)
-            // .itemCode(product.getItemCode()) // この行を削除
-            .itemName(product.getItemName())
-            .priceAtOrder(product.getPrice().doubleValue())
-            .quantity(itemDto.getQuantity())
-            .imageListUrls(String.join(",", product.getImages()))
-            .build();
+            OrderItems orderItem = OrderItems.builder()
+                    .order(newOrder)
+                    .product(product)
+                    .itemName(product.getItemName())
+                    .priceAtOrder(product.getPrice().doubleValue())
+                    .quantity(itemDto.getQuantity())
+                    .imageListUrls(String.join(",", product.getImages()))
+                    .build();
             orderItems.add(orderItem);
 
             product.setInventory(product.getInventory() - itemDto.getQuantity());
         }
 
         newOrder.setOrderItems(orderItems);
-        return ordersRepository.save(newOrder);
+        // ここで注文を保存し、返り値を受け取ります。
+        Orders savedOrder = ordersRepository.save(newOrder);
+
+        // 注文が確定した商品のitemCodeリストを抽出
+        List<String> orderedItemCodes = requestDto.getItems().stream()
+                .map(OrderRequestDto.OrderItemDto::getItemCode)
+                .collect(Collectors.toList());
+        
+        // CartItemServiceを呼び出して、該当商品をカートから削除
+        cartItemService.removeCartItemsByItemCodes(orderedItemCodes, userId);
+
+        // 最後に、保存した注文を返します。
+        return savedOrder;
     }
 
     @Override
@@ -142,5 +159,29 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public Optional<Orders> getOrderByIdAndUserId(Long orderId, String userId) {
         return ordersRepository.findByIdAndUser_UserId(orderId, userId);
+    }
+
+    @Override
+    public OrderCheckResponseDto checkOrder(OrderRequestDto requestDto, String userId) {
+        OrderCheckResponseDto response = new OrderCheckResponseDto();
+        response.setMessage("success");
+        Long totalPrice = 0L;
+        Map<String, Integer> insufficientItems = new HashMap<>();
+
+        for (OrderRequestDto.OrderItemDto itemDto : requestDto.getItems()) {
+            Product product = productRepository.findByItemCode(itemDto.getItemCode())
+                .orElseThrow(() -> new RuntimeException("商品が見つかりません: " + itemDto.getItemCode()));
+
+            if (product.getInventory() < itemDto.getQuantity()) {
+                insufficientItems.put(product.getItemName(), product.getInventory());
+                response.setMessage("fail: 在庫が不足しています");
+            }
+
+            totalPrice += product.getPrice() * itemDto.getQuantity();
+        }
+
+        response.setTotalPrice(totalPrice);
+        response.setInsufficientItems(insufficientItems);
+        return response;
     }
 }

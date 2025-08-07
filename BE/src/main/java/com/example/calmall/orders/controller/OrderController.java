@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import com.example.calmall.global.dto.ApiResponseDto;
+import com.example.calmall.orders.dto.OrderCheckResponseDto;
 import com.example.calmall.orders.dto.OrderDetailResponseDto;
 import com.example.calmall.orders.dto.OrderDetailResponseDto.OrderDetail;
 import com.example.calmall.orders.dto.OrderDetailResponseDto.OrderItemDto;
@@ -148,6 +149,24 @@ public class OrderController {
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                 OrderDetailResponseDto.builder().message("fail").build());
+        }
+    }
+    
+    @PostMapping("/check")
+    public ResponseEntity<OrderCheckResponseDto> checkOrder(@RequestBody OrderRequestDto requestDto, HttpSession session) {
+        User user = (User) session.getAttribute("user");
+        if (user == null) {
+            OrderCheckResponseDto errorResponse = new OrderCheckResponseDto();
+            errorResponse.setMessage("fail: ログインが必要です");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        }
+        try {
+            OrderCheckResponseDto response = orderService.checkOrder(requestDto, user.getUserId());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            OrderCheckResponseDto errorResponse = new OrderCheckResponseDto();
+            errorResponse.setMessage("fail: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
 }
