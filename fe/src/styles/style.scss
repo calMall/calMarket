@@ -381,9 +381,10 @@ body {
   margin: 5rem auto;
   border-radius: 5px;
   background-color: $gray;
-  width: 30%;
-  padding: 1rem 2rem;
+  width: 40%;
+  padding: 2rem 2rem;
   box-sizing: border-box;
+  min-height: 50vh;
   @include shadow-box();
   @include mobile() {
     box-shadow: none;
@@ -392,7 +393,9 @@ body {
     margin-top: 0;
   }
 }
-
+.rp-2 {
+  padding-right: 2rem !important;
+}
 .signup-link {
   color: $main-dark-color;
   &:hover {
@@ -741,6 +744,14 @@ body {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 1rem;
+  @include mobile() {
+    grid-template-columns: 1fr;
+  }
+  .cart-border {
+    @include mobile() {
+      order: 1;
+    }
+  }
 }
 
 .order-container {
@@ -925,4 +936,32 @@ textarea {
   line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.go-top {
+  width: 3rem;
+  height: 3rem;
+  background-color: rgba($color: #000000, $alpha: 0.8);
+  border-radius: 100%;
+  position: fixed;
+  right: 5%;
+  bottom: 5%;
+  z-index: 5;
+  @include shadow-box();
+  @include mobile {
+    width: 2rem;
+    height: 2rem;
+  }
+  &:hover {
+    background-color: rgb(36, 36, 36);
+    transition: 0.3s;
+  }
+}
+
+.cart-del-btn {
+  font-weight: bold;
+  text-decoration: underline;
+  &:hover {
+    color: rgba($color: #000000, $alpha: 0.5);
+    transition: 0.3s;
+  }
 }

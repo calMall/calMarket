@@ -3,7 +3,7 @@
 import { useState } from "react";
 import CartItem from "./CartItem";
 import CustomButton from "../common/CustomBtn";
-import { deleteCart } from "@/api/Cart";
+import { deleteCart, getCart } from "@/api/Cart";
 
 interface props {
   initCartList: cartItem[];
@@ -17,7 +17,15 @@ export default function CartContain({ initCartList }: props) {
       return;
     }
   };
-
+  const refetchCart = async () => {
+    try {
+      const data = await getCart();
+      setCartList(data.cartItems);
+      setCheckList([]);
+    } catch (e) {
+      console.error("カートの再取得に失敗しました。", e);
+    }
+  };
   const onDelete = async () => {
     if (checkList.length === 0) {
       alert("商品が選択されていません。");
@@ -26,7 +34,10 @@ export default function CartContain({ initCartList }: props) {
     if (window.confirm("選択した商品を削除しますか？")) {
       try {
         const data = await deleteCart(checkList.map((item) => item.id));
-        console.log(data);
+        if (data.message === "success") {
+          refetchCart();
+          alert("選択した商品を削除しました。");
+        }
         // 削除処理をここに追加
       } catch (e) {}
     }
@@ -55,13 +66,16 @@ export default function CartContain({ initCartList }: props) {
         <div>
           <input
             type="checkbox"
-            value={""}
-            defaultChecked={checkList.length === cartList.length}
-            onClick={checkAll}
+            // value={""}
+            // defaultChecked={checkList.length === cartList.length}
+            checked={checkList.length === cartList.length}
+            onChange={checkAll}
           />
           すべて選択
         </div>
-        <button onClick={onDelete}>選択した商品を削除</button>
+        <button className="cart-del-btn" onClick={onDelete}>
+          選択した商品を削除
+        </button>
       </div>
       <div className="cart-grid">
         <div className="mt-1 flex flex-col gap-1">

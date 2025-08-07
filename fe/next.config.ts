@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
     ],
+    minimumCacheTTL: 2678400,
   },
 };
 

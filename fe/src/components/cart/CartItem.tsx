@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import ContainImage from "../common/ContainImage";
 import CustomButton from "../common/CustomBtn";
 import { deleteCart } from "@/api/Cart";
+import { newImageSizing } from "@/utils/newImageSizing";
 
 interface props {
   initItem: cartItem;
@@ -44,7 +45,10 @@ export default function CartItem({ initItem }: props) {
   return (
     <div className="flex gap-1 cart-item-contain wf">
       <div className="rt cart-img">
-        <ContainImage alt="product" url={item.imageUrls[0]} />
+        <ContainImage
+          alt="product"
+          url={newImageSizing(item.imageUrls[0], 256)}
+        />
       </div>
       <div className="cart-item-info flex flex-col jb">
         <div className="cart-item-name">{item.itemName}</div>

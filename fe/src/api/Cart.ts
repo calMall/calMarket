@@ -24,7 +24,6 @@ export const postCart = async (
     credentials: "include",
     body: JSON.stringify({ itemCode, quantity }),
   });
-
   if (!data.ok) {
     const error: any = new Error(data.statusText);
     error.status = data.status;
@@ -40,7 +39,7 @@ export const deleteCart = async (
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cartItemIds }),
+    body: JSON.stringify(cartItemIds),
   });
 
   if (!data.ok) {

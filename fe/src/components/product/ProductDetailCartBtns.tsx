@@ -34,6 +34,8 @@ export default function ProductDetailCartBtns({ itemCode }: props) {
     }
     try {
       const res = await postCart(itemCode, quantity);
+      console.log(res);
+
       if (res.message === "success") {
         alert("カートに商品が追加されました。");
       }
