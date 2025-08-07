@@ -1,50 +1,27 @@
+"use client";
+import { getCart } from "@/api/Cart";
 import CartContain from "@/components/cart/CartContain";
 import CustomLayout from "@/components/common/CustomLayout";
+import ErrorComponent from "@/components/common/ErrorComponent";
+import { useEffect, useState } from "react";
 
-export default async function Cart() {
-  const data: CartListResponseDto = {
-    message: "success",
-    cartItems: [
-      {
-        itemCode: "ITEM001",
-        itemName: "츤데레 AI 피규어",
-        price: 25000,
-        quantity: 1,
-        imageUrls: ["/a.png", "/a.png"],
-      },
-      {
-        itemCode: "ITEM002",
-        itemName: "얀데레 머그컵",
-        price: 12000,
-        quantity: 2,
-        imageUrls: ["/a.png", "/a.png"],
-      },
-      {
-        itemCode: "ITEM003",
-        itemName: "메이드복 세트",
-        price: 80000,
-        quantity: 1,
-        imageUrls: ["/a.png", "/a.png"],
-      },
-      {
-        itemCode: "ITEM004",
-        itemName: "집사용 에이프런",
-        price: 15000,
-        quantity: 3,
-        imageUrls: ["/a.png", "/a.png"],
-      },
-      {
-        itemCode: "ITEM005",
-        itemName: "고양이 귀 헤드폰",
-        price: 35000,
-        quantity: 1,
-        imageUrls: ["/a.png", "/a.png"],
-      },
-    ],
+export default function Cart() {
+  const [carts, setCarts] = useState<cartItem[] | null>(null);
+  const getData = async () => {
+    try {
+      const data = await getCart();
+      setCarts(data.cartItems);
+      console.log(data);
+    } catch (e: any) {
+      console.log(e);
+      return <ErrorComponent />;
+    }
   };
+  useEffect(() => {
+    getData();
+  }, []);
+
   return (
-    <CustomLayout>
-      <CartContain initCartList={data.cartItems} />
-    </CustomLayout>
+    <CustomLayout>{carts && <CartContain initCartList={carts} />}</CustomLayout>
   );
 }

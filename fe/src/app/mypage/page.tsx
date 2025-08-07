@@ -1,5 +1,6 @@
 "use client";
 
+import { getCart } from "@/api/Cart";
 import { myInfo } from "@/api/User";
 import ContainImage from "@/components/common/ContainImage";
 import CustomLayout from "@/components/common/CustomLayout";
@@ -21,6 +22,8 @@ export default function Mypage() {
     const setData = async () => {
       try {
         const data = await myInfo();
+        const data2 = await getCart();
+        console.log(data2);
         setPoint(data.point);
         setOrders(data.orders);
         setReviews(data.reviews);
