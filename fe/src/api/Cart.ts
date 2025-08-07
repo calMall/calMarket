@@ -32,3 +32,22 @@ export const postCart = async (
   }
   return data.json();
 };
+
+export const deleteCart = async (
+  cartItemIds: number[]
+): Promise<ResponseDTO> => {
+  const data = await fetch(`${url}/cart/remove-selected`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cartItemIds }),
+  });
+
+  if (!data.ok) {
+    const error: any = new Error(data.statusText);
+    console.log(error);
+    error.status = data.status;
+    throw error;
+  }
+  return data.json();
+};

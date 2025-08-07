@@ -6,22 +6,22 @@ import ErrorComponent from "@/components/common/ErrorComponent";
 import { useEffect, useState } from "react";
 
 export default function Cart() {
+  const [carts, setCarts] = useState<cartItem[] | null>(null);
   const getData = async () => {
     try {
       const data = await getCart();
+      setCarts(data.cartItems);
       console.log(data);
     } catch (e: any) {
       console.log(e);
       return <ErrorComponent />;
     }
   };
-  const [reviews, setReviews] = useState<CartListResponseDto | null>(null);
-  useEffect(() => {});
+  useEffect(() => {
+    getData();
+  }, []);
 
   return (
-    <CustomLayout>
-      {/* <CartContain initCartList={data.cartItems} /> */}
-      <div></div>
-    </CustomLayout>
+    <CustomLayout>{carts && <CartContain initCartList={carts} />}</CustomLayout>
   );
 }
