@@ -37,7 +37,7 @@ export const deleteCart = async (
   cartItemIds: number[]
 ): Promise<ResponseDTO> => {
   const data = await fetch(`${url}/cart/remove-selected`, {
-    method: "DELETE",
+    method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ cartItemIds }),
