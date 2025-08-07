@@ -50,3 +50,50 @@ export const deleteCart = async (
   }
   return data.json();
 };
+
+export const getCheckout = async (
+  cartItemIds: number[]
+): Promise<ResponseDTO> => {
+  const data = await fetch(`${url}/cart/list-for-order`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cartItemIds),
+  });
+
+  if (!data.ok) {
+    const error: any = new Error(data.statusText);
+    console.log(error);
+    error.status = data.status;
+    throw error;
+  }
+  return data.json();
+};
+export const increaseProduct = async (
+  cartCode: number
+): Promise<ResponseDTO> => {
+  const data = await fetch(`${url}/cart/${cartCode}/increase`, {
+    method: "PATCH",
+    credentials: "include",
+  });
+  if (!data.ok) {
+    const error: any = new Error(data.statusText);
+    error.status = data.status;
+    throw error;
+  }
+  return data.json();
+};
+export const decreaseProduct = async (
+  cartCode: number
+): Promise<ResponseDTO> => {
+  const data = await fetch(`${url}/cart/${cartCode}/decrease`, {
+    method: "PATCH",
+    credentials: "include",
+  });
+  if (!data.ok) {
+    const error: any = new Error(data.statusText);
+    error.status = data.status;
+    throw error;
+  }
+  return data.json();
+};
