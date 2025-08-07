@@ -69,4 +69,13 @@ public interface UserService {
      */
     ResponseEntity<ApiResponseDto> addAddress(String userId, UserAddressRequestDto requestDto);
 
+    /**
+     * 配送先住所の削除処理
+     *
+     * @param userId ユーザーID
+     * @param requestDto 削除対象の住所情報
+     * @return 処理結果（成功 or 失敗）
+     */
+    ResponseEntity<ApiResponseDto> deleteAddress(String userId, UserAddressRequestDto requestDto);
+
 }
