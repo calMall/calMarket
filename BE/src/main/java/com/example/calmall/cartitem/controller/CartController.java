@@ -247,14 +247,14 @@ public class CartController {
 
     @PostMapping("/list-for-order")
     public ResponseEntity<CartListForOrderResponseDto> getCartItemsForOrderPage(HttpSession session) {
-        User user = (User) session.getAttribute("user");
-        if (user == null) {
+        String userId = getUserIdFromSession(session);
+        if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(CartListForOrderResponseDto.builder().message("fail").build());
         }
     
         // Serviceから情報を取得
-        CartListForOrderResponseDto response = cartItemService.getCartItemsForOrderPage(user.getUserId());
+        CartListForOrderResponseDto response = cartItemService.getCartItemsForOrderPage(userId);
     
         // 成功した場合は200 OKを返す
         return ResponseEntity.ok(response);
