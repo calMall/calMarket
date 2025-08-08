@@ -58,7 +58,7 @@ export const getCheckout = async (
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cartItemIds),
+    body: JSON.stringify({ cartItemIds }),
   });
 
   if (!data.ok) {

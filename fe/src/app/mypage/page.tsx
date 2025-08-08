@@ -25,8 +25,8 @@ export default function Mypage() {
         const data2 = await getCart();
         console.log(data2);
         setPoint(data.point);
-        setOrders(data.orders);
-        setReviews(data.reviews);
+        setOrders(data.orders ? data.orders : []);
+        setReviews(data.reviews ? data.reviews : []);
         console.log(data);
       } catch (e: any) {
         console.log(e);
@@ -47,6 +47,7 @@ export default function Mypage() {
         <h2>ポイント残高</h2>
         {point?.toLocaleString()} ポイント
       </div>
+
       <div className="bb mypage-horizens">
         <div className="flex jb">
           <h2>注文履歴</h2>
@@ -57,60 +58,42 @@ export default function Mypage() {
             もっと見る
           </Link>
         </div>
-        <h2>注文履歴</h2>
-        {orders.map((order) => (
-          <div>{order.imageUrl}</div>
-        ))}
-        <div className="bb mypage-horizens">
-          <h2>注文履歴</h2>
-          {orders.length === 0 ? (
-            <div>注文履歴がありません</div>
-          ) : (
-            orders.map((order) => <div key={order.id}>{order.imageUrl}</div>)
-          )}
-        </div>
-        {/* オーダーできたら上に移す */}
-        <div className="wf simple-order-contain">
-          <Link href={`/`} className="rt simple-order-img">
-            <ContainImage alt="product" url="/a.png" />
-          </Link>
-        </div>
+        {orders.length === 0 ? (
+          <div>注文履歴がありません</div>
+        ) : (
+          orders.map((order) => (
+            <div className="wf simple-order-contain" key={order.id}>
+              <Link href={``} className="rt simple-order-img">
+                <ContainImage alt="product" url={order.imageUrl} />
+              </Link>
+            </div>
+          ))
+        )}
       </div>
+
       <div>
         <div className="mypage-horizens">
           <h2>「{userStore.userInfo?.nickname}」さんのレビュー</h2>
           {reviews.length === 0 ? (
             <div>レビューがありません</div>
           ) : (
-            <>
-              {reviews.map((review) => (
-                <div key={review.id}>
-                  <div>{review.title}</div>
+            <div className="wf simple-order-contain">
+              {reviews.slice(0, 4).map((review) => (
+                <Link
+                  key={review.id}
+                  href={`/review/detail/${review.id}`}
+                  className="simple-order-img pd-1"
+                >
+                  <div className="review-title">{review.title}</div>
                   <Star score={review.score} />
-                  <div>{review.createdAt}</div>
-                  <div>{review.content}</div>
-                </div>
+                  <div className="mt-05 review-date">
+                    {dateFormat(review.createdAt)}
+                  </div>
+                  <div className="review-content mt-05">{review.content} </div>
+                </Link>
               ))}
-            </>
+            </div>
           )}
-        </div>
-
-        {/* レビューできたら上に移す */}
-        <div className="wf simple-order-contain">
-          {reviews.slice(0, 4).map((review) => (
-            <Link
-              key={review.id}
-              href={`/review/detail/${review.id}`}
-              className="simple-order-img pd-1"
-            >
-              <div className="review-title">{review.title}</div>
-              <Star score={review.score} />
-              <div className="mt-05 review-date">
-                {dateFormat(review.createdAt)}
-              </div>
-              <div className="review-content mt-05">{review.content} </div>
-            </Link>
-          ))}
         </div>
       </div>
     </CustomLayout>
