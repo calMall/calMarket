@@ -70,7 +70,7 @@ public class UserDetailResponseDto {
         // 本文コメント
         private String content;
 
-        // 配送先住所リスト（例：["東京都新宿区3-1-1", "大阪府大阪市北区1-2-3"]）
+        // 配送先住所リスト
         private List<String> deliveryAddresses;
     }
 }

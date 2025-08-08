@@ -1,7 +1,12 @@
 package com.example.calmall.orders.service;
 
+<<<<<<< HEAD
 import com.example.calmall.orders.dto.FinalOrderRequestDto;
 import com.example.calmall.orders.dto.OrderCheckResponseDto;
+=======
+import com.example.calmall.orders.dto.OrderCheckResponseDto;
+import com.example.calmall.orders.dto.OrderRequestDto;
+>>>>>>> 38d7c7ae6928b4662b57f8a7985d1fec4ef8c16c
 import com.example.calmall.orders.entity.Orders;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,4 +39,11 @@ public interface OrderService {
     
     // 注文詳細
     Optional<Orders> getOrderByIdAndUserId(Long orderId, String userId);
+<<<<<<< HEAD
 }
+=======
+    //仮注文
+    OrderCheckResponseDto checkOrder(OrderRequestDto requestDto, String userId);
+
+}
+>>>>>>> 38d7c7ae6928b4662b57f8a7985d1fec4ef8c16c

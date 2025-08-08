@@ -1,6 +1,8 @@
 package com.example.calmall.cartitem.service;
 
 import com.example.calmall.cartitem.dto.CartAddRequestDto;
+import com.example.calmall.cartitem.dto.CartItemForOrderPageDto;
+import com.example.calmall.cartitem.dto.CartListForOrderResponseDto;
 import com.example.calmall.cartitem.dto.CartListResponseDto;
 import com.example.calmall.cartitem.entity.CartItem;
 import com.example.calmall.cartitem.repository.CartItemRepository;
@@ -264,4 +266,80 @@ public class CartItemServiceImpl implements CartItemService {
         }
         return false;
     }
+
+    /**
+     * 指定された商品のIDリストとユーザーIDを使って、カートアイテムを削除する
+     *
+     * @param itemCodes 注文された商品のIDリスト
+     * @param userId    ログイン中のユーザーID
+     */
+    @Override
+    @Transactional
+    public void removeCartItemsByItemCodes(List<String> itemCodes, String userId) {
+        log.info("注文確定後のカートアイテム削除処理を開始します。userId: {}, itemCodes: {}", userId, itemCodes);
+        cartItemRepository.deleteByItemCodeInAndUserId(itemCodes, userId);
+        log.info("注文確定後のカートアイテム削除が完了しました。userId: {}", userId);
+    }
+
+    /**
+     * 注文ページで必要な、指定されたカートアイテムの情報を取得します。
+     * @param userId ユーザーID
+     * @param cartItemIds 注文したいカートアイテムのIDリスト
+     * @return 注文ページ用のカートアイテムリストを含むDTO
+     */
+    @Override
+    public CartListForOrderResponseDto getCartItemsForOrderPage(String userId, List<Long> cartItemIds) {
+        if (cartItemIds == null || cartItemIds.isEmpty()) {
+            // IDリストが空の場合は、空のリストを返す
+            return CartListForOrderResponseDto.builder()
+                    .message("success")
+                    .cartList(List.of())
+                    .build();
+        }
+        
+        // RepositoryでユーザーIDとカートアイテムIDリストに一致するアイテムを検索
+        List<CartItem> entityCartItems = cartItemRepository.findByUserIdAndIdIn(userId, cartItemIds);
+        
+        if (entityCartItems.isEmpty()) {
+            log.warn("指定されたIDに一致するカートアイテムが見つかりませんでした。userId={}, cartItemIds={}", userId, cartItemIds);
+            return CartListForOrderResponseDto.builder()
+                    .message("fail: 指定されたアイテムが見つかりません")
+                    .cartList(List.of())
+                    .build();
+        }
+
+        // CartItemエンティティをCartItemForOrderPageDtoに変換
+        List<CartItemForOrderPageDto> dtoList = entityCartItems.stream()
+            .map(entity -> {
+                ResponseEntity<ProductDetailResponseDto> productDetailResponse = productService.getProductDetail(entity.getItemCode());
+                ProductDetailResponseDto.ProductDto productDto = null;
+                if (productDetailResponse.getStatusCode().is2xxSuccessful() && productDetailResponse.getBody() != null && productDetailResponse.getBody().getProduct() != null) {
+                    productDto = productDetailResponse.getBody().getProduct();
+                } else {
+                    log.warn("商品詳細が取得できませんでした。itemCode={}, HTTP Status={}", entity.getItemCode(), productDetailResponse.getStatusCode());
+                    productDto = ProductDetailResponseDto.ProductDto.builder()
+                            .itemCode(entity.getItemCode())
+                            .itemName("不明な商品")
+                            .price(0)
+                            .imageUrls(List.of("https://placehold.co/100x100/CCCCCC/000000?text=NoImage"))
+                            .build();
+                }
+                return CartItemForOrderPageDto.builder()
+                        .id(entity.getId())
+                        .itemCode(entity.getItemCode())
+                        .itemName(productDto.getItemName())
+                        .price(productDto.getPrice())
+                        .quantity(entity.getQuantity())
+                        .imageUrl(productDto.getImageUrls().get(0))
+                        .build();
+            })
+            .collect(Collectors.toList());
+            
+        log.info("注文ページ用のカートアイテムリストを取得しました。userId={}, count={}", userId, dtoList.size());
+        return CartListForOrderResponseDto.builder()
+                .message("success")
+                .cartList(dtoList)
+                .build();
+    }
 }
+    

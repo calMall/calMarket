@@ -35,6 +35,7 @@ public class UserServiceImpl implements UserService {
     private final OrdersRepository ordersRepository;
     private final ProductRepository productRepository;
     private final DeliveryAddressRepository deliveryAddressRepository;
+    private final DeliveryAddressRepository addressRepository;
 
     /**
      * ユーザー登録処理
@@ -167,24 +168,33 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 配送先住所の追加
+     * 配送先住所の追加（最大3件まで登録可能）
      */
     @Transactional
     @Override
     public ResponseEntity<ApiResponseDto> addAddress(String userId, UserAddressRequestDto requestDto) {
+        // ユーザーを取得
         User user = userRepository.findByUserId(userId).orElse(null);
         if (user == null) {
             return ResponseEntity.badRequest().body(new ApiResponseDto("ユーザーが存在しません"));
         }
 
+        // 配送先住所リストがnullの場合は新しく作成
         if (user.getDeliveryAddresses() == null) {
             user.setDeliveryAddresses(new ArrayList<>());
         }
 
+        // 現在の住所が3件以上ある場合は登録不可
+        if (user.getDeliveryAddresses().size() >= 3) {
+            return ResponseEntity.badRequest().body(new ApiResponseDto("住所は最大3件までしか登録できません"));
+        }
+
+        // 入力値をトリムして比較用に整形
         String pc = requestDto.getPostalCode().trim();
         String a1 = requestDto.getAddress1().trim();
         String a2 = requestDto.getAddress2().trim();
 
+        // 同一の住所がすでに登録されているか確認
         boolean exists = user.getDeliveryAddresses().stream().anyMatch(addr ->
                 pc.equals(addr.getPostalCode()) &&
                         a1.equals(addr.getAddress1()) &&
@@ -194,6 +204,7 @@ public class UserServiceImpl implements UserService {
             return ResponseEntity.badRequest().body(new ApiResponseDto("同じ住所が既に登録されています"));
         }
 
+        // 新しい住所を作成してリストに追加
         DeliveryAddress address = new DeliveryAddress();
         address.setPostalCode(pc);
         address.setAddress1(a1);
@@ -201,11 +212,55 @@ public class UserServiceImpl implements UserService {
         address.setUser(user);
         user.getDeliveryAddresses().add(address);
 
+        // ユーザー情報を保存
         userRepository.save(user);
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
-//    TODO:
+    /**
+     * 指定された配送先住所を削除する処理
+     */
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponseDto> deleteAddress(String userId, UserAddressRequestDto requestDto) {
+        // ユーザーをDBから取得
+        User user = userRepository.findByUserId(userId).orElse(null);
+        if (user == null) {
+            return ResponseEntity.badRequest().body(new ApiResponseDto("ユーザーが存在しません"));
+        }
+
+        // ユーザーの住所リストが空またはnullの場合
+        if (user.getDeliveryAddresses() == null || user.getDeliveryAddresses().isEmpty()) {
+            return ResponseEntity.badRequest().body(new ApiResponseDto("削除できる住所が存在しません"));
+        }
+
+        // 入力された住所情報をトリム
+        String postalCode = requestDto.getPostalCode().trim();
+        String address1 = requestDto.getAddress1().trim();
+        String address2 = requestDto.getAddress2().trim();
+
+        // 該当する住所をリストから探す
+        Optional<DeliveryAddress> targetOpt = user.getDeliveryAddresses().stream()
+                .filter(addr -> postalCode.equals(addr.getPostalCode())
+                        && address1.equals(addr.getAddress1())
+                        && address2.equals(addr.getAddress2()))
+                .findFirst();
+
+        // 該当住所が存在しない場合
+        if (targetOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(new ApiResponseDto("該当する住所が見つかりません"));
+        }
+
+        // ユーザーリストから削除し、DBからも削除
+        DeliveryAddress target = targetOpt.get();
+        user.getDeliveryAddresses().remove(target);  // ユーザーのアドレスリストから除外
+        addressRepository.delete(target);            // DBから完全に削除
+
+        return ResponseEntity.ok(new ApiResponseDto("success"));
+    }
+
+
+    //    TODO:
 //    /**
 //     * 注文の払い戻し処理
 //     */

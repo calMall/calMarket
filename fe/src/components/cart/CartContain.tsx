@@ -3,6 +3,7 @@
 import { useState } from "react";
 import CartItem from "./CartItem";
 import CustomButton from "../common/CustomBtn";
+import { deleteCart, getCart } from "@/api/Cart";
 
 interface props {
   initCartList: cartItem[];
@@ -10,14 +11,43 @@ interface props {
 export default function CartContain({ initCartList }: props) {
   const [cartList, setCartList] = useState(initCartList);
   const [checkList, setCheckList] = useState(initCartList);
+  const onOrder = async () => {
+    if (checkList.length === 0) {
+      alert("商品が選択されていません。");
+      return;
+    }
+  };
+  const refetchCart = async () => {
+    try {
+      const data = await getCart();
+      setCartList(data.cartItems);
+      setCheckList([]);
+    } catch (e) {
+      console.error("カートの再取得に失敗しました。", e);
+    }
+  };
+  const onDelete = async () => {
+    if (checkList.length === 0) {
+      alert("商品が選択されていません。");
+      return;
+    }
+    if (window.confirm("選択した商品を削除しますか？")) {
+      try {
+        const data = await deleteCart(checkList.map((item) => item.id));
+        if (data.message === "success") {
+          refetchCart();
+          alert("選択した商品を削除しました。");
+        }
+        // 削除処理をここに追加
+      } catch (e) {}
+    }
+  };
 
   const checkItem = (item: cartItem) => {
-    const isChecked = checkList.find((el) => el.itemCode === item.itemCode);
+    const isChecked = checkList.find((el) => el.id === item.id);
 
     if (isChecked) {
-      setCheckList((prev) =>
-        prev.filter((el) => el.itemCode !== item.itemCode)
-      );
+      setCheckList((prev) => prev.filter((el) => el.id !== item.id));
     } else {
       setCheckList((prev) => [...prev, item]);
     }
@@ -36,18 +66,28 @@ export default function CartContain({ initCartList }: props) {
         <div>
           <input
             type="checkbox"
-            value={""}
-            defaultChecked={checkList.length === cartList.length}
-            onClick={checkAll}
+            // value={""}
+            // defaultChecked={checkList.length === cartList.length}
+            checked={checkList.length === cartList.length}
+            onChange={checkAll}
           />
           すべて選択
         </div>
-        <button>選択した商品を削除</button>
+        <button className="cart-del-btn" onClick={onDelete}>
+          選択した商品を削除
+        </button>
       </div>
       <div className="cart-grid">
         <div className="mt-1 flex flex-col gap-1">
           {cartList.map((cart) => (
-            <CartItem initItem={cart} key={cart.itemCode} />
+            <div className="flex ac wf rt" key={cart.id}>
+              <input
+                type="checkbox"
+                checked={checkList.some((item) => item.id === cart.id)}
+                onChange={() => checkItem(cart)}
+              />
+              <CartItem initItem={cart} />
+            </div>
           ))}
         </div>
         <div>

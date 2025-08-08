@@ -53,6 +53,7 @@ public class Review {
      * - 永続化は行わず、サービス層で明示的に取得・設定する
      */
     @Transient
+    @Builder.Default
     private List<String> imageList = new ArrayList<>();
 
     /** 作成日時（JST固定） */

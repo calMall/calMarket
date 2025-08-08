@@ -1,6 +1,7 @@
 package com.example.calmall.cartitem.service;
 
 import com.example.calmall.cartitem.dto.CartAddRequestDto;
+import com.example.calmall.cartitem.dto.CartListForOrderResponseDto;
 import com.example.calmall.cartitem.dto.CartListResponseDto;
 import com.example.calmall.cartitem.entity.CartItem;
 
@@ -72,4 +73,15 @@ public interface CartItemService {
 
 
     boolean changeCartItemQuantity(String userId, Long cartItemId, int change);
+
+    void removeCartItemsByItemCodes(List<String> itemCodes, String userId);
+
+    /**
+     * 注文ページで必要な、指定されたカートアイテムの情報を取得します。
+     * @param userId ユーザーID
+     * @param cartItemIds 注文したいカートアイテムのIDリスト
+     * @return 注文ページ用のカートアイテムリストを含むDTO
+     */
+    CartListForOrderResponseDto getCartItemsForOrderPage(String userId, List<Long> cartItemIds);
+
 }

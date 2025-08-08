@@ -45,6 +45,7 @@ public class Orders {
     @Column(name = "status", nullable = false)
     private String status; // String型に戻す
 
+    @Builder.Default
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<OrderItems> orderItems = new ArrayList<>();
 
