@@ -281,10 +281,34 @@ public class CartItemServiceImpl implements CartItemService {
         log.info("注文確定後のカートアイテム削除が完了しました。userId: {}", userId);
     }
 
+    /**
+     * 注文ページで必要な、指定されたカートアイテムの情報を取得します。
+     * @param userId ユーザーID
+     * @param cartItemIds 注文したいカートアイテムのIDリスト
+     * @return 注文ページ用のカートアイテムリストを含むDTO
+     */
     @Override
-    public CartListForOrderResponseDto getCartItemsForOrderPage(String userId) {
-        List<CartItem> entityCartItems = cartItemRepository.findByUserId(userId);
+    public CartListForOrderResponseDto getCartItemsForOrderPage(String userId, List<Long> cartItemIds) {
+        if (cartItemIds == null || cartItemIds.isEmpty()) {
+            // IDリストが空の場合は、空のリストを返す
+            return CartListForOrderResponseDto.builder()
+                    .message("success")
+                    .cartList(List.of())
+                    .build();
+        }
         
+        // RepositoryでユーザーIDとカートアイテムIDリストに一致するアイテムを検索
+        List<CartItem> entityCartItems = cartItemRepository.findByUserIdAndIdIn(userId, cartItemIds);
+        
+        if (entityCartItems.isEmpty()) {
+            log.warn("指定されたIDに一致するカートアイテムが見つかりませんでした。userId={}, cartItemIds={}", userId, cartItemIds);
+            return CartListForOrderResponseDto.builder()
+                    .message("fail: 指定されたアイテムが見つかりません")
+                    .cartList(List.of())
+                    .build();
+        }
+
+        // CartItemエンティティをCartItemForOrderPageDtoに変換
         List<CartItemForOrderPageDto> dtoList = entityCartItems.stream()
             .map(entity -> {
                 ResponseEntity<ProductDetailResponseDto> productDetailResponse = productService.getProductDetail(entity.getItemCode());
@@ -311,9 +335,11 @@ public class CartItemServiceImpl implements CartItemService {
             })
             .collect(Collectors.toList());
             
+        log.info("注文ページ用のカートアイテムリストを取得しました。userId={}, count={}", userId, dtoList.size());
         return CartListForOrderResponseDto.builder()
                 .message("success")
                 .cartList(dtoList)
                 .build();
     }
 }
+    

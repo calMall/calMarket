@@ -76,5 +76,12 @@ public interface CartItemService {
 
     void removeCartItemsByItemCodes(List<String> itemCodes, String userId);
 
-    CartListForOrderResponseDto getCartItemsForOrderPage(String userId);
+    /**
+     * 注文ページで必要な、指定されたカートアイテムの情報を取得します。
+     * @param userId ユーザーID
+     * @param cartItemIds 注文したいカートアイテムのIDリスト
+     * @return 注文ページ用のカートアイテムリストを含むDTO
+     */
+    CartListForOrderResponseDto getCartItemsForOrderPage(String userId, List<Long> cartItemIds);
+
 }
