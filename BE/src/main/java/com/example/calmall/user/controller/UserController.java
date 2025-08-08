@@ -106,6 +106,25 @@ public class UserController {
         return userService.addAddress(userId, requestDto);
     }
 
+    // 配送先住所削除API
+    @PostMapping("/users/addresses/delete")
+    public ResponseEntity<ApiResponseDto> deleteAddress(
+            @RequestBody @Valid UserAddressRequestDto requestDto,
+            HttpServletRequest request) {
+
+        // セッションからログインユーザーを取得
+        HttpSession session = request.getSession(false);
+        User user = (session != null) ? (User) session.getAttribute("user") : null;
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponseDto("ログインが必要です"));
+        }
+
+        // ユーザーIDとリクエストDTOを使って削除処理を呼び出す
+        return userService.deleteAddress(user.getUserId(), requestDto);
+    }
+
+
 
     // Email重複確認API（クエリパラメータでemailを受け取る）
     @GetMapping("/users/check-email")
