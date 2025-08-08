@@ -5,16 +5,19 @@ import ContainImage from "../common/ContainImage";
 import CustomButton from "../common/CustomBtn";
 import { decreaseProduct, deleteCart, increaseProduct } from "@/api/Cart";
 import { newImageSizing } from "@/utils/newImageSizing";
+import { MdDeleteOutline } from "react-icons/md";
 
 interface props {
   initItem: cartItem;
   refetchData: Function;
   setCheckList: React.Dispatch<React.SetStateAction<cartItem[]>>;
+  setCartList: React.Dispatch<React.SetStateAction<cartItem[]>>;
 }
 export default function CartItem({
   initItem,
   refetchData,
   setCheckList,
+  setCartList,
 }: props) {
   const [item, setItem] = useState(initItem);
   const [mounted, setMounted] = useState(false);
@@ -63,7 +66,16 @@ export default function CartItem({
           return alert("削除に失敗しました。");
         }
       }
-      return alert("注文は1件以下可能です。");
+      if (item.quantity === 1 && window.confirm("商品を削除しますか？")) {
+        try {
+          const res = await deleteCart([item.id]);
+          if (res.message === "success") {
+            await refetchData();
+          }
+        } catch (e) {
+          return alert("削除に失敗しました。");
+        }
+      }
     }
   };
 
@@ -84,9 +96,11 @@ export default function CartItem({
           <div className="flex ac jb cart-quantity-contain">
             <CustomButton
               classname="cart-quantity-btn fw-500"
-              text="-"
+              text={item.quantity > 1 ? "-" : ""}
+              icon={item.quantity <= 1 ? <MdDeleteOutline /> : null}
               func={quantityChange.bind(mounted ? window : null, "-")}
             />
+
             <div className="cart-quantity-input flex ac jc">
               {item.quantity}
             </div>

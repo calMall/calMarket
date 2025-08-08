@@ -11,3 +11,14 @@ interface OrderDetailResponseDto extends ResponseDTO {
     orderDate: string;
   };
 }
+interface OrderCheckout extends ResponseDTO {
+  cartList: [];
+}
+interface CheckoutItem {
+  id: number;
+  imageUrl: string;
+  itemCode: string;
+  itemName: string;
+  price: number;
+  quantity: number;
+}

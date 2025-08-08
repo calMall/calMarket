@@ -53,12 +53,13 @@ export const deleteCart = async (
 
 export const getCheckout = async (
   cartItemIds: number[]
-): Promise<ResponseDTO> => {
+): Promise<OrderCheckout> => {
+  console.log(cartItemIds);
   const data = await fetch(`${url}/cart/list-for-order`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cartItemIds }),
+    body: JSON.stringify(cartItemIds),
   });
 
   if (!data.ok) {
@@ -69,6 +70,7 @@ export const getCheckout = async (
   }
   return data.json();
 };
+
 export const increaseProduct = async (
   cartCode: number
 ): Promise<ResponseDTO> => {

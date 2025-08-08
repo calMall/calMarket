@@ -38,8 +38,11 @@ export default function InfiniteProduct({ keyword, hits, isNextPage }: props) {
   }, [keyword]);
   return (
     <>
-      {products.map((product) => (
-        <ProductItem product={product} key={product.Item.itemCode} />
+      {products.map((product, idx) => (
+        <ProductItem
+          product={product}
+          key={String(idx) + product.Item.itemCode}
+        />
       ))}
       <InfiniteScroll
         children

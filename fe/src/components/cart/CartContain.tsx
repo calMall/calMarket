@@ -101,6 +101,7 @@ export default function CartContain({ initCartList }: props) {
                 onChange={() => checkItem(cart)}
               />
               <CartItem
+                setCartList={setCartList}
                 setCheckList={setCheckList}
                 refetchData={refetchCart}
                 initItem={cart}

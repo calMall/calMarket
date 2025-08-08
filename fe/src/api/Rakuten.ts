@@ -5,6 +5,7 @@ export const rakutenRanking = async (): Promise<RakutenAPIResponse> => {
     `${rankingUrl}${process.env.NEXT_PUBLIC_RAKUTEN_API_ID}`,
     {
       method: "GET",
+      next: { revalidate: 2592000 },
     }
   );
   if (!data.ok) throw new Error(data.statusText);
@@ -19,6 +20,7 @@ export const rakutenSearch = async (
     `${searchUrl}${process.env.NEXT_PUBLIC_RAKUTEN_API_ID}&keyword=${keyword}&page=${page}&hits=${hits}`,
     {
       method: "GET",
+      next: { revalidate: 2592000 },
     }
   );
   if (!data.ok) throw new Error(data.statusText);
