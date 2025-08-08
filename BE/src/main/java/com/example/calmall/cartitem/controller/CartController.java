@@ -29,19 +29,30 @@ import java.util.Optional;
 public class CartController {
 
     private final CartItemService cartItemService;
-    private String getUserIdFromSession(
-                                        HttpSession session) {
-        //ユーザセッション確認
+    private String getUserIdFromSession(HttpSession session) {
+        // セッションが存在しない場合
+        if (session == null) {
+            log.warn("セッションが存在しません。");
+            return null;
+        }
+
+        // セッションからユーザー情報を取得
         User user = (User) session.getAttribute("user");
+        if (user == null) {
+            log.warn("セッションにユーザー情報が存在しません。");
+            return null;
+        }
+
+        // ユーザーIDを取得
         String userId = user.getUserId();
         if (userId == null) {
             log.warn("セッションにユーザーIDが見つかりませんでした。");
-            // ログインが必要な場合はnullを返す
             return null;
         }
-        return userId;
 
+        return userId;
     }
+
 
     /**
      * カートに商品を追加、または既存商品の数量を調整します。

@@ -2,6 +2,7 @@ package com.example.calmall.user.service;
 
 import com.example.calmall.global.dto.ApiResponseDto;
 import com.example.calmall.orders.entity.Orders;
+import com.example.calmall.orders.entity.OrderItems;
 import com.example.calmall.orders.repository.OrdersRepository;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
@@ -18,7 +19,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -35,6 +35,7 @@ public class UserServiceImpl implements UserService {
     private final OrdersRepository ordersRepository;
     private final ProductRepository productRepository;
     private final DeliveryAddressRepository deliveryAddressRepository;
+
     private final DeliveryAddressRepository addressRepository;
 
     /**
@@ -103,15 +104,15 @@ public class UserServiceImpl implements UserService {
 
     /**
      * ユーザー詳細情報の取得
-     * - 所持ポイント、配送先住所、注文履歴、レビュー履歴を返却
+     * - 所持ポイント、配送先住所、注文履歴（最新10件：id + 画像URL）、レビュー履歴を返却
      */
     @Override
     public ResponseEntity<UserDetailResponseDto> getUserDetail(String userId) {
-        // ユーザー取得（存在しなければ例外）
+        // 1) ユーザー取得（存在しなければ例外）
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
 
-        // 配送先住所リストを文字列に変換（郵便番号 + 住所1 + 住所2）
+        // 2) 配送先住所（文字列リスト）
         List<String> addressList = Optional.ofNullable(user.getDeliveryAddresses())
                 .orElse(Collections.emptyList())
                 .stream()
@@ -122,7 +123,7 @@ public class UserServiceImpl implements UserService {
                         .trim())
                 .collect(Collectors.toList());
 
-        // ★追加：構造化住所リスト（postalCode / address1 / address2をそのまま保持）
+        // 3) 構造化住所（UI都合でそのまま保持したいケース用）
         List<UserDetailResponseDto.AddressDetail> addressDetails =
                 Optional.ofNullable(user.getDeliveryAddresses())
                         .orElse(Collections.emptyList())
@@ -134,24 +135,45 @@ public class UserServiceImpl implements UserService {
                                 .build())
                         .collect(Collectors.toList());
 
-//        TODO:
-//        // 注文履歴（最新10件）を取得し、OrderSummary に変換
-//        List<UserDetailResponseDto.OrderSummary> orderSummaries = ordersRepository.findTop10ByUserOrderByCreatedAtDesc(user)
-//                .stream()
-//                .map(order -> {
-//                    Product product = order.getProduct();
-//                    String imageUrl = (product != null && product.getImages() != null && !product.getImages().isEmpty())
-//                            ? product.getImages().get(0) : null;
-//                    return UserDetailResponseDto.OrderSummary.builder()
-//                            .id(order.getId())
-//                            .imageUrl(imageUrl)
-//                            .build();
-//                })
-//                .collect(Collectors.toList());
+        // 4) 注文履歴（最新10件）id + 画像URL
 
-        // レビュー履歴（最新10件）を取得し、ReviewSummary に変換
+        List<UserDetailResponseDto.OrderSummary> orderSummaries =
+                Optional.ofNullable(ordersRepository.findTop10ByUserOrderByCreatedAtDesc(user))
+                        .orElse(Collections.emptyList())
+                        .stream()
+                        .map(order -> {
+                            String imageUrl = null;
+
+                            // 最初の明細（存在すれば）
+                            List<OrderItems> items = order.getOrderItems();
+                            if (items != null && !items.isEmpty()) {
+                                OrderItems first = items.get(0);
+
+                                String urls = first.getImageListUrls();
+                                if (urls != null && !urls.isBlank()) {
+                                    String[] parts = urls.split(",");
+                                    if (parts.length > 0) {
+                                        imageUrl = parts[0].trim();
+                                    }
+                                }
+
+                                if (imageUrl == null || imageUrl.isBlank()) {
+                                    Product product = first.getProduct();
+                                    if (product != null && product.getImages() != null && !product.getImages().isEmpty()) {
+                                        imageUrl = product.getImages().get(0);
+                                    }
+                                }
+                            }
+
+                            return UserDetailResponseDto.OrderSummary.builder()
+                                    .id(order.getId())
+                                    .imageUrl(imageUrl)
+                                    .build();
+                        })
+                        .collect(Collectors.toList());
+
+        // 5) レビュー履歴（最新10件）
         List<UserDetailResponseDto.ReviewSummary> reviewSummaries = new ArrayList<>();
-
         if (user.getReviews() != null) {
             reviewSummaries = user.getReviews().stream()
                     .sorted(Comparator.comparing(Review::getCreatedAt).reversed())
@@ -167,19 +189,18 @@ public class UserServiceImpl implements UserService {
                     .collect(Collectors.toList());
         }
 
-        // DTOを構築して返却
+        // 6) DTOを構築して返却
         UserDetailResponseDto responseDto = UserDetailResponseDto.builder()
                 .message("success")
                 .point(Optional.ofNullable(user.getPoint()).orElse(0))
                 .deliveryAddresses(addressList)
                 .deliveryAddressDetails(addressDetails)
-//                .orders(orderSummaries)   注文履歴
+                .orders(orderSummaries)
                 .reviews(reviewSummaries)
                 .build();
 
         return ResponseEntity.ok(responseDto);
     }
-
 
     /**
      * 配送先住所の追加（最大3件まで登録可能）
@@ -271,52 +292,5 @@ public class UserServiceImpl implements UserService {
         addressRepository.delete(target);
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
-    }
-
-
-    //    TODO:
-//    /**
-//     * 注文の払い戻し処理
-//     */
-//    @Override
-    public ResponseEntity<RefundResponseDto> refund(RefundRequestDto requestDto) {
-//        Optional<Orders> orderOpt = ordersRepository.findById(requestDto.getOrderId());
-//        if (orderOpt.isEmpty()) {
-//            return ResponseEntity.badRequest().body(
-//                    RefundResponseDto.builder().message("fail").coupons(null).build());
-//        }
-//
-//        Orders order = orderOpt.get();
-//
-//        if ("REFUNDED".equals(order.getStatus())) {
-//            return ResponseEntity.badRequest().body(
-//                    RefundResponseDto.builder().message("fail").coupons(null).build());
-//        }
-//
-//        User user = order.getUser();
-//        Product product = order.getProduct();
-//
-//        if (user == null || product == null) {
-//            return ResponseEntity.badRequest().body(
-//                    RefundResponseDto.builder().message("fail").coupons(null).build());
-//        }
-//
-//        user.setPoint(user.getPoint() + product.getPrice());
-//        userRepository.save(user);
-//
-//        order.setStatus("REFUNDED");
-//        ordersRepository.save(order);
-//
-//        return ResponseEntity.ok(
-//                RefundResponseDto.builder()
-//                        .message("success")
-//                        .coupons(new ArrayList<>())
-//                        .build());
-        // TODO: 後で払い戻しロジックを実装する
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
-                .body(RefundResponseDto.builder()
-                        .message("未実装")
-                        .coupons(null)
-                        .build());
     }
 }
