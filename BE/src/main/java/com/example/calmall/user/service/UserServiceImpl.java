@@ -122,6 +122,18 @@ public class UserServiceImpl implements UserService {
                         .trim())
                 .collect(Collectors.toList());
 
+        // ★追加：構造化住所リスト（postalCode / address1 / address2をそのまま保持）
+        List<UserDetailResponseDto.AddressDetail> addressDetails =
+                Optional.ofNullable(user.getDeliveryAddresses())
+                        .orElse(Collections.emptyList())
+                        .stream()
+                        .map(addr -> UserDetailResponseDto.AddressDetail.builder()
+                                .postalCode(Optional.ofNullable(addr.getPostalCode()).orElse(""))
+                                .address1(Optional.ofNullable(addr.getAddress1()).orElse(""))
+                                .address2(Optional.ofNullable(addr.getAddress2()).orElse(""))
+                                .build())
+                        .collect(Collectors.toList());
+
 //        TODO:
 //        // 注文履歴（最新10件）を取得し、OrderSummary に変換
 //        List<UserDetailResponseDto.OrderSummary> orderSummaries = ordersRepository.findTop10ByUserOrderByCreatedAtDesc(user)
@@ -147,7 +159,7 @@ public class UserServiceImpl implements UserService {
                     .map(review -> UserDetailResponseDto.ReviewSummary.builder()
                             .id(review.getReviewId())
                             .title(review.getTitle())
-                            .createdAt(review.getCreatedAt()) //  修正：.toString() を削除
+                            .createdAt(review.getCreatedAt())
                             .score(review.getRating())
                             .content(review.getComment())
                             .deliveryAddresses(addressList)
@@ -160,12 +172,14 @@ public class UserServiceImpl implements UserService {
                 .message("success")
                 .point(Optional.ofNullable(user.getPoint()).orElse(0))
                 .deliveryAddresses(addressList)
+                .deliveryAddressDetails(addressDetails)
 //                .orders(orderSummaries)   注文履歴
                 .reviews(reviewSummaries)
                 .build();
 
         return ResponseEntity.ok(responseDto);
     }
+
 
     /**
      * 配送先住所の追加（最大3件まで登録可能）
@@ -179,12 +193,12 @@ public class UserServiceImpl implements UserService {
             return ResponseEntity.badRequest().body(new ApiResponseDto("ユーザーが存在しません"));
         }
 
-        // 配送先住所リストがnullの場合は新しく作成
+        // 配送先住所リストがnullの場合新しく作成
         if (user.getDeliveryAddresses() == null) {
             user.setDeliveryAddresses(new ArrayList<>());
         }
 
-        // 現在の住所が3件以上ある場合は登録不可
+        // 住所が3件以上登録不可
         if (user.getDeliveryAddresses().size() >= 3) {
             return ResponseEntity.badRequest().body(new ApiResponseDto("住所は最大3件までしか登録できません"));
         }
@@ -253,8 +267,8 @@ public class UserServiceImpl implements UserService {
 
         // ユーザーリストから削除し、DBからも削除
         DeliveryAddress target = targetOpt.get();
-        user.getDeliveryAddresses().remove(target);  // ユーザーのアドレスリストから除外
-        addressRepository.delete(target);            // DBから完全に削除
+        user.getDeliveryAddresses().remove(target);
+        addressRepository.delete(target);
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
