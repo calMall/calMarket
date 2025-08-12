@@ -34,13 +34,20 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final OrdersRepository ordersRepository;
     private final ProductRepository productRepository;
-    private final DeliveryAddressRepository deliveryAddressRepository;
-
     private final DeliveryAddressRepository addressRepository;
 
-    /**
-     * ユーザー登録処理
-     */
+
+    /** 文字列の正規化: null→""、trim */
+    private String normalize(String s) { return (s == null) ? "" : s.trim(); }
+
+    //  UUID形式のuserId生成ヘルパー
+    private String generateUserId() {
+        return "user_" + UUID.randomUUID().toString().substring(0, 8);
+    }
+
+
+
+    // ユーザー登録処理
     @Override
     public ResponseEntity<ApiResponseDto> register(UserRegisterRequestDto requestDto) {
         if (userRepository.existsByEmail(requestDto.getEmail())) {
@@ -60,24 +67,15 @@ public class UserServiceImpl implements UserService {
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
-    /**
-     * Email重複チェック
-     */
+
+    //  Email重複チェック
     @Override
     public boolean existsByEmail(String email) {
         return userRepository.existsByEmail(email);
     }
 
-    /**
-     * UUID形式のuserId生成ヘルパー
-     */
-    private String generateUserId() {
-        return "user_" + UUID.randomUUID().toString().substring(0, 8);
-    }
 
-    /**
-     * 認証処理（ログイン）
-     */
+     // 認証処理（ログイン）
     @Override
     public User authenticate(UserLoginRequestDto requestDto) {
         Optional<User> userOpt = userRepository.findByEmail(requestDto.getEmail());
@@ -90,9 +88,8 @@ public class UserServiceImpl implements UserService {
         return null;
     }
 
-    /**
-     * ログアウト処理（セッション無効化）
-     */
+
+    // ログアウト処理（セッション無効化）
     @Override
     public ResponseEntity<ApiResponseDto> logout(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
@@ -102,17 +99,14 @@ public class UserServiceImpl implements UserService {
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
-    /**
-     * ユーザー詳細情報の取得
-     * - 所持ポイント、配送先住所、注文履歴（最新10件：id + 画像URL）、レビュー履歴を返却
-     */
+    //ユーザー詳細情報の取得
     @Override
     public ResponseEntity<UserDetailResponseDto> getUserDetail(String userId) {
-        // 1) ユーザー取得（存在しなければ例外）
+        // ユーザー取得（存在しなければ例外）
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
 
-        // 2) 配送先住所（文字列リスト）
+        // 配送先住所（文字列リスト）
         List<String> addressList = Optional.ofNullable(user.getDeliveryAddresses())
                 .orElse(Collections.emptyList())
                 .stream()
@@ -123,7 +117,7 @@ public class UserServiceImpl implements UserService {
                         .trim())
                 .collect(Collectors.toList());
 
-        // 3) 構造化住所（UI都合でそのまま保持したいケース用）
+        // 構造化住所
         List<UserDetailResponseDto.AddressDetail> addressDetails =
                 Optional.ofNullable(user.getDeliveryAddresses())
                         .orElse(Collections.emptyList())
@@ -135,8 +129,7 @@ public class UserServiceImpl implements UserService {
                                 .build())
                         .collect(Collectors.toList());
 
-        // 4) 注文履歴（最新10件）id + 画像URL
-
+        // 注文履歴（最新10件）id + 画像URL
         List<UserDetailResponseDto.OrderSummary> orderSummaries =
                 Optional.ofNullable(ordersRepository.findTop10ByUserOrderByCreatedAtDesc(user))
                         .orElse(Collections.emptyList())
@@ -172,7 +165,7 @@ public class UserServiceImpl implements UserService {
                         })
                         .collect(Collectors.toList());
 
-        // 5) レビュー履歴（最新10件）
+        // レビュー履歴（最新10件）
         List<UserDetailResponseDto.ReviewSummary> reviewSummaries = new ArrayList<>();
         if (user.getReviews() != null) {
             reviewSummaries = user.getReviews().stream()
@@ -189,7 +182,7 @@ public class UserServiceImpl implements UserService {
                     .collect(Collectors.toList());
         }
 
-        // 6) DTOを構築して返却
+        // DTOを構築して返却
         UserDetailResponseDto responseDto = UserDetailResponseDto.builder()
                 .message("success")
                 .point(Optional.ofNullable(user.getPoint()).orElse(0))
@@ -202,9 +195,7 @@ public class UserServiceImpl implements UserService {
         return ResponseEntity.ok(responseDto);
     }
 
-    /**
-     * 配送先住所の追加（最大3件まで登録可能）
-     */
+    // 配送先住所の追加（最大3件まで）
     @Transactional
     @Override
     public ResponseEntity<ApiResponseDto> addAddress(String userId, UserAddressRequestDto requestDto) {
@@ -224,16 +215,15 @@ public class UserServiceImpl implements UserService {
             return ResponseEntity.badRequest().body(new ApiResponseDto("住所は最大3件までしか登録できません"));
         }
 
-        // 入力値をトリムして比較用に整形
-        String pc = requestDto.getPostalCode().trim();
-        String a1 = requestDto.getAddress1().trim();
-        String a2 = requestDto.getAddress2().trim();
+        // 入力値を正規化（null→""、trim）
+        String pc = normalize(requestDto.getPostalCode());
+        String a1 = normalize(requestDto.getAddress1());
+        String a2 = normalize(requestDto.getAddress2());
 
-        // 同一の住所がすでに登録されているか確認
+        // 同一の住所がすでに登録されているか確認（address2無視）
         boolean exists = user.getDeliveryAddresses().stream().anyMatch(addr ->
-                pc.equals(addr.getPostalCode()) &&
-                        a1.equals(addr.getAddress1()) &&
-                        a2.equals(addr.getAddress2())
+                pc.equals(normalize(addr.getPostalCode())) &&
+                        a1.equals(normalize(addr.getAddress1()))
         );
         if (exists) {
             return ResponseEntity.badRequest().body(new ApiResponseDto("同じ住所が既に登録されています"));
@@ -252,9 +242,8 @@ public class UserServiceImpl implements UserService {
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
-    /**
-     * 指定された配送先住所を削除する処理
-     */
+
+    // 指定された配送先住所を削除する処理
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> deleteAddress(String userId, UserAddressRequestDto requestDto) {
@@ -269,21 +258,19 @@ public class UserServiceImpl implements UserService {
             return ResponseEntity.badRequest().body(new ApiResponseDto("削除できる住所が存在しません"));
         }
 
-        // 入力された住所情報をトリム
-        String postalCode = requestDto.getPostalCode().trim();
-        String address1 = requestDto.getAddress1().trim();
-        String address2 = requestDto.getAddress2().trim();
+        // 入力値を正規化
+        String postalCode = normalize(requestDto.getPostalCode());
+        String address1 = normalize(requestDto.getAddress1());
 
-        // 該当する住所をリストから探す
+        // 該当住所リスト探す（postalCode + address1の一致）
         Optional<DeliveryAddress> targetOpt = user.getDeliveryAddresses().stream()
-                .filter(addr -> postalCode.equals(addr.getPostalCode())
-                        && address1.equals(addr.getAddress1())
-                        && address2.equals(addr.getAddress2()))
+                .filter(addr -> postalCode.equals(normalize(addr.getPostalCode()))
+                        && address1.equals(normalize(addr.getAddress1())))
                 .findFirst();
 
         // 該当住所が存在しない場合
         if (targetOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body(new ApiResponseDto("該当する住所が見つかりません"));
+            return ResponseEntity.badRequest().body(new ApiResponseDto("該当住所が見つかりません"));
         }
 
         // ユーザーリストから削除し、DBからも削除

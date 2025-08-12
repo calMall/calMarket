@@ -21,50 +21,46 @@ import java.util.List;
 @Builder
 public class Review {
 
-    /** レビューID（自動採番） */
+    // レビューID（自動採番）
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long reviewId;
 
-    /** 投稿ユーザー（Userエンティティと多対一） */
+    // 投稿ユーザー（Userエンティティと多対一）
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "user_id", nullable = false)
     private User user;
 
-    /** 対象商品（Productエンティティと多対一、itemCodeで紐付け） */
+    // 対象商品（Productエンティティと多対一、itemCodeで紐付け）
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "item_code", referencedColumnName = "item_code", nullable = false)
     private Product product;
 
-    /** 評価（1〜5） */
+    //評価（1〜5）
     private Integer rating;
 
-    /** レビュータイトル（任意） */
+    //レビュータイトル（任意）
     private String title;
 
-    /** コメント本文（必須） */
+    // コメント本文（必須）
     @Column(columnDefinition = "TEXT")
     private String comment;
 
-    /**
-     * ★ レビューに関連付けられた画像URL一覧
-     * - @Transient を付けてDBテーブルとはマッピングしない
-     * - DBに保存された review_images テーブルのURLを表示用として格納する
-     * - 永続化は行わず、サービス層で明示的に取得・設定する
-     */
+
+    // レビューに関連付けられた画像URL一覧
     @Transient
     @Builder.Default
     private List<String> imageList = new ArrayList<>();
 
-    /** 作成日時（JST固定） */
+    // 作成日時（JST固定）
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "Asia/Tokyo")
     private LocalDateTime createdAt;
 
-    /** 更新日時（JST固定） */
+    // 更新日時（JST固定）
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "Asia/Tokyo")
     private LocalDateTime updatedAt;
 
-    /** 論理削除フラグ（true の場合は削除扱い） */
+    // 論理削除フラグ（true の場合は削除扱い）
     @Column(nullable = false)
     private boolean deleted;
 }
