@@ -1,30 +1,89 @@
 "use client";
 import { getCheckout } from "@/api/Cart";
+import { getMyInfo } from "@/api/User";
+import CustomButton from "@/components/common/CustomBtn";
 import CustomLayout from "@/components/common/CustomLayout";
+import ModalCover from "@/components/common/ModalCover";
 import CheckoutItem from "@/components/order/CheckoutItem";
+import DeliveryAddressModal from "@/components/user/DeliveryAddressModal";
+import UserStore from "@/store/user";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 interface props {
   searchParams: Promise<{ ids: string }>;
 }
 
 export default function CheckoutOrder({ searchParams }: props) {
+  const userStore = UserStore();
   const [checkoutList, setCheckoutList] = useState<CheckoutItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [allPrice, setAllPrice] = useState(0);
+  const [myInfo, setMyInfo] = useState<MyinfoDTO | null>(null);
+  const [selectedAddress, setSelectedAddress] =
+    useState<deliveryAddressDetail | null>(null);
+  const router = useRouter();
+
+  // modalを表示するかどうか
+  const [viewModal, setViewModal] = useState(false);
+
+  // カート情報ロード関数
   const fetchData = async () => {
     const { ids } = await searchParams;
-    const data = await getCheckout(ids.split(",").map((id) => Number(id)));
-    setCheckoutList(data.cartList);
-    console.log(data.cartList);
-    // setAllPrice(data.cartList.reduce((acc, item) => acc + item * item.quantity, 0));
-    setIsLoading(false);
+    try {
+      const data = await getCheckout(ids.split(",").map((id) => Number(id)));
+      if (data.message === "success") {
+        setCheckoutList(data.cartList);
+        console.log(data);
+
+        setAllPrice(
+          data.cartList.reduce(
+            (acc, item) => acc + item.price * item.quantity,
+            0
+          )
+        );
+      }
+      setIsLoading(false);
+    } catch (e: any) {
+      if (e.status === 401) {
+        alert("ログインが必要です。ログインページに移動します。");
+        userStore.logout();
+        return router.push("/login");
+      }
+      alert("カートの情報を取得できませんでした。");
+      router.replace("/cart");
+    }
   };
+
+  // お届け先をロードする関数
+  const onMyInfoChange = async () => {
+    const data = await getMyInfo();
+    if (data.message === "success") {
+      console.log(data);
+      setMyInfo(data);
+      if (data.deliveryAddressDetails.length > 0) {
+        setSelectedAddress(data.deliveryAddressDetails[0]);
+      }
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    onMyInfoChange();
   }, []);
 
   return (
     <CustomLayout>
+      {viewModal && (
+        <ModalCover>
+          <DeliveryAddressModal
+            setMyInfo={setMyInfo}
+            setSelectedAddress={setSelectedAddress}
+            selectedAddress={selectedAddress}
+            setViewModal={setViewModal}
+            initialDeliveryAddress={myInfo?.deliveryAddressDetails}
+          />
+        </ModalCover>
+      )}
       <div>
         <h2>ご注文内容の確認</h2>
         <div className="bb wf jb flex pb-1"></div>
@@ -42,6 +101,20 @@ export default function CheckoutOrder({ searchParams }: props) {
           </div>
           <div>
             <div className="cart-border mt-1">
+              <div className="flex jb ac pd-1 ">
+                <div>お届け先</div>
+                <CustomButton
+                  func={setViewModal.bind(null, true)}
+                  text="変更"
+                />
+              </div>
+              <div className="flex-col flex gap-1 pd-1">
+                <div className="bb" />
+                <div className="fw-500">{selectedAddress?.postalCode}</div>
+                <div>{selectedAddress?.address1}</div>
+              </div>
+            </div>
+            <div className="cart-border mt-1">
               <div className="flex jb ac pd-1">
                 <div>商品合計</div>
                 <div>￥{allPrice.toLocaleString()}</div>
@@ -52,7 +125,7 @@ export default function CheckoutOrder({ searchParams }: props) {
               </div>
               <div className="flex jb ac pd-1">
                 <div>合計金額</div>
-                <div>￥{allPrice.toLocaleString()}</div>
+                <div className="fw-600">￥{allPrice.toLocaleString()}</div>
               </div>
             </div>
             {/* <CustomButton

@@ -12,7 +12,7 @@ interface OrderDetailResponseDto extends ResponseDTO {
   };
 }
 interface OrderCheckout extends ResponseDTO {
-  cartList: [];
+  cartList: CheckoutItem[];
 }
 interface CheckoutItem {
   id: number;

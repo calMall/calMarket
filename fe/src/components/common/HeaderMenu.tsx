@@ -24,11 +24,12 @@ export default function HeaderMenu({ nickname }: props) {
   const onLogout = async () => {
     try {
       setViewMenu(false);
-
-      userStore.logout();
       const data = await logout();
       console.log(data);
-      router.replace("/");
+      if (data.message === "success") {
+        userStore.logout();
+        router.replace("/");
+      }
     } catch (e) {
       alert("エラーが発生しました。");
     }
