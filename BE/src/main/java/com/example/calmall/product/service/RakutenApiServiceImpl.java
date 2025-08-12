@@ -1,8 +1,7 @@
 package com.example.calmall.product.service;
 
 import com.example.calmall.product.entity.Product;
-import com.example.calmall.product.text.DescriptionHtmlFormatter;
-import com.example.calmall.product.text.JpTextQuickFormat;
+import com.example.calmall.product.text.DescriptionSuperCleaner; // ★ 初回から超クリーン整形
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,7 +13,7 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 楽天商品APIから商品情報を取得するサービス実装クラス
+ * 楽天商品APIから商品情報を取得するサービス実装クラス（超クリーン対応）
  */
 @Service
 @RequiredArgsConstructor
@@ -34,6 +33,7 @@ public class RakutenApiServiceImpl implements RakutenApiService {
 
     /**
      * itemCode 指定で楽天APIを叩き、最初の一致商品を Product に詰め替えて返却
+     * ※ 初回保存時点で説明文を「超・クリーン化」して DB に入れる
      */
     @Override
     @SuppressWarnings("unchecked")
@@ -102,19 +102,17 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         product.setItemCode(getString(item, "itemCode"));
         product.setItemName(getString(item, "itemName"));
 
-        // 元説明文（楽天）
+        // 楽天の元説明文
         String rawCaption = getString(item, "itemCaption");
 
-        // 可読プレーン / 安全HTML を生成
-        String captionPlain = JpTextQuickFormat.toReadablePlain(rawCaption);   // 改行・箇条書き・キー:値の整形
-        String captionHtml  = DescriptionHtmlFormatter.toSafeHtml(rawCaption); // <table>/<ul>/<p> の最小安全タグ
+        // ★ 初回から超クリーン化（DB には常に整形済みを保存）
+        String cleanHtml  = DescriptionSuperCleaner.buildCleanHtml(null, null, rawCaption);
+        String cleanPlain = DescriptionSuperCleaner.toPlain(cleanHtml);
 
-        // フロント互換：itemCaption は可読版で保持
-        product.setItemCaption(captionPlain);
-
-        // 追加スキーマがある場合は格納（将来のフロント拡張に備える）
-        product.setDescriptionPlain(captionPlain);
-        product.setDescriptionHtml(captionHtml);
+        // フロント互換：itemCaption はプレーン（超クリーン）
+        product.setItemCaption(cleanPlain);
+        product.setDescriptionPlain(cleanPlain);
+        product.setDescriptionHtml(cleanHtml);
 
         product.setCatchcopy(getString(item, "catchcopy"));
         product.setPrice(getInt(item, "itemPrice", 0));
@@ -136,8 +134,7 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         product.setImages(images);
 
         // 在庫などはダミー生成（デモ用途）
-        int inv = ThreadLocalRandom.current().nextInt(0, 301);
-        product.setInventory(inv);
+        product.setInventory(ThreadLocalRandom.current().nextInt(0, 301));
         product.setStatus(true);
         product.setCreatedAt(LocalDateTime.now());
 
