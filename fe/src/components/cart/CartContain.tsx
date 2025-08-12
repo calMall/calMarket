@@ -1,27 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CartItem from "./CartItem";
 import CustomButton from "../common/CustomBtn";
 import { deleteCart, getCart } from "@/api/Cart";
+import { useRouter } from "next/navigation";
 
 interface props {
   initCartList: cartItem[];
 }
 export default function CartContain({ initCartList }: props) {
+  const router = useRouter();
   const [cartList, setCartList] = useState(initCartList);
   const [checkList, setCheckList] = useState(initCartList);
+  const reducePrice = () => {
+    return checkList.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  };
+  const [allPrice, setAllPrice] = useState(reducePrice());
   const onOrder = async () => {
     if (checkList.length === 0) {
       alert("商品が選択されていません。");
       return;
     }
   };
-  const refetchCart = async () => {
+  const refetchCart = async (type: "delete" | "change") => {
     try {
       const data = await getCart();
       setCartList(data.cartItems);
-      setCheckList([]);
+      if (type === "delete") setCheckList([]);
     } catch (e) {
       console.error("カートの再取得に失敗しました。", e);
     }
@@ -35,7 +41,7 @@ export default function CartContain({ initCartList }: props) {
       try {
         const data = await deleteCart(checkList.map((item) => item.id));
         if (data.message === "success") {
-          refetchCart();
+          refetchCart("delete");
           alert("選択した商品を削除しました。");
         }
         // 削除処理をここに追加
@@ -59,6 +65,14 @@ export default function CartContain({ initCartList }: props) {
       setCheckList(cartList);
     }
   };
+  const goCheckout = () => {
+    const checkedIds = checkList.map((item) => item.id).join(",");
+    router.push(`/order/checkout?ids=${checkedIds}`);
+  };
+  useEffect(() => {
+    setAllPrice(reducePrice());
+  }, [checkList]);
+
   return (
     <div>
       <h2>カート({initCartList.length})</h2>
@@ -86,7 +100,12 @@ export default function CartContain({ initCartList }: props) {
                 checked={checkList.some((item) => item.id === cart.id)}
                 onChange={() => checkItem(cart)}
               />
-              <CartItem initItem={cart} />
+              <CartItem
+                setCartList={setCartList}
+                setCheckList={setCheckList}
+                refetchData={refetchCart}
+                initItem={cart}
+              />
             </div>
           ))}
         </div>
@@ -94,12 +113,7 @@ export default function CartContain({ initCartList }: props) {
           <div className="cart-border mt-1">
             <div className="flex jb ac pd-1">
               <div>商品合計</div>
-              <div>
-                ￥
-                {checkList
-                  .reduce((acc, item) => acc + item.price * item.quantity, 0)
-                  .toLocaleString()}
-              </div>
+              <div>￥{allPrice.toLocaleString()}</div>
             </div>
             <div className="flex jb ac pd-1">
               <div>送料</div>
@@ -107,18 +121,13 @@ export default function CartContain({ initCartList }: props) {
             </div>
             <div className="flex jb ac pd-1">
               <div>合計金額</div>
-              <div>
-                ￥
-                {checkList
-                  .reduce((acc, item) => acc + item.price * item.quantity, 0)
-                  .toLocaleString()}
-              </div>
+              <div>￥{allPrice.toLocaleString()}</div>
             </div>
           </div>
           <CustomButton
             classname="mt-1"
             text="お払いへ進む"
-            func={() => console.log("購入手続き")}
+            func={goCheckout}
           />
         </div>
       </div>

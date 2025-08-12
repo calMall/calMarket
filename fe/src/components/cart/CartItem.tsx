@@ -1,39 +1,79 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import ContainImage from "../common/ContainImage";
 import CustomButton from "../common/CustomBtn";
-import { deleteCart } from "@/api/Cart";
+import { decreaseProduct, deleteCart, increaseProduct } from "@/api/Cart";
 import { newImageSizing } from "@/utils/newImageSizing";
+import { MdDeleteOutline } from "react-icons/md";
 
 interface props {
   initItem: cartItem;
+  refetchData: Function;
+  setCheckList: React.Dispatch<React.SetStateAction<cartItem[]>>;
+  setCartList: React.Dispatch<React.SetStateAction<cartItem[]>>;
 }
-export default function CartItem({ initItem }: props) {
+export default function CartItem({
+  initItem,
+  refetchData,
+  setCheckList,
+  setCartList,
+}: props) {
   const [item, setItem] = useState(initItem);
   const [mounted, setMounted] = useState(false);
 
   const quantityChange = async (cal: "-" | "+") => {
     if (cal === "+") {
-      // APIロジック
-      // const ex = await ex()
-      setItem((prev) => {
-        if (prev.quantity < 30) return { ...prev, quantity: prev.quantity + 1 };
-        alert("注文は30件以下可能です。");
-        return prev;
-      });
+      if (item.quantity < 30) {
+        try {
+          const res = await increaseProduct(item.id);
+          console.log(res);
+          if (res.message === "success") {
+            await refetchData();
+            setCheckList((prev) => {
+              return prev.map((el) =>
+                el.id === item.id ? { ...el, quantity: el.quantity + 1 } : el
+              );
+            });
+            return setItem((prev) => {
+              return { ...prev, quantity: prev.quantity + 1 };
+            });
+          }
+        } catch (e) {
+          return alert("追加に失敗しました。");
+        }
+      }
+      return alert("注文は30件以下可能です。");
     }
+
     if (cal === "-") {
       if (item.quantity > 1) {
-        setItem((prev) => {
-          return { ...prev, quantity: prev.quantity - 1 };
-        });
+        try {
+          const res = await decreaseProduct(item.id);
+          console.log(res);
+          if (res.message === "success") {
+            await refetchData();
+            setCheckList((prev) => {
+              return prev.map((el) =>
+                el.id === item.id ? { ...el, quantity: el.quantity - 1 } : el
+              );
+            });
+            return setItem((prev) => {
+              return { ...prev, quantity: prev.quantity - 1 };
+            });
+          }
+        } catch (e) {
+          return alert("削除に失敗しました。");
+        }
       }
-      if (item.quantity === 1) {
-        if (window.confirm("商品を削除しますか？")) {
-          // APIロジック
-          // const data = await deleteCart()
-          setItem;
+      if (item.quantity === 1 && window.confirm("商品を削除しますか？")) {
+        try {
+          const res = await deleteCart([item.id]);
+          if (res.message === "success") {
+            await refetchData();
+          }
+        } catch (e) {
+          return alert("削除に失敗しました。");
         }
       }
     }
@@ -56,9 +96,11 @@ export default function CartItem({ initItem }: props) {
           <div className="flex ac jb cart-quantity-contain">
             <CustomButton
               classname="cart-quantity-btn fw-500"
-              text="-"
+              text={item.quantity > 1 ? "-" : ""}
+              icon={item.quantity <= 1 ? <MdDeleteOutline /> : null}
               func={quantityChange.bind(mounted ? window : null, "-")}
             />
+
             <div className="cart-quantity-input flex ac jc">
               {item.quantity}
             </div>
