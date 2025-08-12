@@ -137,7 +137,6 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         product.setImages(images);
 
         // reviewCount / score (reviewAverage)
-        product.setTagIds(null); // ここでは未使用
         int inv = ThreadLocalRandom.current().nextInt(0, 301);
         product.setInventory(inv);
         product.setStatus(true);

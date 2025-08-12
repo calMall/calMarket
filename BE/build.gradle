@@ -14,16 +14,6 @@ java {
     }
 }
 
-// Spring Boot メインクラスの設定
-springBoot {
-    mainClass = 'com.example.calmall.CalmallApplication'
-}
-
-// bootRun タスクにも明示的に指定
-bootRun {
-    mainClass.set('com.example.calmall.CalmallApplication')
-}
-
 repositories {
     mavenCentral()
 }
@@ -45,11 +35,22 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-// ✅ bootRun に明示的にメインクラスを指定（ここが最重要）
-bootRun {
-    mainClass.set("com.example.calmall.CalmallApplication")
+application {
+    mainClass = 'com.example.calmall.CalmallApplication'
+}
+
+tasks.named('bootRun') {
+    mainClass = application.mainClass
 }
 
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+tasks.register('printMainClass') {
+    doLast {
+        println "application.mainClass = ${application.mainClass.getOrNull()}"
+        println "bootRun.mainClass = ${tasks.named('bootRun').get().mainClass.getOrNull()}"
+    }
+}
+
