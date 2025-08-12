@@ -1,7 +1,7 @@
 "use client";
 
 import { getCart } from "@/api/Cart";
-import { myInfo } from "@/api/User";
+import { getMyInfo } from "@/api/User";
 import ContainImage from "@/components/common/ContainImage";
 import CustomLayout from "@/components/common/CustomLayout";
 import Star from "@/components/product/Star";
@@ -21,7 +21,7 @@ export default function Mypage() {
   useEffect(() => {
     const setData = async () => {
       try {
-        const data = await myInfo();
+        const data = await getMyInfo();
         const data2 = await getCart();
         console.log(data2);
         setPoint(data.point);
@@ -61,13 +61,20 @@ export default function Mypage() {
         {orders.length === 0 ? (
           <div>注文履歴がありません</div>
         ) : (
-          orders.map((order) => (
-            <div className="wf simple-order-contain" key={order.id}>
-              <Link href={``} className="rt simple-order-img">
-                <ContainImage alt="product" url={order.imageUrl} />
-              </Link>
-            </div>
-          ))
+          <div className="wf simple-order-contain">
+            {orders.slice(0, 4).map((order) => (
+              <div className="wf" key={order.id}>
+                <Link href={``}>
+                  <div className="rt simple-order-img wf">
+                    <ContainImage
+                      alt="product"
+                      url={newImageSizing(order.imageUrl, 256)}
+                    />
+                  </div>
+                </Link>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
