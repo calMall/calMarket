@@ -1,46 +1,52 @@
 package com.example.calmall.product.service;
 
 import com.example.calmall.product.entity.Product;
+import com.example.calmall.product.text.DescriptionHtmlFormatter;
+import com.example.calmall.product.text.JpTextQuickFormat;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
-import com.example.calmall.product.text.JpTextQuickFormat;
-import com.example.calmall.product.text.DescriptionHtmlFormatter;
 
-// 楽天商品APIから商品情報を取得するサービス実装クラス
+/**
+ * 楽天商品APIから商品情報を取得するサービス実装クラス
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class RakutenApiServiceImpl implements RakutenApiService {
 
+    // HTTPクライアント
     private final RestTemplate restTemplate;
 
+    // 楽天アプリID
     @Value("${rakuten.app.id}")
     private String appId;
 
-    @Value("${rakuten.affiliate.id:}") // 無設定時は空文字
+    // アフィリエイトID（任意）
+    @Value("${rakuten.affiliate.id:}")
     private String affiliateId;
 
-    // itemCode で検索 → Product 生成
+    /**
+     * itemCode 指定で楽天APIを叩き、最初の一致商品を Product に詰め替えて返却
+     */
     @Override
     @SuppressWarnings("unchecked")
     public Optional<Product> fetchProductFromRakuten(String itemCode) {
 
-        // 受信した itemCode の確認
+        // デバッグ用：itemCode の16進表記も出す
         if (log.isDebugEnabled()) {
             StringBuilder hex = new StringBuilder();
             for (char c : itemCode.toCharArray()) hex.append(String.format("%02X ", (int) c));
             log.debug("[RakutenApi] raw itemCode='{}' hex={}", itemCode, hex);
         }
 
-        // URL 構築
+        // API URL 構築
         StringBuilder sb = new StringBuilder("https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601")
                 .append("?applicationId=").append(appId)
                 .append("&itemCode=").append(itemCode)
@@ -71,7 +77,7 @@ public class RakutenApiServiceImpl implements RakutenApiService {
             return Optional.empty();
         }
 
-        // v2 フラット / v1 ラッパー両対応
+        // v2（フラット）/ v1（Itemラッパー）両対応で Map を取り出す
         Map<String, Object> item;
         Object first = items.get(0);
         if (first instanceof Map<?, ?> m) {
@@ -91,28 +97,30 @@ public class RakutenApiServiceImpl implements RakutenApiService {
             return Optional.empty();
         }
 
-        // Product マッピング
+        // ---------- Product へマッピング ----------
         Product product = new Product();
         product.setItemCode(getString(item, "itemCode"));
         product.setItemName(getString(item, "itemName"));
 
-        // 楽天の説明を整形（プレーン/HTML）
-        String rawCaption   = getString(item, "itemCaption");
-        String captionPlain = JpTextQuickFormat.toReadablePlain(rawCaption);
-        String captionHtml  = DescriptionHtmlFormatter.toSafeHtml(rawCaption);
+        // 元説明文（楽天）
+        String rawCaption = getString(item, "itemCaption");
 
-        // まずは可読テキストを itemCaption に入れる
+        // 可読プレーン / 安全HTML を生成
+        String captionPlain = JpTextQuickFormat.toReadablePlain(rawCaption);   // 改行・箇条書き・キー:値の整形
+        String captionHtml  = DescriptionHtmlFormatter.toSafeHtml(rawCaption); // <table>/<ul>/<p> の最小安全タグ
+
+        // フロント互換：itemCaption は可読版で保持
         product.setItemCaption(captionPlain);
 
-        // スキーマを増やしている場合は保存
-         product.setDescriptionPlain(captionPlain);
-         product.setDescriptionHtml(captionHtml);
+        // 追加スキーマがある場合は格納（将来のフロント拡張に備える）
+        product.setDescriptionPlain(captionPlain);
+        product.setDescriptionHtml(captionHtml);
 
         product.setCatchcopy(getString(item, "catchcopy"));
         product.setPrice(getInt(item, "itemPrice", 0));
         product.setItemUrl(getString(item, "itemUrl"));
 
-        // 画像
+        // 画像URL一覧
         List<String> images = new ArrayList<>();
         Object midObj = item.get("mediumImageUrls");
         if (midObj instanceof List<?> list) {
@@ -127,7 +135,7 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         }
         product.setImages(images);
 
-        // 在庫などダミー設定
+        // 在庫などはダミー生成（デモ用途）
         int inv = ThreadLocalRandom.current().nextInt(0, 301);
         product.setInventory(inv);
         product.setStatus(true);
@@ -136,6 +144,8 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         log.info("[RakutenApi] 商品取得成功 itemCode={} name={}", product.getItemCode(), product.getItemName());
         return Optional.of(product);
     }
+
+    // -------------------- helpers --------------------
 
     private String getString(Map<?, ?> map, String key) {
         Object v = map.get(key);

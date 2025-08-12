@@ -2,46 +2,83 @@ package com.example.calmall.product.text;
 
 import org.springframework.web.util.HtmlUtils;
 
-/** 説明文→安全なHTML（見出し/箇条書き/段落に整形） */
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+// 可読なHTML断片（p, ul/li, table）に変換するユーティリティ
+// 外部ライブラリ（Jsoup等）に依存せず、入力は必ずエスケープしてから必要なタグだけを生成する方式にして安全性を担保
 public final class DescriptionHtmlFormatter {
+
+    private static final Pattern KEY_VALUE = Pattern.compile("^\\s*([^：:]{1,30})[：:][\\s　]*(.+)$");
+    private static final Pattern BULLET_HEAD = Pattern.compile("^[\\p{Z}\\t　]*[・\\-\\—\\●\\■\\□\\*]\\s*");
+
     private DescriptionHtmlFormatter() {}
 
-    public static String toSafeHtml(String raw){
-        String plain = raw == null ? "" : raw;
+    // 生テキストを HTML に整形（安全なタグのみ生成）
+    public static String toSafeHtml(String raw) {
+        if (raw == null || raw.isBlank()) return "";
 
-        // 讀みやすく整形（全角空白→半角、連続空白圧縮、記号正規化、句読点で改行）
-        plain = JpTextQuickFormat.toReadablePlain(plain);
+        // まずはプレーンテキストへ（改行や箇条書き/キー:値を判定しやすくする）
+        String plain = JpTextQuickFormat.toReadablePlain(raw);
 
-        // 【見出し】を暫定マーカーに
-        plain = plain.replaceAll("【([^】]{2,60})】", "\n§$1\n");
+        // 行に分割
+        List<String> lines = Arrays.asList(plain.split("\\n"));
 
-        StringBuilder sb = new StringBuilder();
-        boolean inList = false;
+        // 収集
+        List<String[]> tableRows = new ArrayList<>(); // {key, value}
+        List<String> bullets = new ArrayList<>();
+        List<String> paragraphs = new ArrayList<>();
 
-        for (String line : plain.split("\\n")) {
-            line = line.trim();
-            if (line.isEmpty()) continue;
+        for (String ln : lines) {
+            String t = ln.trim();
+            if (t.isEmpty()) continue;
 
-            if (line.startsWith("§")) { // 見出し
-                if (inList) { sb.append("</ul>"); inList = false; }
-                sb.append("<h4>")
-                        .append(HtmlUtils.htmlEscape(line.substring(1)))
-                        .append("</h4>");
+            Matcher kv = KEY_VALUE.matcher(t);
+            if (kv.find()) {
+                tableRows.add(new String[]{kv.group(1).trim(), kv.group(2).trim()});
                 continue;
             }
-            if (line.startsWith("・")) { // 箇条書き
-                if (!inList) { sb.append("<ul>"); inList = true; }
-                sb.append("<li>")
-                        .append(HtmlUtils.htmlEscape(line.substring(1).trim()))
-                        .append("</li>");
-            } else {                    // 段落
-                if (inList) { sb.append("</ul>"); inList = false; }
-                sb.append("<p>")
-                        .append(HtmlUtils.htmlEscape(line))
-                        .append("</p>");
+            if (t.startsWith("・")) {
+                bullets.add(t.substring(1).trim());
+                continue;
             }
+            paragraphs.add(t);
         }
-        if (inList) sb.append("</ul>");
-        return sb.toString();
+
+        // HTML構築（必ずエスケープしてからタグを生成）
+        StringBuilder html = new StringBuilder(1024);
+
+        if (!tableRows.isEmpty()) {
+            html.append("<section class=\"desc-section table\"><h3>商品情報</h3><table>");
+            for (String[] row : tableRows) {
+                html.append("<tr><th>").append(escape(row[0])).append("</th><td>")
+                        .append(escape(row[1])).append("</td></tr>");
+            }
+            html.append("</table></section>");
+        }
+
+        if (!bullets.isEmpty()) {
+            html.append("<section class=\"desc-section bullets\"><h3>特長・注意</h3><ul>");
+            for (String b : bullets) {
+                html.append("<li>").append(escape(b)).append("</li>");
+            }
+            html.append("</ul></section>");
+        }
+
+        if (!paragraphs.isEmpty()) {
+            html.append("<section class=\"desc-section body\">");
+            for (String p : paragraphs) {
+                html.append("<p>").append(escape(p)).append("</p>");
+            }
+            html.append("</section>");
+        }
+
+        return html.toString();
+    }
+
+    // 必要最小限のエスケープ
+    private static String escape(String s) {
+        return HtmlUtils.htmlEscape(s == null ? "" : s);
     }
 }

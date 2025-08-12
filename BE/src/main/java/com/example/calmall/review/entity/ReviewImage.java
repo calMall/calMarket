@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 @Builder
 public class ReviewImage {
 
-    /** 主キーID（自動採番） */
+    // 主キーID（自動採番）
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
