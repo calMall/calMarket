@@ -24,6 +24,7 @@ export const postCart = async (
     credentials: "include",
     body: JSON.stringify({ itemCode, quantity }),
   });
+
   if (!data.ok) {
     const error: any = new Error(data.statusText);
     error.status = data.status;
