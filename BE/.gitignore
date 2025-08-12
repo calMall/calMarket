@@ -1,15 +1,16 @@
-# IntelliJ
+# IntelliJ IDEA 関連ファイルを無視
 .idea/
+fe/.idea/     # FE 側 IntelliJ 設定フォルダも無視
 *.iml
 *.iws
 *.ipr
 
-# Build
+# ビルド成果物を無視
 /build/
 out/
 bin/
 
-# Gradle
+# Gradle 関連
 .gradle/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
@@ -18,14 +19,14 @@ bin/
 !**/src/test/**/bin/
 .nb-gradle/
 
-# OS files
+# OS が生成する不要ファイル
 .DS_Store
 Thumbs.db
 
-# Logs
+# ログファイル
 *.log
 
-# STS
+# Spring Tool Suite (STS) 関連
 .apt_generated
 .classpath
 .factorypath
@@ -34,11 +35,11 @@ Thumbs.db
 .springBeans
 .sts4-cache
 
-# NetBeans
+# NetBeans 関連
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 
-# VS Code
+# Visual Studio Code 関連
 .vscode/
