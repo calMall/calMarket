@@ -25,7 +25,7 @@ public interface OrderService {
     Page<Orders> findOrdersByUserId(String userId, Pageable pageable);
     //注文詳細
     Optional<Orders> getOrderByIdAndUserId(Long orderId, String userId);
-    //仮注文
-    OrderCheckResponseDto checkOrder(OrderRequestDto requestDto, String userId);
+    //注文確認
+   // OrderCheckResponseDto checkOrder(OrderRequestDto requestDto, String userId);
 
 }

@@ -160,7 +160,7 @@ public class OrderServiceImpl implements OrderService {
     public Optional<Orders> getOrderByIdAndUserId(Long orderId, String userId) {
         return ordersRepository.findByIdAndUser_UserId(orderId, userId);
     }
-
+/* 
     @Override
     public OrderCheckResponseDto checkOrder(OrderRequestDto requestDto, String userId) {
         OrderCheckResponseDto response = new OrderCheckResponseDto();
@@ -184,4 +184,5 @@ public class OrderServiceImpl implements OrderService {
         response.setInsufficientItems(insufficientItems);
         return response;
     }
+    */
 }

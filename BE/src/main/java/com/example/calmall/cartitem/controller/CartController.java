@@ -245,39 +245,39 @@ public class CartController {
         }
     }
 
- @PostMapping("/list-for-order")
-public ResponseEntity<CartListForOrderResponseDto> getCartItemsForOrderPage(@RequestBody List<Long> cartItemIds, HttpSession session) {
-    // セッションからユーザーIDを取得
-    String userId = getUserIdFromSession(session);
-    if (userId == null) {
-        log.warn("ログインが必要です。");
-        // 401 Unauthorized と、エラーメッセージを含むDTOを返す
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-            .body(CartListForOrderResponseDto.builder().message("fail: ログインが必要です").cartList(Collections.emptyList()).build());
-    }
+    @PostMapping("/list-for-order")
+    public ResponseEntity<CartListForOrderResponseDto> getCartItemsForOrderPage(@RequestBody List<Long> cartItemIds, HttpSession session) {
+        // セッションからユーザーIDを取得
+        String userId = getUserIdFromSession(session);
+        if (userId == null) {
+            log.warn("ログインが必要です。");
+            // 401 Unauthorized と、エラーメッセージを含むDTOを返す
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(CartListForOrderResponseDto.builder().message("fail: ログインが必要です").cartList(Collections.emptyList()).build());
+        }
 
-    // カートアイテムIDが指定されているか確認
-    if (cartItemIds == null || cartItemIds.isEmpty()) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(CartListForOrderResponseDto.builder().message("fail: アイテムIDが指定されていません").cartList(Collections.emptyList()).build());
-    }
+        // カートアイテムIDが指定されているか確認
+        if (cartItemIds == null || cartItemIds.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(CartListForOrderResponseDto.builder().message("fail: アイテムIDが指定されていません").cartList(Collections.emptyList()).build());
+        }
 
-    try {
-        // サービス層から、注文ページに必要なカートアイテム情報を取得
-        CartListForOrderResponseDto response = cartItemService.getCartItemsForOrderPage(userId, cartItemIds);
+        try {
+            // サービス層から、注文ページに必要なカートアイテム情報を取得
+            CartListForOrderResponseDto response = cartItemService.getCartItemsForOrderPage(userId, cartItemIds);
         
-        log.info("注文ページ用のカートアイテムリストを取得しました。userId={}, cartItemIds={}", userId, cartItemIds);
+            log.info("注文ページ用のカートアイテムリストを取得しました。userId={}, cartItemIds={}", userId, cartItemIds);
         
-        // 成功した場合は200 OKとレスポンスDTOを返す
-        return ResponseEntity.ok(response);
-    } catch (IllegalArgumentException e) {
-        log.error("引数エラー: userId={}, cartItemIds={}: {}", userId, cartItemIds, e.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(CartListForOrderResponseDto.builder().message("fail: " + e.getMessage()).cartList(Collections.emptyList()).build());
-    } catch (Exception e) {
-        log.error("予期せぬエラー: userId={}, cartItemIds={}: {}", userId, cartItemIds, e.getMessage(), e);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(CartListForOrderResponseDto.builder().message("fail: カート情報の取得に失敗しました").cartList(Collections.emptyList()).build());
+            // 成功した場合は200 OKとレスポンスDTOを返す
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            log.error("引数エラー: userId={}, cartItemIds={}: {}", userId, cartItemIds, e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(CartListForOrderResponseDto.builder().message("fail: " + e.getMessage()).cartList(Collections.emptyList()).build());
+        } catch (Exception e) {
+            log.error("予期せぬエラー: userId={}, cartItemIds={}: {}", userId, cartItemIds, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(CartListForOrderResponseDto.builder().message("fail: カート情報の取得に失敗しました").cartList(Collections.emptyList()).build());
+        }
     }
-}
 }

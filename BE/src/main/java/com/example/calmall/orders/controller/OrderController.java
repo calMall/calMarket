@@ -31,11 +31,15 @@ public class OrderController {
 
     @Autowired
     private OrderService orderService;
+    
 
+
+    //注文
     @PostMapping
     public ResponseEntity<ApiResponseDto> createOrder(@RequestBody OrderRequestDto requestDto, HttpSession session) {
         User user = (User) session.getAttribute("user");
-        if (user == null) {
+        String userId = user.getUserId();
+        if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponseDto("fail: ログインが必要です"));
         }
         try {
@@ -46,10 +50,12 @@ public class OrderController {
         }
     }
 
+    //キャンセル
     @PostMapping("/cancel/{orderId}")
     public ResponseEntity<ApiResponseDto> cancelOrder(@PathVariable Long orderId, HttpSession session) {
         User user = (User) session.getAttribute("user");
-        if (user == null) {
+        String userId = user.getUserId();
+        if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponseDto("fail: ログインが必要です"));
         }
         try {
@@ -60,10 +66,12 @@ public class OrderController {
         }
     }
 
+    //払い戻し
     @PostMapping("/refund/{orderId}")
     public ResponseEntity<ApiResponseDto> refundOrder(@PathVariable Long orderId, HttpSession session) {
         User user = (User) session.getAttribute("user");
-        if (user == null) {
+        String userId = user.getUserId();
+        if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiResponseDto("fail: ログインが必要です"));
         }
         try {
@@ -74,6 +82,7 @@ public class OrderController {
         }
     }
 
+    //商品履歴確認
     @GetMapping("/history")
     public ResponseEntity<OrderListResponseDto> getOrderHistory(
             HttpSession session,
@@ -81,7 +90,8 @@ public class OrderController {
             @RequestParam(defaultValue = "10") int size
     ) {
         User user = (User) session.getAttribute("user");
-        if (user == null) {
+        String userId = user.getUserId();
+        if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                 OrderListResponseDto.builder().message("fail").build());
         }
@@ -110,11 +120,13 @@ public class OrderController {
 
         return ResponseEntity.ok(responseDto);
     }
-
+    
+    //個別商品確認
     @GetMapping("/{orderId}")
     public ResponseEntity<OrderDetailResponseDto> getOrderDetails(@PathVariable Long orderId, HttpSession session) {
         User user = (User) session.getAttribute("user");
-        if (user == null) {
+        String userId = user.getUserId();
+        if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                 OrderDetailResponseDto.builder().message("fail").build());
         }
@@ -151,7 +163,7 @@ public class OrderController {
                 OrderDetailResponseDto.builder().message("fail").build());
         }
     }
-    
+    /* 
     @PostMapping("/check")
     public ResponseEntity<OrderCheckResponseDto> checkOrder(@RequestBody OrderRequestDto requestDto, HttpSession session) {
         User user = (User) session.getAttribute("user");
@@ -169,4 +181,5 @@ public class OrderController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
+        */
 }
