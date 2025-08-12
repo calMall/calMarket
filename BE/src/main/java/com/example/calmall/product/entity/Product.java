@@ -60,4 +60,13 @@ public class Product {
     // 作成日時
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+
+    // 説明（整形済みテキスト）
+    @jakarta.persistence.Column(name = "description_plain", columnDefinition = "TEXT")
+    private String descriptionPlain;
+
+    // 説明（安全なHTML）
+    @jakarta.persistence.Column(name = "description_html", columnDefinition = "TEXT")
+    private String descriptionHtml;
 }

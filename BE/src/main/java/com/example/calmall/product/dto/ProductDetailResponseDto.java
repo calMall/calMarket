@@ -31,28 +31,34 @@ public class ProductDetailResponseDto {
     @AllArgsConstructor
     public static class ProductDto {
 
-        /** 楽天API itemCode */
+        // 楽天API itemCode
         private String itemCode;
 
-        /** 商品名 */
+        // 商品名
         private String itemName;
 
-        /** 説明文 */
+        // 説明文
         private String itemCaption;
 
-        /** キャッチコピー */
+        // キャッチコピー
         private String catchcopy;
 
-        /** レビュー平均 */
+        // レビュー平均
         private Double score;
 
-        /** レビュー数 */
+        // レビュー数
         private int reviewCount;
 
-        /** 価格 */
+        // 価格
         private Integer price;
 
-        /** 画像URL一覧 */
+        // 画像URL一覧
         private List<String> imageUrls;
+
+        // @Column(columnDefinition="TEXT")
+        private String descriptionPlain;
+        // @Column(columnDefinition="TEXT")
+        private String descriptionHtml;
+
     }
 }
