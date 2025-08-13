@@ -2,7 +2,7 @@ package com.example.calmall.product.job;
 
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
-import com.example.calmall.product.text.DescriptionSuperCleaner; // ★ 超クリーン整形
+import com.example.calmall.product.text.DescriptionSuperCleaner;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,15 +18,15 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
 
     private final ProductRepository productRepository;
 
-    // ★ 起動時に実行するかどうか（true のときだけ実行）
+    // 起動時に実行するかどうか（true のときだけ実行）
     @Value("${backfill.product-description:false}")
     private boolean enabled;
 
-    // ★ ページサイズ（メモリ保護のため一括処理は避ける）
+    // ページサイズ
     @Value("${backfill.page-size:500}")
     private int pageSize;
 
-    // ★ itemCaption もプレーン（超クリーン）へ上書き保存するか
+    // itemCaption も HTML（超クリーン）へ上書き保存するか
     @Value("${backfill.persist-item-caption:true}")
     private boolean persistItemCaption;
 
@@ -41,14 +41,13 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
         int updated = 0;
         int processed = 0;
 
-        // ▼ 全件ページング処理（巨大データでも安全に実行）
         while (true) {
             Page<Product> p = productRepository.findAll(PageRequest.of(page, pageSize));
             if (p.isEmpty()) break;
 
             for (Product prod : p.getContent()) {
                 try {
-                    // 1) 既存の HTML / Plain / Caption を入力に「超・クリーン化」
+                    // 1) HTML / Plain / Caption を入力に「超・クリーン化」
                     String cleanHtml  = DescriptionSuperCleaner.buildCleanHtml(
                             prod.getDescriptionHtml(),
                             prod.getDescriptionPlain(),
@@ -67,9 +66,9 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
                         prod.setDescriptionPlain(cleanPlain);
                         dirty = true;
                     }
-                    // フロント互換：itemCaption を常に「プレーン（超クリーン）」へ統一
-                    if (persistItemCaption && !equalsSafe(cleanPlain, prod.getItemCaption())) {
-                        prod.setItemCaption(cleanPlain);
+                    // itemCaption を HTML（超クリーン）で保存
+                    if (persistItemCaption && !equalsSafe(cleanHtml, prod.getItemCaption())) {
+                        prod.setItemCaption(cleanHtml);
                         dirty = true;
                     }
 
@@ -79,7 +78,6 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
                     }
                     processed++;
                 } catch (Exception e) {
-                    // 1件失敗しても他件は継続
                     log.warn("[Backfill] normalize failed itemCode={} : {}", prod.getItemCode(), e.getMessage());
                 }
             }
@@ -91,7 +89,6 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
         log.info("[Backfill] processed={} updated={} pageSize={}", processed, updated, pageSize);
     }
 
-    // null セーフ比較
     private boolean equalsSafe(String a, String b) {
         return (a == b) || (a != null && a.equals(b));
     }

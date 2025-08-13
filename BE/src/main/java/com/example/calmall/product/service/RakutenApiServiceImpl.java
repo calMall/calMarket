@@ -1,7 +1,7 @@
 package com.example.calmall.product.service;
 
 import com.example.calmall.product.entity.Product;
-import com.example.calmall.product.text.DescriptionSuperCleaner; // ★ 初回から超クリーン整形
+import com.example.calmall.product.text.DescriptionSuperCleaner;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,40 +13,33 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 楽天商品APIから商品情報を取得するサービス実装クラス（超クリーン対応）
+ * 楽天商品APIから商品情報を取得するサービス実装クラス
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class RakutenApiServiceImpl implements RakutenApiService {
 
-    // HTTPクライアント
     private final RestTemplate restTemplate;
 
-    // 楽天アプリID
     @Value("${rakuten.app.id}")
     private String appId;
 
-    // アフィリエイトID（任意）
     @Value("${rakuten.affiliate.id:}")
     private String affiliateId;
 
-    /**
-     * itemCode 指定で楽天APIを叩き、最初の一致商品を Product に詰め替えて返却
-     * ※ 初回保存時点で説明文を「超・クリーン化」して DB に入れる
-     */
     @Override
     @SuppressWarnings("unchecked")
     public Optional<Product> fetchProductFromRakuten(String itemCode) {
 
-        // デバッグ用：itemCode の16進表記も出す
+        // Debug用
         if (log.isDebugEnabled()) {
             StringBuilder hex = new StringBuilder();
             for (char c : itemCode.toCharArray()) hex.append(String.format("%02X ", (int) c));
             log.debug("[RakutenApi] raw itemCode='{}' hex={}", itemCode, hex);
         }
 
-        // API URL 構築
+        // API URL
         StringBuilder sb = new StringBuilder("https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601")
                 .append("?applicationId=").append(appId)
                 .append("&itemCode=").append(itemCode)
@@ -77,7 +70,7 @@ public class RakutenApiServiceImpl implements RakutenApiService {
             return Optional.empty();
         }
 
-        // v2（フラット）/ v1（Itemラッパー）両対応で Map を取り出す
+        // v2/v1対応
         Map<String, Object> item;
         Object first = items.get(0);
         if (first instanceof Map<?, ?> m) {
@@ -97,20 +90,19 @@ public class RakutenApiServiceImpl implements RakutenApiService {
             return Optional.empty();
         }
 
-        // ---------- Product へマッピング ----------
+        // Product Mapping
         Product product = new Product();
         product.setItemCode(getString(item, "itemCode"));
         product.setItemName(getString(item, "itemName"));
 
-        // 楽天の元説明文
         String rawCaption = getString(item, "itemCaption");
 
-        // ★ 初回から超クリーン化（DB には常に整形済みを保存）
+        // 保存時直接HTML整形
         String cleanHtml  = DescriptionSuperCleaner.buildCleanHtml(null, null, rawCaption);
         String cleanPlain = DescriptionSuperCleaner.toPlain(cleanHtml);
 
-        // フロント互換：itemCaption はプレーン（超クリーン）
-        product.setItemCaption(cleanPlain);
+        // dangerouslySetInnerHTML
+        product.setItemCaption(cleanHtml);
         product.setDescriptionPlain(cleanPlain);
         product.setDescriptionHtml(cleanHtml);
 
@@ -118,7 +110,7 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         product.setPrice(getInt(item, "itemPrice", 0));
         product.setItemUrl(getString(item, "itemUrl"));
 
-        // 画像URL一覧
+        // 画像
         List<String> images = new ArrayList<>();
         Object midObj = item.get("mediumImageUrls");
         if (midObj instanceof List<?> list) {
@@ -133,7 +125,7 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         }
         product.setImages(images);
 
-        // 在庫などはダミー生成（デモ用途）
+        // 在庫・作成日時
         product.setInventory(ThreadLocalRandom.current().nextInt(0, 301));
         product.setStatus(true);
         product.setCreatedAt(LocalDateTime.now());
@@ -142,8 +134,7 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         return Optional.of(product);
     }
 
-    // -------------------- helpers --------------------
-
+    // helpers
     private String getString(Map<?, ?> map, String key) {
         Object v = map.get(key);
         return (v == null) ? null : String.valueOf(v);

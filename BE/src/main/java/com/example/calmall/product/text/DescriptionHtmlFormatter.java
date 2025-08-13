@@ -6,26 +6,36 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// 可読なHTML断片（p, ul/li, table）に変換するユーティリティ
-// 外部ライブラリ（Jsoup等）に依存せず、入力は必ずエスケープしてから必要なタグだけを生成する方式にして安全性を担保
+/**
+ * 可読なHTML断片（p, ul/li, table）に変換するユーティリティ
+ * 外部ライブラリ（Jsoup等）に依存せず、入力は必ずエスケープしてから
+ * 必要なタグだけを生成する方式で安全性を担保
+ */
 public final class DescriptionHtmlFormatter {
 
+    // 「キー：値」形式の検出パターン
     private static final Pattern KEY_VALUE = Pattern.compile("^\\s*([^：:]{1,30})[：:][\\s　]*(.+)$");
+
+    // 箇条書きの先頭記号パターン
     private static final Pattern BULLET_HEAD = Pattern.compile("^[\\p{Z}\\t　]*[・\\-\\—\\●\\■\\□\\*]\\s*");
 
     private DescriptionHtmlFormatter() {}
 
-    // 生テキストを HTML に整形（安全なタグのみ生成）
+    /**
+     * 生テキストをHTMLに整形（安全なタグのみ生成）
+     * @param raw 元の説明文
+     * @return 整形後の安全なHTML
+     */
     public static String toSafeHtml(String raw) {
         if (raw == null || raw.isBlank()) return "";
 
-        // まずはプレーンテキストへ（改行や箇条書き/キー:値を判定しやすくする）
+        // まずは読みやすいプレーンテキストへ変換
         String plain = JpTextQuickFormat.toReadablePlain(raw);
 
-        // 行に分割
+        // 行単位に分割
         List<String> lines = Arrays.asList(plain.split("\\n"));
 
-        // 収集
+        // データ収集用
         List<String[]> tableRows = new ArrayList<>(); // {key, value}
         List<String> bullets = new ArrayList<>();
         List<String> paragraphs = new ArrayList<>();
@@ -39,8 +49,8 @@ public final class DescriptionHtmlFormatter {
                 tableRows.add(new String[]{kv.group(1).trim(), kv.group(2).trim()});
                 continue;
             }
-            if (t.startsWith("・")) {
-                bullets.add(t.substring(1).trim());
+            if (BULLET_HEAD.matcher(t).find()) {
+                bullets.add(t.replaceFirst(BULLET_HEAD.pattern(), "").trim());
                 continue;
             }
             paragraphs.add(t);
