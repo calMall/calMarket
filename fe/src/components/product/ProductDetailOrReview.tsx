@@ -36,7 +36,7 @@ export default function ProductDetailOrReview({
         </div>
       </div>
       {type === "detail" ? (
-        <div className="mt-1">{text}</div>
+        <div className="mt-1 whitespace-pre-line break-words">{text}</div>
       ) : (
         <div>
           <ReviewContain rating={rating} itemCode={itemCode} />
