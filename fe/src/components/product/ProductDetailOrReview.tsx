@@ -25,7 +25,7 @@ export default function ProductDetailOrReview({
             商品詳細
           </button>
           <button
-            className={`${type === "review" ? "selected" : ""}`}
+            className={`${type === "review" ? "selected" : ""}`}git
             onClick={() => setType("review")}
           >
             レビュー
