@@ -16,7 +16,6 @@ public final class DescriptionSuperCleaner {
 
     private static final String[] NOISE_PHRASES = {};
 
-    // 🔹 Debug flag
     private static final boolean DEBUG = true;
 
     public static String buildCleanHtml(String descriptionHtml, String descriptionPlain, String itemCaption) {
@@ -96,13 +95,6 @@ public final class DescriptionSuperCleaner {
         return clampToLastSection(html.toString());
     }
 
-    // ---- Debug util ----
-    private static void debug(String tag, String msg) {
-        if (DEBUG) {
-            System.out.println("[DEBUG] " + tag + " => " + msg);
-        }
-    }
-
     public static String toPlain(String html) {
         if (html == null) return "";
         String s = html;
@@ -117,8 +109,6 @@ public final class DescriptionSuperCleaner {
         s = s.replaceAll("\\n{2,}", "\n").trim();
         return s;
     }
-
-    // ---- helpers ----
 
     private static String chooseBase(String html, String plain, String caption) {
         if (html != null && !html.isBlank()) return stripHtmlKeepBreaks(html);
@@ -139,7 +129,19 @@ public final class DescriptionSuperCleaner {
         List<String> out = new ArrayList<>();
         String[] arr = text.replace("\r\n", "\n").replace("\r", "\n").split("\\n");
         for (String line : arr) {
-            if (!line.trim().isEmpty()) out.add(line);
+            String ln = line.trim();
+            if (ln.isEmpty()) continue;
+
+            // 超長行用補切分
+            if (ln.length() > 200) {
+                String[] chunks = ln.split("(?<=[。！？!?、，])");
+                for (String c : chunks) {
+                    String cc = c.trim();
+                    if (!cc.isEmpty()) out.add(cc);
+                }
+            } else {
+                out.add(ln);
+            }
         }
         return out;
     }
@@ -166,10 +168,15 @@ public final class DescriptionSuperCleaner {
     private static String stripHtmlKeepBreaks(String html) {
         String s = html;
         s = s.replaceAll("(?i)<\\s*br\\s*/?>", "\n");
-        s = s.replaceAll("(?i)</\\s*p\\s*>", "\n");
-        s = s.replaceAll("(?i)</\\s*li\\s*>", "\n");
-        s = s.replaceAll("(?i)</\\s*tr\\s*>", "\n");
+        s = s.replaceAll("(?i)</\\s*(p|div|li|tr|h[1-6]|section)\\s*>", "\n");
         s = TAG_PATTERN.matcher(s).replaceAll("");
+        s = s.replaceAll("(?=■|※|●|・|【[^】]{1,20}】)", "\n");
+        s = s.replaceAll("(?<=[。！？!?])(?=\\S)", "\n");
+        s = s.replaceAll("(?<=.{10})(?=[、，])", "$0\n");
+        s = HtmlUtils.htmlUnescape(s);
+        s = s.replace("\u00A0", " ").replace('\u3000', ' ');
+        s = s.replaceAll("[ \\t\\x0B\\f\\r]+", " ");
+        s = s.replaceAll("\\n{3,}", "\n\n").trim();
         return s;
     }
 
@@ -192,6 +199,12 @@ public final class DescriptionSuperCleaner {
             }
         }
         return sb.toString();
+    }
+
+    private static void debug(String tag, String msg) {
+        if (DEBUG) {
+            System.out.println("[DEBUG] " + tag + " => " + msg);
+        }
     }
 
     private record KV(String key, String value) {}
