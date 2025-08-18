@@ -25,7 +25,7 @@ export default function ProductDetailOrReview({
             商品詳細
           </button>
           <button
-            className={`${type === "review" ? "selected" : ""}`}
+            className={`${type === "review" ? "selected" : ""}`}git
             onClick={() => setType("review")}
           >
             レビュー
@@ -36,7 +36,10 @@ export default function ProductDetailOrReview({
         </div>
       </div>
       {type === "detail" ? (
-        <div className="mt-1">{text}</div>
+        <div
+          className="mt-1 break-words"
+          dangerouslySetInnerHTML={{ __html: text }}
+        />
       ) : (
         <div>
           <ReviewContain rating={rating} itemCode={itemCode} />

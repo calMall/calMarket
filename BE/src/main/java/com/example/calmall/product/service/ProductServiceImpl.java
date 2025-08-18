@@ -3,7 +3,7 @@ package com.example.calmall.product.service;
 import com.example.calmall.product.dto.ProductDetailResponseDto;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
-import com.example.calmall.product.text.DescriptionSuperCleaner; // ★ 超クリーン整形
+import com.example.calmall.product.text.DescriptionSuperCleaner;
 import com.example.calmall.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * 商品情報に関する業務ロジック（超クリーン版）
+ * 商品情報に関する業務ロジック
  */
 @Service
 @RequiredArgsConstructor
@@ -32,9 +32,8 @@ public class ProductServiceImpl implements ProductService {
 
     /**
      * 商品詳細取得処理
-     * 1) DBから取得。無ければ楽天APIから取得してDBへ保存
-     * 2) 返却直前に説明文を「超・クリーン化」し、必要に応じてDBへ反映
-     * 3) フロント互換のため、最終的に itemCaption はプレーン（超クリーン）で返す
+     * DBから取得。無ければ楽天APIから取得してDBへ保存
+     * フロントは HTML を直接受け取るため、itemCaption に HTML をセット
      */
     @Override
     public ResponseEntity<ProductDetailResponseDto> getProductDetail(String itemCode) {
@@ -56,14 +55,12 @@ public class ProductServiceImpl implements ProductService {
             log.info("[source=DB] 既存商品を取得 itemCode={} name={}", product.getItemCode(), product.getItemName());
         }
 
-        // --- 3) 返却直前の「超・クリーン化」 ---
-        //     DBにある descriptionHtml / descriptionPlain / itemCaption を入力に再構成
         String cleanHtml = DescriptionSuperCleaner.buildCleanHtml(
                 product.getDescriptionHtml(),
                 product.getDescriptionPlain(),
                 product.getItemCaption()
         );
-        String cleanPlain = DescriptionSuperCleaner.toPlain(cleanHtml); // フロント用プレーン
+        String cleanPlain = DescriptionSuperCleaner.toPlain(cleanHtml);
 
         boolean dirty = false;
         if (!equalsSafe(cleanHtml, product.getDescriptionHtml())) {
@@ -74,14 +71,14 @@ public class ProductServiceImpl implements ProductService {
             product.setDescriptionPlain(cleanPlain);
             dirty = true;
         }
-        // フロント互換：itemCaption は常にプレーン（超クリーン）で保持
-        if (!equalsSafe(cleanPlain, product.getItemCaption())) {
-            product.setItemCaption(cleanPlain);
+        // フロントHTML使用
+        if (!equalsSafe(cleanHtml, product.getItemCaption())) {
+            product.setItemCaption(cleanHtml);
             dirty = true;
         }
         if (dirty) {
-            product = productRepository.save(product); // ※DB反映が不要なら保存を外す
-            log.info("[normalize] 説明文を超クリーン化して保存 itemCode={}", product.getItemCode());
+            product = productRepository.save(product);
+            log.info("[normalize] 説明文をクリーン化して保存 itemCode={}", product.getItemCode());
         }
 
         // --- 4) 成功レスポンスを返却 ---
@@ -105,7 +102,7 @@ public class ProductServiceImpl implements ProductService {
         return (a == b) || (a != null && a.equals(b));
     }
 
-    // 成功レスポンスDTOの組み立て（itemCaption は可読プレーン／HTMLも同梱）
+    // 成功レスポンスDTOの組み立て（itemCaption に HTML を入れる）
     private ProductDetailResponseDto buildSuccessResponse(Product product) {
         Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode());
         int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(product.getItemCode());
@@ -113,7 +110,7 @@ public class ProductServiceImpl implements ProductService {
         ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
                 .itemCode(product.getItemCode())
                 .itemName(product.getItemName())
-                .itemCaption(product.getItemCaption()) // フロントはこれを text として使用
+                .itemCaption(product.getItemCaption()) // HTML
                 .catchcopy(product.getCatchcopy())
                 .score(score != null ? Math.round(score * 10.0) / 10.0 : 0.0)
                 .reviewCount(reviewCount)
