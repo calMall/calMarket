@@ -22,6 +22,18 @@ public class ReviewDetailResponseDto {
     // 投稿者のユーザーID（UUID形式）
     private String userId;
 
+    // 投稿者のニックネーム
+    private String userNickname;
+
+    // 商品コード
+    private String itemCode;
+
+    // 商品名
+    private String itemName;
+
+    // 商品画像URLのリスト
+    private List<String> imageUrls;
+
     private String title; // レビュータイトル
     private String comment; // コメント
     private int rating; // 評価（1〜5）
