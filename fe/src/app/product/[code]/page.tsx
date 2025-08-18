@@ -20,7 +20,11 @@ export default async function ProductDetail({
         <div className="product-detail-top-contain wf mt-2">
           <ProductDetailImage
             itemName={data.product.itemName}
-            images={data.product.imageUrls}
+            images={
+              data.product.imageUrls && data.product.imageUrls.length > 0
+                ? data.product.imageUrls
+                : ["/No_Image.jpg"]
+            }
           />
           <ProductDetailTitle
             code={data.product.itemCode}

@@ -36,6 +36,9 @@ $logo-color: #a0cabf;
 h3 {
   margin: 0;
 }
+h4 {
+  margin: 0;
+}
 .mt-05 {
   margin-top: 0.5rem;
 }
@@ -411,8 +414,8 @@ body {
 .custom-input {
   height: 2.5rem;
   width: 100%;
+  border: 1px solid rgba($color: #000000, $alpha: 0.7);
   border-radius: 5px;
-
   padding: 0 0.5rem;
   box-sizing: border-box;
 }
@@ -636,6 +639,9 @@ body {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(4, 1fr);
+  @include mobile() {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 .simple-order-img {
   aspect-ratio: 1;
@@ -762,7 +768,6 @@ body {
   padding: 1.5rem;
   margin: 2rem auto;
   max-width: 1100px;
-  background: #fff;
 }
 
 h2 {
@@ -814,10 +819,9 @@ img {
   margin: 2rem 0 0.5rem;
 }
 
-.address-box,
 .receipt-box {
-  padding: 1rem;
-  border-radius: 8px;
+  padding: 0.5rem;
+  border-radius: 10px;
 
   span {
     display: block;
@@ -1051,4 +1055,66 @@ textarea {
 
     @include shadow-box();
   }
+}
+.hover-anime {
+  &:hover {
+    transform: translate(-4px, -4px);
+    transition: 0.3s;
+  }
+}
+.order-price-contain {
+  flex-direction: row;
+  justify-content: space-between;
+  @include mobile() {
+    flex-direction: column;
+    h4 {
+      text-align: end;
+    }
+  }
+}
+
+.order-list-item-contain {
+  padding-bottom: 1rem;
+}
+
+.review-write-btn {
+  color: $main-deep-dark-color;
+  &:hover {
+    color: $main-color;
+    transition: 0.3s;
+  }
+}
+
+.image-upload-btn {
+  font-size: xx-large;
+  width: 100%;
+  height: 10rem;
+  border: dashed 1px;
+  border-radius: 10px;
+  padding: 1rem;
+}
+.delete-img-btn {
+  background-color: black;
+  color: white;
+  right: 0.3rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 10px;
+  top: 0.3rem;
+
+  &:hover {
+    background-color: rgba($color: #000000, $alpha: 0.5);
+    transition: 0.3s;
+  }
+}
+.image-preview {
+  padding: 0.5rem;
+  aspect-ratio: 1;
+  border: 1px solid rgba($color: #000000, $alpha: 0.7);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.font-xx-large {
+  font-size: xx-large;
 }

@@ -3,41 +3,33 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import InfiniteScroll from "react-infinite-scroll-component";
-import ReviewItem from "./ReviewItem";
-import { getReviewByProduct } from "@/api/Review";
+import ReviewItem from "@/components/review/ReviewItem";
+import { getReviewByUser } from "@/api/Review";
+import CustomLayout from "@/components/common/CustomLayout";
 
-interface props {
-  itemCode: string;
-  size: number;
-  isNextPage: boolean;
-}
-export default function InfiniteReview({ itemCode, size, isNextPage }: props) {
+export default function InfiniteReview() {
   const [page, setPage] = useState(0);
   const [reviews, setReviews] = useState<ReviewDTOonProduct[]>([]);
-  const [hasNextPage, setHasNextPage] = useState(isNextPage);
+  const [hasNextPage, setHasNextPage] = useState(true);
   const refreshData = async () => {
     try {
-      const data = await getReviewByProduct(itemCode, page, size);
+      const data = await getReviewByUser(page, 10);
+      console.log(data);
       setPage((prev) => prev + 1);
       setReviews((prev) => (prev ? [...prev, ...data.reviews] : data.reviews));
       setHasNextPage(data.hasNext);
     } catch (e) {
       setHasNextPage(false);
-      alert(
-        "リクエストが集中しているため、しばらくしてからもう一度お試しください。"
-      );
+      alert("エラーが発生しました。");
     }
   };
   useEffect(() => {
-    setPage(0);
-    setReviews([]);
-    setHasNextPage(isNextPage);
     async () => {
       await refreshData();
     };
-  }, [itemCode]);
+  }, []);
   return (
-    <>
+    <CustomLayout>
       {reviews.map((review) => (
         <ReviewItem review={review} key={review.reviewId} />
       ))}
@@ -54,6 +46,6 @@ export default function InfiniteReview({ itemCode, size, isNextPage }: props) {
         }
         scrollableTarget="scrollableDiv"
       />
-    </>
+    </CustomLayout>
   );
 }
