@@ -16,21 +16,27 @@ public final class DescriptionSuperCleaner {
 
     private static final String[] NOISE_PHRASES = {};
 
+    // 🔹 Debug flag
+    private static final boolean DEBUG = true;
+
     public static String buildCleanHtml(String descriptionHtml, String descriptionPlain, String itemCaption) {
         String base = chooseBase(descriptionHtml, descriptionPlain, itemCaption);
+        debug("BASE", base);
+
         String normalized = normalize(base);
+        debug("NORMALIZED", normalized);
 
         List<String> lines = splitToLines(normalized);
+        debug("LINES", String.join(" || ", lines));
 
         LinkedHashSet<String> set = new LinkedHashSet<>();
         for (String ln : lines) {
             String t = ln.trim();
             if (t.isEmpty()) continue;
-            // if (isNoise(t)) continue;
-            // if (isOverlongWordList(t)) continue;
             set.add(t);
         }
         List<String> clean = new ArrayList<>(set);
+        debug("CLEAN", String.join(" || ", clean));
 
         List<KV> kvs = new ArrayList<>();
         List<String> bullets = new ArrayList<>();
@@ -54,6 +60,9 @@ public final class DescriptionSuperCleaner {
             paras.add(t);
         }
 
+        debug("KVS", kvs.toString());
+        debug("BULLETS", bullets.toString());
+        debug("PARAS", paras.toString());
 
         if (kvs.isEmpty() && bullets.isEmpty() && paras.isEmpty()) {
             return conservativeToHtml(normalized);
@@ -63,8 +72,7 @@ public final class DescriptionSuperCleaner {
 
         if (!kvs.isEmpty()) {
             html.append("<section class=\"desc-section table\"><h3>商品情報</h3><table>");
-            for (int i = 0; i < kvs.size(); i++) {
-                KV kv = kvs.get(i);
+            for (KV kv : kvs) {
                 html.append("<tr><th>").append(esc(kv.key)).append("</th><td>")
                         .append(esc(kv.value)).append("</td></tr>");
             }
@@ -72,20 +80,27 @@ public final class DescriptionSuperCleaner {
         }
         if (!bullets.isEmpty()) {
             html.append("<section class=\"desc-section bullets\"><h3>特長・注意</h3><ul>");
-            for (int i = 0; i < bullets.size(); i++) {
-                html.append("<li>").append(esc(bullets.get(i))).append("</li>");
+            for (String b : bullets) {
+                html.append("<li>").append(esc(b)).append("</li>");
             }
             html.append("</ul></section>");
         }
         if (!paras.isEmpty()) {
             html.append("<section class=\"desc-section body\">");
-            for (int i = 0; i < paras.size(); i++) {
-                html.append("<p>").append(esc(paras.get(i))).append("</p>");
+            for (String p : paras) {
+                html.append("<p>").append(esc(p)).append("</p>");
             }
             html.append("</section>");
         }
 
         return clampToLastSection(html.toString());
+    }
+
+    // ---- Debug util ----
+    private static void debug(String tag, String msg) {
+        if (DEBUG) {
+            System.out.println("[DEBUG] " + tag + " => " + msg);
+        }
     }
 
     public static String toPlain(String html) {
@@ -106,8 +121,8 @@ public final class DescriptionSuperCleaner {
     // ---- helpers ----
 
     private static String chooseBase(String html, String plain, String caption) {
-        if (html != null && html.contains("<")) return stripHtmlKeepBreaks(html);
-        if (plain != null && !plain.isBlank())  return plain;
+        if (html != null && !html.isBlank()) return stripHtmlKeepBreaks(html);
+        if (plain != null && !plain.isBlank()) return plain;
         return caption != null ? caption : "";
     }
 
@@ -116,7 +131,6 @@ public final class DescriptionSuperCleaner {
         String t = HtmlUtils.htmlUnescape(s);
         t = t.replace("\u00A0", " ");
         t = t.replace('\u3000', ' ');
-
         t = t.replaceAll("[\\t\\x0B\\f\\r]+", " ");
         return t.trim();
     }
@@ -125,9 +139,7 @@ public final class DescriptionSuperCleaner {
         List<String> out = new ArrayList<>();
         String[] arr = text.replace("\r\n", "\n").replace("\r", "\n").split("\\n");
         for (String line : arr) {
-            String ln = line;
-
-            if (!ln.trim().isEmpty()) out.add(ln);
+            if (!line.trim().isEmpty()) out.add(line);
         }
         return out;
     }
@@ -149,20 +161,6 @@ public final class DescriptionSuperCleaner {
             }
         }
         return html.toString();
-    }
-
-    @SuppressWarnings("unused")
-    private static boolean isNoise(String t) {
-        String s = t.replaceAll("\\s+", "");
-        for (String w : NOISE_PHRASES) {
-            if (s.contains(w)) return true;
-        }
-        return false;
-    }
-
-    @SuppressWarnings("unused")
-    private static boolean isOverlongWordList(String t) {
-        return false;
     }
 
     private static String stripHtmlKeepBreaks(String html) {
