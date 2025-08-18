@@ -44,17 +44,9 @@ export default function Mypage() {
   return (
     <CustomLayout>
       <div className="bb mypage-horizens">
-        <h2>ポイント残高</h2>
-        {point?.toLocaleString()} ポイント
-      </div>
-
-      <div className="bb mypage-horizens">
         <div className="flex jb">
           <h2>注文履歴</h2>
-          <Link
-            className="flex ac color-deep-dark-main"
-            href={"/mypage/orders"}
-          >
+          <Link className="flex ac color-deep-dark-main" href={"/order/list"}>
             もっと見る
           </Link>
         </div>
@@ -64,7 +56,7 @@ export default function Mypage() {
           <div className="wf simple-order-contain">
             {orders.slice(0, 4).map((order) => (
               <div className="wf" key={order.id}>
-                <Link href={``}>
+                <Link href={`/order/list/detail/${order.id}`}>
                   <div className="rt simple-order-img wf">
                     <ContainImage
                       alt="product"
@@ -80,7 +72,16 @@ export default function Mypage() {
 
       <div>
         <div className="mypage-horizens">
-          <h2>「{userStore.userInfo?.nickname}」さんのレビュー</h2>
+          <div className="flex jb">
+            <h2>「{userStore.userInfo?.nickname}」さんのレビュー</h2>
+            <Link
+              className="flex ac color-deep-dark-main"
+              href={"/review/list"}
+            >
+              もっと見る
+            </Link>
+          </div>
+
           {reviews.length === 0 ? (
             <div>レビューがありません</div>
           ) : (

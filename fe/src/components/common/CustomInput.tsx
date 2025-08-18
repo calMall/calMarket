@@ -21,7 +21,7 @@ export default function CustomInput({
   return (
     <input
       disabled={disable}
-      className={"custom-input " + classname}
+      className={"custom-input " + (classname ? classname : "")}
       type={isPassword ? "password" : "text"}
       value={text}
       onChange={(e) => {

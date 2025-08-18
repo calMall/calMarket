@@ -15,10 +15,14 @@ export default function ProductItem({ product, imageSize }: props) {
     >
       <div className="rt product-list-item-img">
         <CoverImage
-          url={newImageSizing(
-            product.Item.mediumImageUrls[0].imageUrl,
-            imageSize ? imageSize : 256
-          )}
+          url={
+            product.Item.imageFlag
+              ? newImageSizing(
+                  product.Item.mediumImageUrls[0].imageUrl,
+                  imageSize ? imageSize : 256
+                )
+              : "/No_Image.jpg"
+          }
           alt="img"
         />
       </div>

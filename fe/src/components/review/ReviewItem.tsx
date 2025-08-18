@@ -15,6 +15,7 @@ export default function ReviewItem({
 }) {
   const [isLike, setIsLike] = useState(review.like);
   const [likeCount, setLikeCount] = useState(review.likeCount);
+
   const useUnauthorized = UseUnauthorized();
   const toggleLike = async () => {
     try {
@@ -46,7 +47,7 @@ export default function ReviewItem({
       <div className="review-title-in-product mt-05">{review.title}</div>
       <div className="mt-1">{review.comment}</div>
       <div className="mt-1 like-comment">
-        {review.likeCount}人のお客様がこれが役に立ったと考えています
+        {likeCount}人のお客様がこれが役に立ったと考えています
       </div>
       <button
         onClick={toggleLike}

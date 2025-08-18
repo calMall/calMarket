@@ -1,15 +1,5 @@
 interface OrderDetailResponseDto extends ResponseDTO {
-  order: {
-    orderId: number;
-    itemCode: string;
-    itemName: string;
-    price: number;
-    quantity: number;
-    date: string;
-    imageList: string[];
-    deliveryAddress: string;
-    orderDate: string;
-  };
+  order: OrderInfo;
 }
 interface OrderCheckout extends ResponseDTO {
   cartList: CheckoutItem[];
@@ -38,4 +28,34 @@ interface OrderRequestDto {
     itemCode: string;
     quantity: number;
   }[];
+}
+
+interface OrderedItem {
+  imageList: string[];
+  itemCode: string;
+  itemName: string;
+  price: number;
+  quantity: number;
+}
+interface OrderInfo {
+  deliveryAddress: string;
+  orderDate: string;
+  orderId: number;
+  orderItems: OrderedItem[];
+  status: "DELIVERED" | "SHIPPED" | "PENDING";
+}
+
+interface OrderListResponseDto extends ResponseDTO {
+  orders: OrderInfoOnList[];
+}
+
+interface OrderInfoOnList {
+  orderId: number;
+  itemCode: string;
+  itemName: string;
+  price: number;
+  quantity: number;
+  date: string;
+  imageList: string[];
+  orderDate: string;
 }

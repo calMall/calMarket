@@ -17,12 +17,6 @@ export default function CartContain({ initCartList }: props) {
     return checkList.reduce((acc, item) => acc + item.price * item.quantity, 0);
   };
   const [allPrice, setAllPrice] = useState(reducePrice());
-  const onOrder = async () => {
-    if (checkList.length === 0) {
-      alert("商品が選択されていません。");
-      return;
-    }
-  };
   const refetchCart = async (type: "delete" | "change") => {
     try {
       const data = await getCart();
@@ -66,6 +60,10 @@ export default function CartContain({ initCartList }: props) {
     }
   };
   const goCheckout = () => {
+    if (checkList.length === 0) {
+      alert("商品が選択されていません。");
+      return;
+    }
     const checkedIds = checkList.map((item) => item.id).join(",");
     router.push(`/order/checkout?ids=${checkedIds}`);
   };
