@@ -36,7 +36,9 @@ export const postReviewLike = async (
   return data.json();
 };
 
-export const getReviewDetail = async (id: number): Promise<Review> => {
+export const getReviewDetail = async (
+  id: number
+): Promise<ReviewDTOonProduct> => {
   const data = await fetch(`${url}/reviews/${id}`, {
     method: "POST",
     credentials: "include",
@@ -45,6 +47,7 @@ export const getReviewDetail = async (id: number): Promise<Review> => {
   if (!data.ok) {
     const error: any = new Error(data.statusText);
     error.status = data.status;
+    console.log(error);
     throw error;
   }
   return data.json();
