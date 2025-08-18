@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import com.example.calmall.global.dto.ApiResponseDto;
 import com.example.calmall.orders.dto.OrderCheckResponseDto;
@@ -96,7 +97,7 @@ public class OrderController {
                 OrderListResponseDto.builder().message("fail").build());
         }
 
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size,Sort.by("createdAt").descending());
         Page<Orders> ordersPage = orderService.findOrdersByUserId(user.getUserId(), pageable);
         
         List<OrderSummary> orderSummaries = ordersPage.getContent().stream()
