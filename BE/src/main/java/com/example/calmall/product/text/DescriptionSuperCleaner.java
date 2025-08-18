@@ -10,91 +10,102 @@ public final class DescriptionSuperCleaner {
 
     private DescriptionSuperCleaner() {}
 
-    private static final Pattern KV_PATTERN = Pattern.compile("^\\s*([^：:]{1,20})[：:]+\\s*(.+)$");
+    private static final Pattern KV_PATTERN     = Pattern.compile("^\\s*([^：:]{1,40})[：:]+\\s*(.+)$");
     private static final Pattern BULLET_PATTERN = Pattern.compile("^\\s*(?:[・●\\-*•]|\\u2022)\\s*(.+)$");
-    private static final Pattern TAG_PATTERN = Pattern.compile("<[^>]+>");
+    private static final Pattern TAG_PATTERN    = Pattern.compile("<[^>]+>");
 
-    private static final String[] NOISE_PHRASES = {};
+    // 打開時會印除錯訊息到 stdout
+    private static final boolean DEBUG = false;
+    private static void debug(String tag, String msg) {
+        if (DEBUG) System.out.println("[DESC] " + tag + " :: " + msg);
+    }
 
-    private static final boolean DEBUG = true;
-
+    /** 逐行轉 HTML，保留原本順序；bullet→ul，key:value→table，其餘→p */
     public static String buildCleanHtml(String descriptionHtml, String descriptionPlain, String itemCaption) {
-        String base = chooseBase(descriptionHtml, descriptionPlain, itemCaption);
-        debug("BASE", base);
-
+        String base       = chooseBase(descriptionHtml, descriptionPlain, itemCaption);
         String normalized = normalize(base);
-        debug("NORMALIZED", normalized);
-
         List<String> lines = splitToLines(normalized);
+
+        debug("BASE", base);
+        debug("NORMALIZED", normalized);
         debug("LINES", String.join(" || ", lines));
 
-        LinkedHashSet<String> set = new LinkedHashSet<>();
-        for (String ln : lines) {
-            String t = ln.trim();
-            if (t.isEmpty()) continue;
-            set.add(t);
-        }
-        List<String> clean = new ArrayList<>(set);
-        debug("CLEAN", String.join(" || ", clean));
+        StringBuilder out = new StringBuilder(normalized.length() + 256);
+        boolean inUl = false;
+        boolean inTable = false;
 
-        List<KV> kvs = new ArrayList<>();
-        List<String> bullets = new ArrayList<>();
-        List<String> paras = new ArrayList<>();
+        for (String rawLine : lines) {
+            String line = rawLine.trim();
+            if (line.isEmpty()) continue;
 
-        for (String t : clean) {
-            Matcher mkv = KV_PATTERN.matcher(t);
+            // 1) bullet 行
+            Matcher mb = BULLET_PATTERN.matcher(line);
+            if (mb.find()) {
+                String item = esc(mb.group(1).trim());
+                // 關閉 table（若有）
+                if (inTable) {
+                    out.append("</table></section>");
+                    inTable = false;
+                }
+                // 開啟 ul（若尚未）
+                if (!inUl) {
+                    out.append("<section class=\"desc-section bullets\"><h3>特長・注意</h3><ul>");
+                    inUl = true;
+                }
+                out.append("<li>").append(item).append("</li>");
+                continue;
+            }
+
+            // 2) key:value 行
+            Matcher mkv = KV_PATTERN.matcher(line);
             if (mkv.find()) {
                 String key = mkv.group(1).trim();
                 String val = mkv.group(2).trim();
                 if (!key.isEmpty() && !val.isEmpty() && !key.equals(val)) {
-                    kvs.add(new KV(key, val));
+                    // 關閉 ul（若有）
+                    if (inUl) {
+                        out.append("</ul></section>");
+                        inUl = false;
+                    }
+                    // 開啟 table（若尚未）
+                    if (!inTable) {
+                        out.append("<section class=\"desc-section table\"><h3>商品情報</h3><table>");
+                        inTable = true;
+                    }
+                    out.append("<tr><th>").append(esc(key)).append("</th><td>")
+                            .append(esc(val)).append("</td></tr>");
                     continue;
                 }
             }
-            Matcher mb = BULLET_PATTERN.matcher(t);
-            if (mb.find()) {
-                bullets.add(mb.group(1).trim());
-                continue;
+
+            // 3) 一般段落：先關閉任何開著的 ul / table
+            if (inUl) {
+                out.append("</ul></section>");
+                inUl = false;
             }
-            paras.add(t);
-        }
-
-        debug("KVS", kvs.toString());
-        debug("BULLETS", bullets.toString());
-        debug("PARAS", paras.toString());
-
-        if (kvs.isEmpty() && bullets.isEmpty() && paras.isEmpty()) {
-            return conservativeToHtml(normalized);
-        }
-
-        StringBuilder html = new StringBuilder(normalized.length() + 256);
-
-        if (!kvs.isEmpty()) {
-            html.append("<section class=\"desc-section table\"><h3>商品情報</h3><table>");
-            for (KV kv : kvs) {
-                html.append("<tr><th>").append(esc(kv.key)).append("</th><td>")
-                        .append(esc(kv.value)).append("</td></tr>");
+            if (inTable) {
+                out.append("</table></section>");
+                inTable = false;
             }
-            html.append("</table></section>");
-        }
-        if (!bullets.isEmpty()) {
-            html.append("<section class=\"desc-section bullets\"><h3>特長・注意</h3><ul>");
-            for (String b : bullets) {
-                html.append("<li>").append(esc(b)).append("</li>");
-            }
-            html.append("</ul></section>");
-        }
-        if (!paras.isEmpty()) {
-            html.append("<section class=\"desc-section body\">");
-            for (String p : paras) {
-                html.append("<p>").append(esc(p)).append("</p>");
-            }
-            html.append("</section>");
+            out.append("<section class=\"desc-section body\"><p>")
+                    .append(esc(line))
+                    .append("</p></section>");
         }
 
-        return clampToLastSection(html.toString());
+        // 收尾：若還有未關閉的區塊
+        if (inUl) {
+            out.append("</ul></section>");
+        }
+        if (inTable) {
+            out.append("</table></section>");
+        }
+
+        String html = clampToLastSection(out.toString());
+        debug("HTML", html);
+        return html;
     }
 
+    /** HTML → Plain（保留換行） */
     public static String toPlain(String html) {
         if (html == null) return "";
         String s = html;
@@ -110,8 +121,9 @@ public final class DescriptionSuperCleaner {
         return s;
     }
 
+    // ── helpers ────────────────────────────────────────────────────────────────
     private static String chooseBase(String html, String plain, String caption) {
-        if (html != null && !html.isBlank()) return stripHtmlKeepBreaks(html);
+        if (html != null && !html.isBlank())  return stripHtmlKeepBreaks(html);
         if (plain != null && !plain.isBlank()) return plain;
         return caption != null ? caption : "";
     }
@@ -121,62 +133,26 @@ public final class DescriptionSuperCleaner {
         String t = HtmlUtils.htmlUnescape(s);
         t = t.replace("\u00A0", " ");
         t = t.replace('\u3000', ' ');
-        t = t.replaceAll("[\\t\\x0B\\f\\r]+", " ");
+        t = t.replace("\r\n", "\n").replace("\r", "\n");
         return t.trim();
     }
 
     private static List<String> splitToLines(String text) {
         List<String> out = new ArrayList<>();
-        String[] arr = text.replace("\r\n", "\n").replace("\r", "\n").split("\\n");
+        String[] arr = text.split("\\n");
         for (String line : arr) {
-            String ln = line.trim();
-            if (ln.isEmpty()) continue;
-
-            // 超長行用補切分
-            if (ln.length() > 200) {
-                String[] chunks = ln.split("(?<=[。！？!?、，])");
-                for (String c : chunks) {
-                    String cc = c.trim();
-                    if (!cc.isEmpty()) out.add(cc);
-                }
-            } else {
-                out.add(ln);
-            }
+            if (!line.trim().isEmpty()) out.add(line);
         }
         return out;
-    }
-
-    private static String conservativeToHtml(String raw) {
-        if (raw == null || raw.isBlank()) return "";
-        String s = HtmlUtils.htmlUnescape(raw).replace("\r\n", "\n").replace("\r", "\n");
-        String[] paras = s.split("\\n{2,}");
-        StringBuilder html = new StringBuilder(s.length() + 128);
-        for (String para : paras) {
-            String body = para.strip().replaceAll("\\n", "<br>");
-            if (!body.isEmpty()) {
-                body = body
-                        .replace("&", "&amp;")
-                        .replace("<", "&lt;")
-                        .replace(">", "&gt;")
-                        .replace("\"", "&quot;");
-                html.append("<p>").append(body).append("</p>");
-            }
-        }
-        return html.toString();
     }
 
     private static String stripHtmlKeepBreaks(String html) {
         String s = html;
         s = s.replaceAll("(?i)<\\s*br\\s*/?>", "\n");
-        s = s.replaceAll("(?i)</\\s*(p|div|li|tr|h[1-6]|section)\\s*>", "\n");
+        s = s.replaceAll("(?i)</\\s*p\\s*>", "\n");
+        s = s.replaceAll("(?i)</\\s*li\\s*>", "\n");
+        s = s.replaceAll("(?i)</\\s*tr\\s*>", "\n");
         s = TAG_PATTERN.matcher(s).replaceAll("");
-        s = s.replaceAll("(?=■|※|●|・|【[^】]{1,20}】)", "\n");
-        s = s.replaceAll("(?<=[。！？!?])(?=\\S)", "\n");
-        s = s.replaceAll("(?<=.{10})(?=[、，])", "$0\n");
-        s = HtmlUtils.htmlUnescape(s);
-        s = s.replace("\u00A0", " ").replace('\u3000', ' ');
-        s = s.replaceAll("[ \\t\\x0B\\f\\r]+", " ");
-        s = s.replaceAll("\\n{3,}", "\n\n").trim();
         return s;
     }
 
@@ -195,17 +171,9 @@ public final class DescriptionSuperCleaner {
                 case '>' -> sb.append("&gt;");
                 case '&' -> sb.append("&amp;");
                 case '"' -> sb.append("&quot;");
-                default -> sb.append(c);
+                default  -> sb.append(c);
             }
         }
         return sb.toString();
     }
-
-    private static void debug(String tag, String msg) {
-        if (DEBUG) {
-            System.out.println("[DEBUG] " + tag + " => " + msg);
-        }
-    }
-
-    private record KV(String key, String value) {}
 }
