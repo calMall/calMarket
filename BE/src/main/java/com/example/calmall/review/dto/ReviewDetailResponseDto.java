@@ -1,6 +1,7 @@
 package com.example.calmall.review.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -9,10 +10,8 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * レビュー詳細取得のレスポンスDTO
- * - 投稿者の userId と ログインユーザー本人かどうかを示す isOwner を追加
- */
+
+// レビュー詳細取得のレスポンスDTO
 @Getter
 @Builder
 @NoArgsConstructor
@@ -44,4 +43,15 @@ public class ReviewDetailResponseDto {
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Tokyo")
     private LocalDateTime updatedAt; // 更新日時
+
+    // 総いいね数
+    private long likeCount;
+
+    // ログインユーザーがいいねしているか
+    @JsonProperty("isLike")
+    private boolean isLike;
+
+    // ログインユーザー自身かどうか
+    @JsonProperty("isOwner")
+    private boolean isOwner;
 }

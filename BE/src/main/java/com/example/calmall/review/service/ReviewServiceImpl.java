@@ -338,8 +338,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .rating(review.getRating())
                 .imageList(finalImageList)
                 .createdAt(review.getCreatedAt())
-                .updatedAt(review.getUpdatedAt())
-                .like(isLiked)
+                .isLike(isLiked)
                 .likeCount(reviewLikeRepository.countByReviewReviewId(reviewId))
                 .isOwner(true)
                 .build();
@@ -401,7 +400,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .imageList(review.getImageList())
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())
-                .like(isLiked)
+                .isLike(isLiked)
                 .likeCount(reviewLikeRepository.countByReviewReviewId(reviewId))
                 .userId(reviewAuthorId)
                 .isOwner(isOwner)
