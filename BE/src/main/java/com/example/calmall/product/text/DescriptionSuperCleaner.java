@@ -10,30 +10,24 @@ public final class DescriptionSuperCleaner {
 
     private DescriptionSuperCleaner() {}
 
-    private static final Pattern SENTENCE_SPLIT = Pattern.compile("(?<=。|！|!|？|\\?)\\s*");
     private static final Pattern KV_PATTERN = Pattern.compile("^\\s*([^：:]{1,20})[：:]+\\s*(.+)$");
     private static final Pattern BULLET_PATTERN = Pattern.compile("^\\s*(?:[・●\\-*•]|\\u2022)\\s*(.+)$");
     private static final Pattern TAG_PATTERN = Pattern.compile("<[^>]+>");
 
-    private static final String[] NOISE_PHRASES = {
-            "プレゼント・贈り物","御挨拶","お祝い","内祝い","御礼","謝礼",
-            "母の日","父の日","お歳暮","御歳暮","クリスマス","バレンタイン","ホワイトデー","敬老の日",
-            "季節の贈り物","引越し","就職祝い","卒業","入学","ブライダル","記念品",
-            "ギフト・プチギフト","こんなお相手に","こんなメッセージに",
-            "よくある質問はこちら","FAQ","返品はできません","予めご了承ください"
-    };
+    private static final String[] NOISE_PHRASES = {};
 
     public static String buildCleanHtml(String descriptionHtml, String descriptionPlain, String itemCaption) {
         String base = chooseBase(descriptionHtml, descriptionPlain, itemCaption);
         String normalized = normalize(base);
+
         List<String> lines = splitToLines(normalized);
 
         LinkedHashSet<String> set = new LinkedHashSet<>();
         for (String ln : lines) {
             String t = ln.trim();
             if (t.isEmpty()) continue;
-            if (isNoise(t)) continue;
-            if (isOverlongWordList(t)) continue;
+            // if (isNoise(t)) continue;
+            // if (isOverlongWordList(t)) continue;
             set.add(t);
         }
         List<String> clean = new ArrayList<>(set);
@@ -60,10 +54,16 @@ public final class DescriptionSuperCleaner {
             paras.add(t);
         }
 
-        StringBuilder html = new StringBuilder();
+
+        if (kvs.isEmpty() && bullets.isEmpty() && paras.isEmpty()) {
+            return conservativeToHtml(normalized);
+        }
+
+        StringBuilder html = new StringBuilder(normalized.length() + 256);
+
         if (!kvs.isEmpty()) {
             html.append("<section class=\"desc-section table\"><h3>商品情報</h3><table>");
-            for (int i = 0; i < Math.min(12, kvs.size()); i++) {
+            for (int i = 0; i < kvs.size(); i++) {
                 KV kv = kvs.get(i);
                 html.append("<tr><th>").append(esc(kv.key)).append("</th><td>")
                         .append(esc(kv.value)).append("</td></tr>");
@@ -72,14 +72,14 @@ public final class DescriptionSuperCleaner {
         }
         if (!bullets.isEmpty()) {
             html.append("<section class=\"desc-section bullets\"><h3>特長・注意</h3><ul>");
-            for (int i = 0; i < Math.min(12, bullets.size()); i++) {
+            for (int i = 0; i < bullets.size(); i++) {
                 html.append("<li>").append(esc(bullets.get(i))).append("</li>");
             }
             html.append("</ul></section>");
         }
         if (!paras.isEmpty()) {
             html.append("<section class=\"desc-section body\">");
-            for (int i = 0; i < Math.min(12, paras.size()); i++) {
+            for (int i = 0; i < paras.size(); i++) {
                 html.append("<p>").append(esc(paras.get(i))).append("</p>");
             }
             html.append("</section>");
@@ -103,9 +103,11 @@ public final class DescriptionSuperCleaner {
         return s;
     }
 
+    // ---- helpers ----
+
     private static String chooseBase(String html, String plain, String caption) {
         if (html != null && html.contains("<")) return stripHtmlKeepBreaks(html);
-        if (plain != null && !plain.isBlank()) return plain;
+        if (plain != null && !plain.isBlank())  return plain;
         return caption != null ? caption : "";
     }
 
@@ -114,36 +116,53 @@ public final class DescriptionSuperCleaner {
         String t = HtmlUtils.htmlUnescape(s);
         t = t.replace("\u00A0", " ");
         t = t.replace('\u3000', ' ');
-        t = t.replaceAll("[ \\t\\x0B\\f\\r]+", " ");
+
+        t = t.replaceAll("[\\t\\x0B\\f\\r]+", " ");
         return t.trim();
     }
 
     private static List<String> splitToLines(String text) {
         List<String> out = new ArrayList<>();
-        for (String line : text.split("\\n")) {
-            String ln = line.trim();
-            if (ln.isEmpty()) continue;
-            for (String s : SENTENCE_SPLIT.split(ln)) {
-                String st = s.trim();
-                if (!st.isEmpty()) out.add(st);
-            }
+        String[] arr = text.replace("\r\n", "\n").replace("\r", "\n").split("\\n");
+        for (String line : arr) {
+            String ln = line;
+
+            if (!ln.trim().isEmpty()) out.add(ln);
         }
         return out;
     }
 
+    private static String conservativeToHtml(String raw) {
+        if (raw == null || raw.isBlank()) return "";
+        String s = HtmlUtils.htmlUnescape(raw).replace("\r\n", "\n").replace("\r", "\n");
+        String[] paras = s.split("\\n{2,}");
+        StringBuilder html = new StringBuilder(s.length() + 128);
+        for (String para : paras) {
+            String body = para.strip().replaceAll("\\n", "<br>");
+            if (!body.isEmpty()) {
+                body = body
+                        .replace("&", "&amp;")
+                        .replace("<", "&lt;")
+                        .replace(">", "&gt;")
+                        .replace("\"", "&quot;");
+                html.append("<p>").append(body).append("</p>");
+            }
+        }
+        return html.toString();
+    }
+
+    @SuppressWarnings("unused")
     private static boolean isNoise(String t) {
         String s = t.replaceAll("\\s+", "");
         for (String w : NOISE_PHRASES) {
-            if (s.contains(w.replaceAll("\\s+", ""))) return true;
+            if (s.contains(w)) return true;
         }
-        if (s.matches(".*(よくある質問|FAQ|返品|変更|できません).*")) return true;
         return false;
     }
 
+    @SuppressWarnings("unused")
     private static boolean isOverlongWordList(String t) {
-        int len = t.length();
-        long marks = t.chars().filter(ch -> ch=='・' || ch=='、' || ch==',').count();
-        return (len > 120 && marks > 5);
+        return false;
     }
 
     private static String stripHtmlKeepBreaks(String html) {
