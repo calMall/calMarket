@@ -10,17 +10,24 @@ public final class DescriptionSuperCleaner {
 
     private DescriptionSuperCleaner() {}
 
+    // -------- config --------
+    // 是否輸出區塊標題（預設 false）
+    private static final boolean SHOW_SECTION_TITLES = false;
+    private static final String TITLE_BULLETS = "特長・注意";
+    private static final String TITLE_TABLE  = "商品情報";
+    // 是否印 debug
+    private static final boolean DEBUG = false;
+
+    // -------- patterns --------
     private static final Pattern KV_PATTERN     = Pattern.compile("^\\s*([^：:]{1,40})[：:]+\\s*(.+)$");
     private static final Pattern BULLET_PATTERN = Pattern.compile("^\\s*(?:[・●\\-*•]|\\u2022)\\s*(.+)$");
     private static final Pattern TAG_PATTERN    = Pattern.compile("<[^>]+>");
 
-    // 打開時會印除錯訊息到 stdout
-    private static final boolean DEBUG = false;
     private static void debug(String tag, String msg) {
         if (DEBUG) System.out.println("[DESC] " + tag + " :: " + msg);
     }
 
-    /** 逐行轉 HTML，保留原本順序；bullet→ul，key:value→table，其餘→p */
+    /** 逐行轉 HTML：bullet→ul，key:value→table，其餘→p（保序） */
     public static String buildCleanHtml(String descriptionHtml, String descriptionPlain, String itemCaption) {
         String base       = chooseBase(descriptionHtml, descriptionPlain, itemCaption);
         String normalized = normalize(base);
@@ -33,43 +40,46 @@ public final class DescriptionSuperCleaner {
         StringBuilder out = new StringBuilder(normalized.length() + 256);
         boolean inUl = false;
         boolean inTable = false;
+        boolean inBody = false; // 聚合連續段落
 
         for (String rawLine : lines) {
             String line = rawLine.trim();
             if (line.isEmpty()) continue;
 
-            // 1) bullet 行
+            // 1) bullet
             Matcher mb = BULLET_PATTERN.matcher(line);
             if (mb.find()) {
                 String item = esc(mb.group(1).trim());
-                // 關閉 table（若有）
-                if (inTable) {
-                    out.append("</table></section>");
-                    inTable = false;
-                }
-                // 開啟 ul（若尚未）
+                // 關 table/body
+                if (inBody) { out.append("</section>"); inBody = false; }
+                if (inTable) { out.append("</table></section>"); inTable = false; }
+
+                // 開 ul
                 if (!inUl) {
-                    out.append("<section class=\"desc-section bullets\"><h3>特長・注意</h3><ul>");
+                    out.append("<section class=\"desc-section bullets\">");
+                    if (SHOW_SECTION_TITLES) out.append("<h3>").append(esc(TITLE_BULLETS)).append("</h3>");
+                    out.append("<ul>");
                     inUl = true;
                 }
                 out.append("<li>").append(item).append("</li>");
                 continue;
             }
 
-            // 2) key:value 行
+            // 2) key:value
             Matcher mkv = KV_PATTERN.matcher(line);
             if (mkv.find()) {
                 String key = mkv.group(1).trim();
                 String val = mkv.group(2).trim();
                 if (!key.isEmpty() && !val.isEmpty() && !key.equals(val)) {
-                    // 關閉 ul（若有）
-                    if (inUl) {
-                        out.append("</ul></section>");
-                        inUl = false;
-                    }
-                    // 開啟 table（若尚未）
+                    // 關 ul/body
+                    if (inUl)   { out.append("</ul></section>"); inUl = false; }
+                    if (inBody) { out.append("</section>"); inBody = false; }
+
+                    // 開 table
                     if (!inTable) {
-                        out.append("<section class=\"desc-section table\"><h3>商品情報</h3><table>");
+                        out.append("<section class=\"desc-section table\">");
+                        if (SHOW_SECTION_TITLES) out.append("<h3>").append(esc(TITLE_TABLE)).append("</h3>");
+                        out.append("<table>");
                         inTable = true;
                     }
                     out.append("<tr><th>").append(esc(key)).append("</th><td>")
@@ -78,27 +88,21 @@ public final class DescriptionSuperCleaner {
                 }
             }
 
-            // 3) 一般段落：先關閉任何開著的 ul / table
-            if (inUl) {
-                out.append("</ul></section>");
-                inUl = false;
+            // 3) 一般段落
+            if (inUl)   { out.append("</ul></section>"); inUl = false; }
+            if (inTable){ out.append("</table></section>"); inTable = false; }
+
+            if (!inBody) {
+                out.append("<section class=\"desc-section body\">");
+                inBody = true;
             }
-            if (inTable) {
-                out.append("</table></section>");
-                inTable = false;
-            }
-            out.append("<section class=\"desc-section body\"><p>")
-                    .append(esc(line))
-                    .append("</p></section>");
+            out.append("<p>").append(esc(line)).append("</p>");
         }
 
-        // 收尾：若還有未關閉的區塊
-        if (inUl) {
-            out.append("</ul></section>");
-        }
-        if (inTable) {
-            out.append("</table></section>");
-        }
+        // 收尾
+        if (inUl)   out.append("</ul></section>");
+        if (inTable)out.append("</table></section>");
+        if (inBody) out.append("</section>");
 
         String html = clampToLastSection(out.toString());
         debug("HTML", html);
@@ -121,9 +125,9 @@ public final class DescriptionSuperCleaner {
         return s;
     }
 
-    // ── helpers ────────────────────────────────────────────────────────────────
+    // -------- helpers --------
     private static String chooseBase(String html, String plain, String caption) {
-        if (html != null && !html.isBlank())  return stripHtmlKeepBreaks(html);
+        if (html  != null && !html.isBlank())  return stripHtmlKeepBreaks(html);
         if (plain != null && !plain.isBlank()) return plain;
         return caption != null ? caption : "";
     }
@@ -139,8 +143,7 @@ public final class DescriptionSuperCleaner {
 
     private static List<String> splitToLines(String text) {
         List<String> out = new ArrayList<>();
-        String[] arr = text.split("\\n");
-        for (String line : arr) {
+        for (String line : text.split("\\n")) {
             if (!line.trim().isEmpty()) out.add(line);
         }
         return out;
