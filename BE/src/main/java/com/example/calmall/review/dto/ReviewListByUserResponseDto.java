@@ -17,7 +17,6 @@ import java.util.List;
 @AllArgsConstructor
 public class ReviewListByUserResponseDto {
 
-    // レスポンスメッセージ（success または fail）
     private String message;
 
     // ユーザーのレビュー一覧
@@ -35,9 +34,8 @@ public class ReviewListByUserResponseDto {
     // 全レビュー件数
     private long totalElements;
 
-    /**
-     * ユーザーのレビュー情報（商品別）
-     */
+
+    // ユーザーのレビュー情報（商品別）
     @Getter
     @Setter
     @Builder
@@ -76,10 +74,10 @@ public class ReviewListByUserResponseDto {
         @JsonProperty("isLike")
         private boolean isLike;
 
-        // このレビューの総いいね数
+        // レビューの総いいね数
         private long likeCount;
 
-        // ★ レビューの所有者かどうか
+        // ログインユーザー自身かどうか
         @JsonProperty("isOwner")
         private boolean isOwner;
     }

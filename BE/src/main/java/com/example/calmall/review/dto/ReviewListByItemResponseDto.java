@@ -117,36 +117,36 @@ public class ReviewListByItemResponseDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MyReview {
-        /** 投稿者のユーザーID */
+        // 投稿者のユーザーID
         private String userId;
 
-        /** レビューID */
+        // レビューID
         private Long reviewId;
 
-        /** 評価点数 */
+        // 評価点数
         private int rating;
 
-        /** レビュータイトル */
+        // レビュータイトル
         private String title;
 
-        /** レビュー本文 */
+        // レビュー本文
         private String comment;
 
-        /** 画像URLのリスト */
+        // 画像URLのリスト
         private List<String> imageList;
 
-        /** 投稿日時（JST固定） */
+        // 投稿日時
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Tokyo")
         private LocalDateTime createdAt;
 
-        /** このレビューの総いいね数 */
+        // 総いいね数
         private long likeCount;
 
-        /** ログインユーザーがこのレビューにいいねしているか */
+        // ログインユーザーがいいねしているか
         @JsonProperty("isLike")
         private boolean isLike;
 
-        /** ログインユーザー自身かどうか */
+        // ログインユーザー自身かどうか
         @JsonProperty("isOwner")
         private boolean isOwner;
     }

@@ -158,6 +158,9 @@ body {
 .fw-500 {
   font-weight: 500;
 }
+.fw-600 {
+  font-weight: 600;
+}
 
 .logo-img {
   width: 10rem;
@@ -409,7 +412,7 @@ body {
   height: 2.5rem;
   width: 100%;
   border-radius: 5px;
-  border: 1px solid rgba(0, 0, 0, 0.3);
+
   padding: 0 0.5rem;
   box-sizing: border-box;
 }
@@ -450,6 +453,7 @@ body {
 }
 
 .modal-cover {
+  position: fixed;
   background-color: rgba(78, 78, 78, 0.7);
   width: 100vw;
   height: 100vh;
@@ -963,5 +967,88 @@ textarea {
   &:hover {
     color: rgba($color: #000000, $alpha: 0.5);
     transition: 0.3s;
+  }
+}
+
+@keyframes address-box-anim {
+  0% {
+    transform: scaleX(0) scaleY(0.1);
+  }
+  30% {
+    transform: scaleX(1) scaleY(0.1);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+.address-box {
+  background-color: white;
+  padding: 1rem;
+  min-width: 35vw;
+  animation: address-box-anim 0.5s;
+  .container {
+    &:hover {
+      background-color: $main-dark-color;
+      transition: 0.3s;
+      border-radius: 10px;
+    }
+  }
+  textarea {
+    box-sizing: border-box;
+    flex: 1;
+    padding: 0.5rem;
+
+    border-radius: 10px;
+    outline: none;
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    resize: none;
+  }
+  input {
+    box-sizing: border-box;
+    flex: 1;
+    padding: 0.5rem;
+    height: 2rem;
+    border-radius: 10px;
+    outline: none;
+    border: 1px solid rgba(0, 0, 0, 0.3);
+  }
+  @include shadow-box();
+}
+.address-item {
+  padding: 1rem;
+  font-size: medium;
+  text-align: left;
+  .input {
+    margin: auto;
+  }
+}
+.mr-1 {
+  margin-right: 1rem;
+}
+.add-address-btns {
+  button {
+    border-radius: 5px;
+    padding: 0.5rem;
+    box-sizing: border-box;
+    &.add {
+      background-color: $main-dark-color;
+      &:hover {
+        background-color: $main-deep-dark-color;
+        box-shadow: none;
+        transition: 0.3s;
+      }
+    }
+    &.cancel {
+      color: white;
+      background-color: rgb(221, 36, 36);
+      &:hover {
+        background-color: rgb(156, 20, 20);
+        box-shadow: none;
+        transition: 0.3s;
+      }
+    }
+
+    @include shadow-box();
   }
 }

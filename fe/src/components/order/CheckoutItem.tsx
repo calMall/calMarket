@@ -16,12 +16,7 @@ export default function CheckoutItem({ item }: props) {
       <div className="cart-item-info flex flex-col jb">
         <div className="cart-item-name">{item.itemName}</div>
         <div className="cart-quantity">
-          <div className="flex ac jb cart-quantity-contain">
-            <div className="cart-quantity-input flex ac jc">
-              {item.quantity}
-            </div>
-          </div>
-
+          <div className="flex ac jb ">数量：{item.quantity}</div>
           <div className="flex ae">
             ￥{(item.price * item.quantity).toLocaleString()}
           </div>

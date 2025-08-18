@@ -1,6 +1,7 @@
 "use client";
 import { getCheckout } from "@/api/Cart";
 import { postOrderByProduct } from "@/api/Order";
+import { getProductDetail } from "@/api/Product";
 import { getMyInfo } from "@/api/User";
 import CustomButton from "@/components/common/CustomBtn";
 import CustomLayout from "@/components/common/CustomLayout";
@@ -8,40 +9,50 @@ import ModalCover from "@/components/common/ModalCover";
 import CheckoutItem from "@/components/order/CheckoutItem";
 import DeliveryAddressModal from "@/components/user/DeliveryAddressModal";
 import UserStore from "@/store/user";
+import { get } from "http";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 interface props {
-  searchParams: Promise<{ ids: string }>;
+  searchParams: Promise<{ itemCode: string; quantity: number }>;
 }
 
-export default function CheckoutOrder({ searchParams }: props) {
+export default function CheckoutOrderImmediately({ searchParams }: props) {
   const userStore = UserStore();
-  const [checkoutList, setCheckoutList] = useState<CheckoutItem[]>([]);
+  const [checkoutItem, setCheckoutItem] = useState<CheckoutItem>();
   const [isLoading, setIsLoading] = useState(true);
   const [allPrice, setAllPrice] = useState(0);
   const [myInfo, setMyInfo] = useState<MyinfoDTO | null>(null);
   const [selectedAddress, setSelectedAddress] =
     useState<deliveryAddressDetail | null>(null);
   const router = useRouter();
-
+  const [quantity, setQuantity] = useState(1);
   // modalを表示するかどうか
   const [viewModal, setViewModal] = useState(false);
+  const [itemCode, setItemCode] = useState("");
+
+  function toCheckoutItem(temp: TempOrderItem, quantity: number): CheckoutItem {
+    return {
+      id: 0,
+      imageUrl: temp.imageUrls[0] ?? "",
+      itemCode: temp.itemCode,
+      itemName: temp.itemName,
+      price: temp.price,
+      quantity: quantity,
+    };
+  }
 
   // カート情報ロード関数
   const fetchData = async () => {
-    const { ids } = await searchParams;
+    const { itemCode, quantity } = await searchParams;
+    setItemCode(itemCode);
+    setQuantity(quantity);
     try {
-      const data = await getCheckout(ids.split(",").map((id) => Number(id)));
+      const data = await getProductDetail(itemCode);
+      console.log(data);
       if (data.message === "success") {
-        setCheckoutList(data.cartList);
-        console.log(data);
-
-        setAllPrice(
-          data.cartList.reduce(
-            (acc, item) => acc + item.price * item.quantity,
-            0
-          )
-        );
+        const productWithQuantity = toCheckoutItem(data.product, quantity);
+        setCheckoutItem(productWithQuantity);
+        setAllPrice(productWithQuantity.price * quantity);
       }
       setIsLoading(false);
     } catch (e: any) {
@@ -74,10 +85,12 @@ export default function CheckoutOrder({ searchParams }: props) {
     try {
       const order: OrderRequestDto = {
         deliveryAddress: selectedAddress.postalCode + selectedAddress.address1,
-        items: checkoutList.map((item) => ({
-          itemCode: item.itemCode,
-          quantity: item.quantity,
-        })),
+        items: [
+          {
+            itemCode,
+            quantity,
+          },
+        ],
       };
       const data = await postOrderByProduct(order);
       if (data.message === "success") {
@@ -120,12 +133,12 @@ export default function CheckoutOrder({ searchParams }: props) {
           <div className="mt-1 flex flex-col gap-1">
             {isLoading ? (
               <p>Loading...</p>
-            ) : (
+            ) : checkoutItem ? (
               <>
-                {checkoutList.map((item) => (
-                  <CheckoutItem key={item.id} item={item} />
-                ))}
+                <CheckoutItem item={checkoutItem} />
               </>
+            ) : (
+              <></>
             )}
           </div>
           <div>

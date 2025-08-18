@@ -33,10 +33,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // 指定商品の有効（未削除）レビュー件数を取得（Product詳細取得で使用）
     int countByProductItemCodeAndDeletedFalse(String itemCode);
 
-    /**
-     * 指定商品の平均評価を取得（削除されていないレビューのみ）
-     * - COALESCE を使って null を 0 に置き換える
-     */
+
+    //指定商品の平均評価を取得（削除されていないレビューのみ）
+
     @Query("SELECT COALESCE(AVG(r.rating), 0) " +
             "FROM Review r " +
             "WHERE r.product.itemCode = :itemCode AND r.deleted = false")

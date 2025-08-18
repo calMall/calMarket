@@ -1,8 +1,7 @@
 package com.example.calmall.product.service;
 
 import com.example.calmall.product.entity.Product;
-import com.example.calmall.product.text.DescriptionHtmlFormatter;
-import com.example.calmall.product.text.JpTextQuickFormat;
+import com.example.calmall.product.text.DescriptionSuperCleaner;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,32 +20,26 @@ import java.util.concurrent.ThreadLocalRandom;
 @Slf4j
 public class RakutenApiServiceImpl implements RakutenApiService {
 
-    // HTTPクライアント
     private final RestTemplate restTemplate;
 
-    // 楽天アプリID
     @Value("${rakuten.app.id}")
     private String appId;
 
-    // アフィリエイトID（任意）
     @Value("${rakuten.affiliate.id:}")
     private String affiliateId;
 
-    /**
-     * itemCode 指定で楽天APIを叩き、最初の一致商品を Product に詰め替えて返却
-     */
     @Override
     @SuppressWarnings("unchecked")
     public Optional<Product> fetchProductFromRakuten(String itemCode) {
 
-        // デバッグ用：itemCode の16進表記も出す
+        // Debug用
         if (log.isDebugEnabled()) {
             StringBuilder hex = new StringBuilder();
             for (char c : itemCode.toCharArray()) hex.append(String.format("%02X ", (int) c));
             log.debug("[RakutenApi] raw itemCode='{}' hex={}", itemCode, hex);
         }
 
-        // API URL 構築
+        // API URL
         StringBuilder sb = new StringBuilder("https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601")
                 .append("?applicationId=").append(appId)
                 .append("&itemCode=").append(itemCode)
@@ -77,7 +70,7 @@ public class RakutenApiServiceImpl implements RakutenApiService {
             return Optional.empty();
         }
 
-        // v2（フラット）/ v1（Itemラッパー）両対応で Map を取り出す
+        // v2/v1対応
         Map<String, Object> item;
         Object first = items.get(0);
         if (first instanceof Map<?, ?> m) {
@@ -97,30 +90,27 @@ public class RakutenApiServiceImpl implements RakutenApiService {
             return Optional.empty();
         }
 
-        // ---------- Product へマッピング ----------
+        // Product Mapping
         Product product = new Product();
         product.setItemCode(getString(item, "itemCode"));
         product.setItemName(getString(item, "itemName"));
 
-        // 元説明文（楽天）
         String rawCaption = getString(item, "itemCaption");
 
-        // 可読プレーン / 安全HTML を生成
-        String captionPlain = JpTextQuickFormat.toReadablePlain(rawCaption);   // 改行・箇条書き・キー:値の整形
-        String captionHtml  = DescriptionHtmlFormatter.toSafeHtml(rawCaption); // <table>/<ul>/<p> の最小安全タグ
+        // 保存時直接HTML整形
+        String cleanHtml  = DescriptionSuperCleaner.buildCleanHtml(null, null, rawCaption);
+        String cleanPlain = DescriptionSuperCleaner.toPlain(cleanHtml);
 
-        // フロント互換：itemCaption は可読版で保持
-        product.setItemCaption(captionPlain);
-
-        // 追加スキーマがある場合は格納（将来のフロント拡張に備える）
-        product.setDescriptionPlain(captionPlain);
-        product.setDescriptionHtml(captionHtml);
+        // dangerouslySetInnerHTML
+        product.setItemCaption(cleanHtml);
+        product.setDescriptionPlain(cleanPlain);
+        product.setDescriptionHtml(cleanHtml);
 
         product.setCatchcopy(getString(item, "catchcopy"));
         product.setPrice(getInt(item, "itemPrice", 0));
         product.setItemUrl(getString(item, "itemUrl"));
 
-        // 画像URL一覧
+        // 画像
         List<String> images = new ArrayList<>();
         Object midObj = item.get("mediumImageUrls");
         if (midObj instanceof List<?> list) {
@@ -135,9 +125,8 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         }
         product.setImages(images);
 
-        // 在庫などはダミー生成（デモ用途）
-        int inv = ThreadLocalRandom.current().nextInt(0, 301);
-        product.setInventory(inv);
+        // 在庫・作成日時
+        product.setInventory(ThreadLocalRandom.current().nextInt(0, 301));
         product.setStatus(true);
         product.setCreatedAt(LocalDateTime.now());
 
@@ -145,8 +134,7 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         return Optional.of(product);
     }
 
-    // -------------------- helpers --------------------
-
+    // helpers
     private String getString(Map<?, ?> map, String key) {
         Object v = map.get(key);
         return (v == null) ? null : String.valueOf(v);

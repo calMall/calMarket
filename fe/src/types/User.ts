@@ -18,6 +18,8 @@ interface UserStore {
 }
 
 interface MyinfoDTO extends ResponseDTO {
+  deliveryAddressDetails: deliveryAddressDetail[];
+  deliveryAddresses: string[];
   point: number;
   orders: SimpleOrder[];
   reviews: Review[];
@@ -26,4 +28,8 @@ interface MyinfoDTO extends ResponseDTO {
 interface SimpleOrder {
   id: number;
   imageUrl: string;
+}
+interface deliveryAddressDetail {
+  address1: string;
+  postalCode: string;
 }

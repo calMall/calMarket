@@ -42,6 +42,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final ProductRepository productRepository;
     private final OrdersRepository ordersRepository;
 
+
     /**
      * レビュー投稿（認証済userIdのみ受け取る）
      * - 画像は既存DBに登録済みのみ紐付け可
@@ -369,15 +370,31 @@ public class ReviewServiceImpl implements ReviewService {
      */
     @Override
     public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long reviewId, String currentUserId) {
+        // レビュー存在チェック
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
+
+        // 投稿者情報
         String reviewAuthorId = review.getUser().getUserId();
+        String userNickname = review.getUser().getNickname(); // 投稿者ニックネーム
+
+        // 商品情報
+        String itemCode = review.getProduct().getItemCode();
+        String itemName = review.getProduct().getItemName();
+        List<String> imageUrls = review.getProduct().getImages(); // 商品画像リスト
+
+        // ログインユーザー情報
         boolean isOwner = currentUserId != null && currentUserId.equals(reviewAuthorId);
         boolean isLiked = false;
         if (currentUserId != null) {
             isLiked = reviewLikeRepository.existsByUserUserIdAndReviewReviewId(currentUserId, reviewId);
         }
+
         ReviewDetailResponseDto detail = ReviewDetailResponseDto.builder()
+                .userNickname(userNickname)
+                .itemCode(itemCode)
+                .itemName(itemName)
+                .imageUrls(imageUrls)
                 .title(review.getTitle())
                 .comment(review.getComment())
                 .rating(review.getRating())
@@ -389,6 +406,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .userId(reviewAuthorId)
                 .isOwner(isOwner)
                 .build();
+
         return ResponseEntity.ok(detail);
     }
 }
