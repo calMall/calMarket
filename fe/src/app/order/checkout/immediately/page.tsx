@@ -32,7 +32,7 @@ export default function CheckoutOrderImmediately({ searchParams }: props) {
 
   function toCheckoutItem(temp: TempOrderItem, quantity: number): CheckoutItem {
     return {
-      id: 0, // 필요하면 여기서 생성 or 다른 값 넣기
+      id: 0,
       imageUrl: temp.imageUrls[0] ?? "",
       itemCode: temp.itemCode,
       itemName: temp.itemName,
