@@ -26,11 +26,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * レビュー機能に関するサービス実装クラス
- * - sessionやuser entityを直接参照しない（認証はController側管理）
- * - 全ての業務ロジックのみを担当
- */
+
+// レビュー機能に関するサービス実装クラス
 @Service
 @RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {
@@ -43,14 +40,8 @@ public class ReviewServiceImpl implements ReviewService {
     private final OrdersRepository ordersRepository;
 
 
-    /**
-     * レビュー投稿（認証済userIdのみ受け取る）
-     * - 画像は既存DBに登録済みのみ紐付け可
-     * - 画像は「未紐付け状態（review=null）」のみ紐付け
-     * - 他レビューに紐付いている画像はスキップ（エラーにしない）
-     * - Review.imageList には「実際に紐付けに成功した画像のみ」を格納
-     * - ★ INSERT を絶対発生させず、UPDATE のみ行う
-     */
+
+    // レビュー投稿
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto, String userId) {
@@ -63,26 +54,26 @@ public class ReviewServiceImpl implements ReviewService {
         Product product = productRepository.findByItemCode(requestDto.getItemCode())
                 .orElseThrow(() -> new IllegalArgumentException("商品が存在しません"));
 
-        // ===== 再投稿防止チェック（削除済みレビューあり） =====
+        // 再投稿防止チェック（削除済みレビューあり）
         if (!reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedTrue(userId, product.getItemCode()).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("削除済レビューが存在するため再投稿できません"));
         }
 
-        // ===== 再投稿防止チェック（既に投稿済み） =====
+        //  再投稿防止チェック（既に投稿済み）
         if (!reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(product.getItemCode(), userId).isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("この商品には既にレビューを投稿済みです"));
         }
 
-        // ===== 購入履歴チェック =====
+        // 購入履歴チェック
         List<Orders> orders = ordersRepository.findOrdersByUserAndItemCode(userId, product.getItemCode());
         if (orders.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("未購入の商品にはレビューできません"));
         }
 
-        // ===== 購入1ヶ月以内チェック =====
+        // 購入1ヶ月以内チェック
         LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
         boolean purchasedWithinOneMonth =
                 ordersRepository.existsPurchaseWithinPeriod(userId, product.getItemCode(), oneMonthAgo);
@@ -91,14 +82,14 @@ public class ReviewServiceImpl implements ReviewService {
                     .body(new ApiResponseDto("購入後1ヶ月以内のユーザーのみレビュー可能です"));
         }
 
-        // ===== レビュー作成（画像は後でセット） =====
+        // レビュー作成（画像は後でセット）
         Review review = Review.builder()
                 .user(user)
                 .product(product)
                 .rating(requestDto.getRating())
                 .title(requestDto.getTitle())
                 .comment(requestDto.getComment())
-                .imageList(new ArrayList<>()) // 表示用のみ、DBには保存しない
+                .imageList(new ArrayList<>())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .deleted(false)
@@ -106,7 +97,6 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        // ===== 紐付け成功した画像URLだけを保持（重複除去済み） =====
         Set<String> finalImageList = new LinkedHashSet<>();
 
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
@@ -139,7 +129,6 @@ public class ReviewServiceImpl implements ReviewService {
                     continue;
                 }
 
-                // ===== Hibernate の INSERT を完全防止し、ネイティブ SQL で外部キーだけ更新 =====
                 reviewImageRepository.updateReviewBindingNative(reviewImage.getId(), savedReview.getReviewId());
 
                 // 表示用URLリストに追加
@@ -148,16 +137,19 @@ public class ReviewServiceImpl implements ReviewService {
             }
         }
 
-        // ===== 紐付け成功したURLのみ Review.imageList にセット（DBには保存されない） =====
+        //  紐付け成功したURLのみ Review.imageList にセット（DBには保存されない）
         savedReview.setImageList(new ArrayList<>(finalImageList));
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
 
-    /**
-     * 商品別レビュー取得（ログイン有無はControllerで判定、userIdのみ受け取る）
-     */
+    public List<String> currentImages (Review review) {
+        return reviewImageRepository.findAllByReview(review).stream()
+                .map(ReviewImage::getImageUrl)
+                .collect(Collectors.toList());
+    }
+    // 商品別レビュー取得
     @Override
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(String itemCode, String userId, int page, int size) {
         Page<Review> reviewPage = reviewRepository.findByProduct_ItemCodeAndDeletedFalse(
@@ -175,6 +167,8 @@ public class ReviewServiceImpl implements ReviewService {
                     .build());
         }
 
+
+
         List<ReviewListByItemResponseDto.ReviewInfo> reviewInfos = reviewPage.getContent().stream()
                 .map(r -> ReviewListByItemResponseDto.ReviewInfo.builder()
                         .reviewId(r.getReviewId())
@@ -183,7 +177,7 @@ public class ReviewServiceImpl implements ReviewService {
                         .rating(r.getRating())
                         .title(r.getTitle())
                         .comment(r.getComment())
-                        .imageList(r.getImageList())
+                        .imageList(currentImages(r))
                         .createdAt(r.getCreatedAt())
                         .isLike(userId != null && reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, r.getReviewId()))
                         .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId()))
@@ -202,7 +196,7 @@ public class ReviewServiceImpl implements ReviewService {
                         .rating(r.getRating())
                         .title(r.getTitle())
                         .comment(r.getComment())
-                        .imageList(r.getImageList())
+                        .imageList(currentImages(r))
                         .createdAt(r.getCreatedAt())
                         .isLike(reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, r.getReviewId()))
                         .isOwner(userId.equals(r.getUser().getUserId()))
@@ -222,14 +216,15 @@ public class ReviewServiceImpl implements ReviewService {
                 .build());
     }
 
-    /**
-     * ユーザー別レビュー取得（Controllerで認証済userIdのみ受け取る）
-     */
+
+    // ユーザー別レビュー取得
     @Override
-    public ResponseEntity<ReviewListByUserResponseDto> getReviewsByUser(String userId, int page, int size) {
-        Page<Review> reviewPage = reviewRepository.findByUser_UserIdAndDeletedFalse(userId, PageRequest.of(page, size));
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-        List<ReviewListByUserResponseDto.UserReview> userReviews = reviewPage.getContent().stream()
+    public ResponseEntity<ReviewListByUserResponseDto> getReviewsByUser(User user, int page, int size) {
+
+        Page<Review> reviewPage = reviewRepository.findByUserAndDeletedFalse(user, PageRequest.of(page, size));
+
+        // 画面表示用のDTOへ
+        var userReviews = reviewPage.getContent().stream()
                 .map(r -> ReviewListByUserResponseDto.UserReview.builder()
                         .reviewId(r.getReviewId())
                         .itemCode(r.getProduct().getItemCode())
@@ -238,13 +233,13 @@ public class ReviewServiceImpl implements ReviewService {
                         .rating(r.getRating())
                         .title(r.getTitle())
                         .comment(r.getComment())
-                        .imageList(r.getImageList())
+                        .imageList(currentImages(r))
                         .createdAt(r.getCreatedAt())
-                        .isLike(reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, r.getReviewId()))
+                        .isLike(reviewLikeRepository.existsByUserUserIdAndReviewReviewId(user.getUserId(), r.getReviewId()))
                         .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId()))
                         .isOwner(true)
                         .build())
-                .collect(Collectors.toList());
+                .toList();
 
         return ResponseEntity.ok(ReviewListByUserResponseDto.builder()
                 .message("success")
@@ -256,55 +251,50 @@ public class ReviewServiceImpl implements ReviewService {
                 .build());
     }
 
-    /**
-     * レビュー編集処理
-     * - 本人のみ編集可能
-     * - 評価・タイトル・コメントを更新
-     * - 画像は「削除」「追加」「維持」を正しく処理
-     * - review_images テーブルの外部キーのみ更新（INSERT は発生しない）
-     * */
+
+    // レビュー編集処理
     @Override
     @Transactional
     public ResponseEntity<ReviewDetailResponseDto> updateReview(Long reviewId, ReviewUpdateRequestDto requestDto, String userId) {
 
-        // ===== 1. レビュー存在チェック =====
+        // レビュー存在チェック
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
 
-        // ===== 2. 論理削除チェック =====
+        // 論理削除チェック
         if (review.isDeleted()) {
             throw new IllegalArgumentException("削除済みレビューは編集できません");
         }
 
-        // ===== 3. 本人確認 =====
+        // 本人確認
         if (!review.getUser().getUserId().equals(userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        // ===== 4. 評価・タイトル・コメントを更新 =====
+        // 評価・タイトル・コメントを更新
         review.setRating(requestDto.getRating());
         review.setTitle(requestDto.getTitle());
         review.setComment(requestDto.getComment());
         review.setUpdatedAt(LocalDateTime.now());
 
-        // ===== 5. 既存の画像枚数を取得 =====
+        // 既存の画像枚数を取得
         List<String> currentImages = reviewImageRepository.findAllByReview(review).stream()
                 .map(ReviewImage::getImageUrl)
                 .collect(Collectors.toList());
 
         int currentCount = currentImages.size();
 
-        // ===== 6. 新規追加画像のURLリスト（重複除去） =====
+        // 新規追加画像のURLリスト
         List<String> addUrls = requestDto.getImageList() != null
                 ? new ArrayList<>(new LinkedHashSet<>(requestDto.getImageList()))
                 : new ArrayList<>();
 
-        // ===== 7. 追加枚数チェック（純追加モード） =====
+        // 追加枚数チェック
         if (currentCount + addUrls.size() > 3) {
             throw new IllegalArgumentException("画像は最大3枚まで追加できます（超える場合は削除APIで削除してください）");
         }
 
-        // ===== 8. 新しい画像だけを紐付け =====
+        // 新しい画像だけを紐付け
         for (String imageUrl : addUrls) {
             Optional<ReviewImage> optionalImage = reviewImageRepository.findByImageUrl(imageUrl);
 
@@ -316,11 +306,11 @@ public class ReviewServiceImpl implements ReviewService {
             // 他レビューに紐付いている → スキップ
             if (img.getReview() != null && !img.getReview().getReviewId().equals(reviewId)) continue;
 
-            // 紐付け更新（INSERT発生なし）
+            // 紐付け更新
             reviewImageRepository.updateReviewBindingNative(img.getId(), reviewId);
         }
 
-        // ===== 9. 最新の画像リストを取得 =====
+        // 最新の画像リストを取得
         List<String> finalImageList = reviewImageRepository.findAllByReview(review).stream()
                 .map(ReviewImage::getImageUrl)
                 .collect(Collectors.toList());
@@ -328,7 +318,7 @@ public class ReviewServiceImpl implements ReviewService {
         review.setImageList(finalImageList);
         reviewRepository.save(review);
 
-        // ===== 10. 編集後の詳細DTOを作成して返す =====
+        // 編集後の詳細DTOを作成して返す
         boolean isLiked = reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, reviewId);
 
         ReviewDetailResponseDto responseDto = ReviewDetailResponseDto.builder()
@@ -347,7 +337,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * レビュー削除（Controllerで認証済userIdのみ受け取る）
+     * レビュー削除
      */
     @Override
     @Transactional
@@ -365,7 +355,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * レビュー詳細取得（Controllerで認証済userIdのみ受け取る）
+     * レビュー詳細取得
      */
     @Override
     public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long reviewId, String currentUserId) {
@@ -397,7 +387,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .title(review.getTitle())
                 .comment(review.getComment())
                 .rating(review.getRating())
-                .imageList(review.getImageList())
+                .imageList(currentImages(review))
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())
                 .isLike(isLiked)

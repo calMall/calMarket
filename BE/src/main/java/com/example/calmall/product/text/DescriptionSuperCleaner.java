@@ -10,84 +10,106 @@ public final class DescriptionSuperCleaner {
 
     private DescriptionSuperCleaner() {}
 
-    private static final Pattern SENTENCE_SPLIT = Pattern.compile("(?<=。|！|!|？|\\?)\\s*");
-    private static final Pattern KV_PATTERN = Pattern.compile("^\\s*([^：:]{1,20})[：:]+\\s*(.+)$");
+    // -------- config --------
+    // 是否輸出區塊標題（預設 false）
+    private static final boolean SHOW_SECTION_TITLES = false;
+    private static final String TITLE_BULLETS = "特長・注意";
+    private static final String TITLE_TABLE  = "商品情報";
+    // 是否印 debug
+    private static final boolean DEBUG = false;
+
+    // -------- patterns --------
+    private static final Pattern KV_PATTERN     = Pattern.compile("^\\s*([^：:]{1,40})[：:]+\\s*(.+)$");
     private static final Pattern BULLET_PATTERN = Pattern.compile("^\\s*(?:[・●\\-*•]|\\u2022)\\s*(.+)$");
-    private static final Pattern TAG_PATTERN = Pattern.compile("<[^>]+>");
+    private static final Pattern TAG_PATTERN    = Pattern.compile("<[^>]+>");
 
-    private static final String[] NOISE_PHRASES = {
-            "プレゼント・贈り物","御挨拶","お祝い","内祝い","御礼","謝礼",
-            "母の日","父の日","お歳暮","御歳暮","クリスマス","バレンタイン","ホワイトデー","敬老の日",
-            "季節の贈り物","引越し","就職祝い","卒業","入学","ブライダル","記念品",
-            "ギフト・プチギフト","こんなお相手に","こんなメッセージに",
-            "よくある質問はこちら","FAQ","返品はできません","予めご了承ください"
-    };
+    private static void debug(String tag, String msg) {
+        if (DEBUG) System.out.println("[DESC] " + tag + " :: " + msg);
+    }
 
+    /** 逐行轉 HTML：bullet→ul，key:value→table，其餘→p（保序） */
     public static String buildCleanHtml(String descriptionHtml, String descriptionPlain, String itemCaption) {
-        String base = chooseBase(descriptionHtml, descriptionPlain, itemCaption);
+        String base       = chooseBase(descriptionHtml, descriptionPlain, itemCaption);
         String normalized = normalize(base);
         List<String> lines = splitToLines(normalized);
 
-        LinkedHashSet<String> set = new LinkedHashSet<>();
-        for (String ln : lines) {
-            String t = ln.trim();
-            if (t.isEmpty()) continue;
-            if (isNoise(t)) continue;
-            if (isOverlongWordList(t)) continue;
-            set.add(t);
-        }
-        List<String> clean = new ArrayList<>(set);
+        debug("BASE", base);
+        debug("NORMALIZED", normalized);
+        debug("LINES", String.join(" || ", lines));
 
-        List<KV> kvs = new ArrayList<>();
-        List<String> bullets = new ArrayList<>();
-        List<String> paras = new ArrayList<>();
+        StringBuilder out = new StringBuilder(normalized.length() + 256);
+        boolean inUl = false;
+        boolean inTable = false;
+        boolean inBody = false; // 聚合連續段落
 
-        for (String t : clean) {
-            Matcher mkv = KV_PATTERN.matcher(t);
+        for (String rawLine : lines) {
+            String line = rawLine.trim();
+            if (line.isEmpty()) continue;
+
+            // 1) bullet
+            Matcher mb = BULLET_PATTERN.matcher(line);
+            if (mb.find()) {
+                String item = esc(mb.group(1).trim());
+                // 關 table/body
+                if (inBody) { out.append("</section>"); inBody = false; }
+                if (inTable) { out.append("</table></section>"); inTable = false; }
+
+                // 開 ul
+                if (!inUl) {
+                    out.append("<section class=\"desc-section bullets\">");
+                    if (SHOW_SECTION_TITLES) out.append("<h3>").append(esc(TITLE_BULLETS)).append("</h3>");
+                    out.append("<ul>");
+                    inUl = true;
+                }
+                out.append("<li>").append(item).append("</li>");
+                continue;
+            }
+
+            // 2) key:value
+            Matcher mkv = KV_PATTERN.matcher(line);
             if (mkv.find()) {
                 String key = mkv.group(1).trim();
                 String val = mkv.group(2).trim();
                 if (!key.isEmpty() && !val.isEmpty() && !key.equals(val)) {
-                    kvs.add(new KV(key, val));
+                    // 關 ul/body
+                    if (inUl)   { out.append("</ul></section>"); inUl = false; }
+                    if (inBody) { out.append("</section>"); inBody = false; }
+
+                    // 開 table
+                    if (!inTable) {
+                        out.append("<section class=\"desc-section table\">");
+                        if (SHOW_SECTION_TITLES) out.append("<h3>").append(esc(TITLE_TABLE)).append("</h3>");
+                        out.append("<table>");
+                        inTable = true;
+                    }
+                    out.append("<tr><th>").append(esc(key)).append("</th><td>")
+                            .append(esc(val)).append("</td></tr>");
                     continue;
                 }
             }
-            Matcher mb = BULLET_PATTERN.matcher(t);
-            if (mb.find()) {
-                bullets.add(mb.group(1).trim());
-                continue;
+
+            // 3) 一般段落
+            if (inUl)   { out.append("</ul></section>"); inUl = false; }
+            if (inTable){ out.append("</table></section>"); inTable = false; }
+
+            if (!inBody) {
+                out.append("<section class=\"desc-section body\">");
+                inBody = true;
             }
-            paras.add(t);
+            out.append("<p>").append(esc(line)).append("</p>");
         }
 
-        StringBuilder html = new StringBuilder();
-        if (!kvs.isEmpty()) {
-            html.append("<section class=\"desc-section table\"><h3>商品情報</h3><table>");
-            for (int i = 0; i < Math.min(12, kvs.size()); i++) {
-                KV kv = kvs.get(i);
-                html.append("<tr><th>").append(esc(kv.key)).append("</th><td>")
-                        .append(esc(kv.value)).append("</td></tr>");
-            }
-            html.append("</table></section>");
-        }
-        if (!bullets.isEmpty()) {
-            html.append("<section class=\"desc-section bullets\"><h3>特長・注意</h3><ul>");
-            for (int i = 0; i < Math.min(12, bullets.size()); i++) {
-                html.append("<li>").append(esc(bullets.get(i))).append("</li>");
-            }
-            html.append("</ul></section>");
-        }
-        if (!paras.isEmpty()) {
-            html.append("<section class=\"desc-section body\">");
-            for (int i = 0; i < Math.min(12, paras.size()); i++) {
-                html.append("<p>").append(esc(paras.get(i))).append("</p>");
-            }
-            html.append("</section>");
-        }
+        // 收尾
+        if (inUl)   out.append("</ul></section>");
+        if (inTable)out.append("</table></section>");
+        if (inBody) out.append("</section>");
 
-        return clampToLastSection(html.toString());
+        String html = clampToLastSection(out.toString());
+        debug("HTML", html);
+        return html;
     }
 
+    /** HTML → Plain（保留換行） */
     public static String toPlain(String html) {
         if (html == null) return "";
         String s = html;
@@ -103,8 +125,9 @@ public final class DescriptionSuperCleaner {
         return s;
     }
 
+    // -------- helpers --------
     private static String chooseBase(String html, String plain, String caption) {
-        if (html != null && html.contains("<")) return stripHtmlKeepBreaks(html);
+        if (html  != null && !html.isBlank())  return stripHtmlKeepBreaks(html);
         if (plain != null && !plain.isBlank()) return plain;
         return caption != null ? caption : "";
     }
@@ -114,36 +137,16 @@ public final class DescriptionSuperCleaner {
         String t = HtmlUtils.htmlUnescape(s);
         t = t.replace("\u00A0", " ");
         t = t.replace('\u3000', ' ');
-        t = t.replaceAll("[ \\t\\x0B\\f\\r]+", " ");
+        t = t.replace("\r\n", "\n").replace("\r", "\n");
         return t.trim();
     }
 
     private static List<String> splitToLines(String text) {
         List<String> out = new ArrayList<>();
         for (String line : text.split("\\n")) {
-            String ln = line.trim();
-            if (ln.isEmpty()) continue;
-            for (String s : SENTENCE_SPLIT.split(ln)) {
-                String st = s.trim();
-                if (!st.isEmpty()) out.add(st);
-            }
+            if (!line.trim().isEmpty()) out.add(line);
         }
         return out;
-    }
-
-    private static boolean isNoise(String t) {
-        String s = t.replaceAll("\\s+", "");
-        for (String w : NOISE_PHRASES) {
-            if (s.contains(w.replaceAll("\\s+", ""))) return true;
-        }
-        if (s.matches(".*(よくある質問|FAQ|返品|変更|できません).*")) return true;
-        return false;
-    }
-
-    private static boolean isOverlongWordList(String t) {
-        int len = t.length();
-        long marks = t.chars().filter(ch -> ch=='・' || ch=='、' || ch==',').count();
-        return (len > 120 && marks > 5);
     }
 
     private static String stripHtmlKeepBreaks(String html) {
@@ -171,11 +174,9 @@ public final class DescriptionSuperCleaner {
                 case '>' -> sb.append("&gt;");
                 case '&' -> sb.append("&amp;");
                 case '"' -> sb.append("&quot;");
-                default -> sb.append(c);
+                default  -> sb.append(c);
             }
         }
         return sb.toString();
     }
-
-    private record KV(String key, String value) {}
 }

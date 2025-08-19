@@ -12,11 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * レビュー機能に関するAPIコントローラー
- * - 認証・権限管理はControllerのみ
- * - サービスにはuserId等だけ渡す
- */
+
+// レビュー機能に関するAPIコントローラー
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/reviews")
@@ -24,7 +21,7 @@ public class ReviewController {
 
     private final ReviewService reviewService;
 
-    // セッションからログインユーザーを取得（共通メソッド）
+    // セッションからログインユーザーを取得
     private User getLoginUser(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         return (session != null) ? (User) session.getAttribute("user") : null;
@@ -39,13 +36,14 @@ public class ReviewController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ApiResponseDto("ログインが必要です"));
         }
+        // ServiceにはUserIDではなくUserを渡す実装へ移行も可能だが、投稿は既存のままでも可
         return reviewService.postReview(requestDto, user.getUserId());
     }
 
     // 商品別レビュー取得
     @GetMapping(params = "itemCode")
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(@RequestParam String itemCode,
-                                                                        @RequestParam(defaultValue = "0") int page,
+                                                                        @RequestParam(defaultValue = "1") int page,
                                                                         @RequestParam(defaultValue = "10") int size,
                                                                         HttpServletRequest request) {
         User user = getLoginUser(request);
@@ -53,19 +51,19 @@ public class ReviewController {
         return reviewService.getReviewsByItem(itemCode, userId, page, size);
     }
 
-    // ユーザー別レビュー取得
-    @GetMapping(params = "userId")
-    public ResponseEntity<ReviewListByUserResponseDto> getReviewsByUser(@RequestParam String userId,
-                                                                        @RequestParam(defaultValue = "0") int page,
-                                                                        @RequestParam(defaultValue = "10") int size,
-                                                                        HttpServletRequest request) {
-        // ※自分のレビュー一覧取得のみ認証（他人は不可なら要判定、要件に応じて）
+
+    // 自分のレビュー一覧取得（フロントは userId を送らない）
+    @GetMapping("/me")
+    public ResponseEntity<ReviewListByUserResponseDto> getMyReviews(@RequestParam(defaultValue = "1") int page,
+                                                                    @RequestParam(defaultValue = "10") int size,
+                                                                    HttpServletRequest request) {
         User loginUser = getLoginUser(request);
-        if (loginUser == null || !loginUser.getUserId().equals(userId)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(null); // 仕様に応じてメッセージ変更
+        if (loginUser == null) {
+            // 未ログイン時は 401
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        return reviewService.getReviewsByUser(userId, page, size);
+        // ServiceにUser渡す
+        return reviewService.getReviewsByUser(loginUser, page, size);
     }
 
     // レビュー編集
@@ -75,7 +73,6 @@ public class ReviewController {
                                                                 HttpServletRequest request) {
         User user = getLoginUser(request);
         if (user == null) {
-            // 未ログイン時は本文なしで 401 を返す
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return reviewService.updateReview(id, requestDto, user.getUserId());
@@ -93,7 +90,7 @@ public class ReviewController {
         return reviewService.deleteReview(id, user.getUserId());
     }
 
-    // レビュー詳細取得
+    // レビュー詳細取得（POST /api/reviews/{id} の仕様はそのまま踏襲）
     @PostMapping("/{id}")
     public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(@PathVariable Long id,
                                                                    HttpServletRequest request) {

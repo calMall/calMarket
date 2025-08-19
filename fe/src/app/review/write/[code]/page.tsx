@@ -18,7 +18,10 @@ export default async function ReviewWrite({
     return (
       <CustomLayout>
         <h2>商品はいかがでしたか？</h2>
-        <Link href={`/#`} className="flex bb simple-review-contain">
+        <Link
+          href={`/product/${code}`}
+          className="flex bb simple-review-contain"
+        >
           <div className="rt simple-order-img simple-img">
             <ContainImage
               alt="poduct"
