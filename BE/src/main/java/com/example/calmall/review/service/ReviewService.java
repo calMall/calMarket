@@ -2,6 +2,7 @@ package com.example.calmall.review.service;
 
 import com.example.calmall.global.dto.ApiResponseDto;
 import com.example.calmall.review.dto.*;
+import com.example.calmall.user.entity.User;
 import org.springframework.http.ResponseEntity;
 
 /**
@@ -10,70 +11,26 @@ import org.springframework.http.ResponseEntity;
  */
 public interface ReviewService {
 
-    /**
-     * レビューを投稿する
-     * - セッションから取得した userId を使用してレビューを登録する
-     * - 購入後1ヶ月以内であることが条件
-     * - 同一商品に対しては1回のみ投稿可能（削除済も不可）
-     *
-     * @param requestDto レビュー投稿リクエストデータ
-     * @param userId セッションから取得したユーザーID
-     * @return 投稿成功またはエラーメッセージを含むレスポンス
-     */
+    // レビューを投稿する
     ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto, String userId);
 
-    /**
-     * 商品に紐づくレビュー一覧を取得する
-     * - ページネーション対応
-     * - 評価統計（★ごとの件数）
-     * - マイレビュー（自分が投稿していれば含まれる）
-     * - 各レビューに対する「いいね」情報も含む
-     *
-     * @param itemCode 商品コード
-     * @param userId セッションのユーザーID（null可：未ログイン対応）
-     * @param page ページ番号（0から開始）
-     * @param size ページサイズ
-     * @return レビュー一覧、統計、マイレビューを含むレスポンス
-     */
+
+    // 商品に紐づくレビュー一覧を取得する
     ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(String itemCode, String userId, int page, int size);
 
-    /**
-     * ユーザーが投稿したレビュー一覧を取得する
-     * - ページネーション対応
-     *
-     * @param userId ユーザーID（セッションから取得）
-     * @param page ページ番号（0から開始）
-     * @param size ページサイズ
-     * @return レビュー一覧レスポンス
-     */
-    ResponseEntity<ReviewListByUserResponseDto> getReviewsByUser(String userId, int page, int size);
 
-    /**
-     * レビューを編集する
-     * - 対象レビューが本人の投稿である必要がある
-     *
-     * @param reviewId 編集対象のレビューID
-     * @param requestDto 編集内容（評価・タイトル・コメント・画像）
-     * @param userId セッションのユーザーID
-     * @return 編集成功または失敗メッセージを含むレスポンス
-     */
+    // ユーザーが投稿したレビュー一覧を取得する
+    ResponseEntity<ReviewListByUserResponseDto> getReviewsByUser(User user, int page, int size);
+
+
+    //  レビューを編集する
     ResponseEntity<ReviewDetailResponseDto> updateReview(Long reviewId, ReviewUpdateRequestDto requestDto, String userId);
 
-    /**
-     * レビューを削除する（論理削除）
-     * - 対象レビューが本人の投稿である必要がある
-     *
-     * @param reviewId 削除対象のレビューID
-     * @param userId セッションのユーザーID
-     * @return 削除成功または失敗メッセージを含むレスポンス
-     */
+
+    // レビューを削除する（論理削除）
     ResponseEntity<ApiResponseDto> deleteReview(Long reviewId, String userId);
 
-    /**
-     * レビュー詳細を取得する
-     * @param reviewId 対象レビューのID
-     * @param currentUserId 現在ログイン中のユーザーID（未ログイン時は null）
-     * @return レビュー詳細情報
-     */
+
+    // レビュー詳細を取得する
     ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long reviewId, String currentUserId);
 }

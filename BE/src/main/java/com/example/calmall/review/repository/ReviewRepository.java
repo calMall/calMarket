@@ -1,6 +1,7 @@
 package com.example.calmall.review.repository;
 
 import com.example.calmall.review.entity.Review;
+import com.example.calmall.user.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,6 +15,9 @@ import java.util.List;
  * Spring Data JPAを使用して、レビュー情報を取得・集計する
  */
 public interface ReviewRepository extends JpaRepository<Review, Long> {
+
+    //User エンティティを受け取るバージョン
+    Page<Review> findByUserAndDeletedFalse(User user, Pageable pageable);
 
     // 対象商品のレビューをページング付きで取得（削除されていないレビューのみ）
     Page<Review> findByProduct_ItemCodeAndDeletedFalse(String itemCode, Pageable pageable);

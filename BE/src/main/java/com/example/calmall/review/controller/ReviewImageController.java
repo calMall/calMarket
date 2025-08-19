@@ -23,11 +23,8 @@ public class ReviewImageController {
 
     private final ReviewImageService reviewImageService;
 
-    /**
-     * 複数画像アップロードAPI（最大3枚）
-     * @param files クライアントから送信された画像ファイル（Multipart形式）
-     * @return 画像URLとメッセージを含むレスポンス
-     */
+
+    // 複数画像アップロードAPI（最大3枚）
     @PostMapping("/upload")
     public ResponseEntity<?> uploadImages(@RequestParam("files") List<MultipartFile> files) {
         if (files.size() > 3) {
@@ -38,11 +35,8 @@ public class ReviewImageController {
         return reviewImageService.uploadImages(files);
     }
 
-    /**
-     * アップロード済み画像の削除API
-     * @param requestDto 削除対象の画像URLリスト
-     * @return 成功・失敗メッセージ
-     */
+
+    // アップロード済み画像の削除API
     @PostMapping("/delete")
     public ResponseEntity<ApiResponseDto> deleteImages(@Valid @RequestBody ImageDeleteRequestDto requestDto) {
         return reviewImageService.deleteImages(requestDto);
