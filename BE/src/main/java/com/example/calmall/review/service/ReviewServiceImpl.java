@@ -39,8 +39,6 @@ public class ReviewServiceImpl implements ReviewService {
     private final ProductRepository productRepository;
     private final OrdersRepository ordersRepository;
 
-
-
     // レビュー投稿
     @Override
     @Transactional

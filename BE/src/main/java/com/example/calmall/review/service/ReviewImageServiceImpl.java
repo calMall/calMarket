@@ -49,15 +49,13 @@ public class ReviewImageServiceImpl implements ReviewImageService {
         System.out.println("[CONFIG] Cloudinary ready");
     }
 
-    /**
-     * 複数画像をアップロードする（JPG/PNGのみ・最大3枚）
-     * － 新版：ローカル保存ではなく Cloudinary にアップロードし、DB には secure_url を保存
-     */
+
+    // 複数画像をアップロードする（JPG/PNGのみ最大3枚）
     @Override
     public ResponseEntity<ImageUploadResponseDto> uploadImages(List<MultipartFile> files) {
         System.out.println("[DEBUG] uploadImages() が呼び出されました (Cloudinary)");
 
-        // --- 枚数チェック（最大3枚） ---
+        // 枚数チェック（最大3枚）
         if (files == null || files.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ImageUploadResponseDto("画像が選択されていません", List.of()));
@@ -68,7 +66,6 @@ public class ReviewImageServiceImpl implements ReviewImageService {
         }
 
         // --- 同一リクエスト内での重複ファイルを除外する処理 ---
-        // key として「元ファイル名 + サイズ」を利用して一意性を判定
         Set<String> seenFileKeys = new HashSet<>();
         List<MultipartFile> uniqueFiles = new ArrayList<>();
         for (MultipartFile file : files) {
@@ -105,6 +102,8 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                 );
 
                 String secureUrl = Objects.toString(result.get("secure_url"), null);
+                String publicId = Objects.toString(result.get("public_id"), null); // ★ public_id 取得
+
                 if (secureUrl == null) {
                     System.out.println("[UPLOAD ERROR] Cloudinary returned null secure_url");
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -116,13 +115,14 @@ public class ReviewImageServiceImpl implements ReviewImageService {
 
                 // --- DBに保存（レビュー未紐付け状態で登録） ---
                 ReviewImage reviewImage = ReviewImage.builder()
-                        .imageUrl(secureUrl)            // ← ここからは Cloudinary の URL を保存
+                        .imageUrl(secureUrl)     // Cloudinary の URL を保存
+                        .publicId(publicId)      // ★ public_id を保存
                         .contentType(contentType)
                         .createdAt(LocalDateTime.now())
                         .build();
                 reviewImageRepository.save(reviewImage);
 
-                System.out.println("[UPLOAD] 画像保存成功 (Cloudinary): " + secureUrl);
+                System.out.println("[UPLOAD] 画像保存成功 (Cloudinary): " + secureUrl + " publicId=" + publicId);
 
             } catch (IOException e) {
                 System.out.println("[UPLOAD ERROR] Cloudinary 送信失敗: " + e.getMessage());
@@ -141,11 +141,6 @@ public class ReviewImageServiceImpl implements ReviewImageService {
         return ResponseEntity.ok(new ImageUploadResponseDto("success", imageUrls));
     }
 
-    /**
-     * 画像のURLリストを受け取り、対応するファイルとDBレコードを削除
-     * － Cloudinary URL は Cloudinary 側も削除
-     * － 旧式の /uploads/** はローカルから削除（後方互換）
-     */
     @Override
     public ResponseEntity<ApiResponseDto> deleteImages(ImageDeleteRequestDto requestDto) {
         if (requestDto == null || requestDto.getImageUrls() == null || requestDto.getImageUrls().isEmpty()) {
@@ -158,12 +153,17 @@ public class ReviewImageServiceImpl implements ReviewImageService {
 
                 // --- Cloudinary URL 削除 ---
                 if (isCloudinaryUrl(url)) {
-                    String publicId = guessPublicIdFromUrl(url);
-                    if (publicId != null) {
-                        Map<?, ?> res = cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
-                        System.out.println("[DESTROY] Cloudinary publicId=" + publicId + " res=" + res);
+                    Optional<ReviewImage> optional = reviewImageRepository.findByImageUrl(url);
+                    if (optional.isPresent()) {
+                        String publicId = optional.get().getPublicId();
+                        if (publicId != null) {
+                            Map<?, ?> res = cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
+                            System.out.println("[DESTROY] Cloudinary publicId=" + publicId + " res=" + res);
+                        } else {
+                            System.out.println("[DESTROY] DBにpublicIdが存在しません: " + url);
+                        }
                     } else {
-                        System.out.println("[DESTROY] Cloudinary publicId 推定失敗: " + url);
+                        System.out.println("[DESTROY] DBに該当URLが見つかりません: " + url);
                     }
                 }
 
@@ -199,39 +199,10 @@ public class ReviewImageServiceImpl implements ReviewImageService {
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
-
-    // ---- Helper ----
-
+    // Helper
     private boolean isCloudinaryUrl(String url) {
-        // 例: https://res.cloudinary.com/<cloud>/image/upload/v.../reviews/abc.png
-        return url.startsWith("https://res.cloudinary.com/") && url.contains("/image/upload/");
-    }
-
-    /**
-     * Cloudinary の secure_url から public_id を推定
-     * 例:
-     *   https://res.cloudinary.com/<cloud>/image/upload/v1724080530/reviews/abc.png
-     *   → public_id = "reviews/abc"
-     * ※ 現段階では DB に public_id カラムがない想定の暫定対応。
-     *   将来的には review_images に public_id を追加して保存することを推奨。
-     */
-    private String guessPublicIdFromUrl(String secureUrl) {
-        try {
-            int idx = secureUrl.indexOf("/upload/");
-            if (idx < 0) return null;
-            String tail = secureUrl.substring(idx + "/upload/".length()); // v123.../reviews/abc.png
-            // 先頭のバージョン vxxxx/ を除去
-            if (tail.startsWith("v")) {
-                int slash = tail.indexOf('/');
-                if (slash > 0) tail = tail.substring(slash + 1);
-            }
-            int lastDot = tail.lastIndexOf('.');
-            String noExt = (lastDot > 0) ? tail.substring(0, lastDot) : tail; // reviews/abc
-            int q = noExt.indexOf('?');
-            if (q >= 0) noExt = noExt.substring(0, q);
-            return noExt;
-        } catch (Exception e) {
-            return null;
-        }
+        return url != null
+                && url.startsWith("https://res.cloudinary.com/")
+                && url.contains("/image/upload/");
     }
 }
