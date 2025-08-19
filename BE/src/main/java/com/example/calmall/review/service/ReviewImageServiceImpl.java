@@ -29,7 +29,6 @@ import java.util.*;
  */
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class ReviewImageServiceImpl implements ReviewImageService {
 
     // 旧ローカル保存用ディレクトリ（後方互換の削除処理でのみ使用）
