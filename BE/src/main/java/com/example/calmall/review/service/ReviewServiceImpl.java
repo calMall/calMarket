@@ -41,7 +41,7 @@ public class ReviewServiceImpl implements ReviewService {
 
 
 
-     // レビュー投稿
+    // レビュー投稿
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto, String userId) {
@@ -196,7 +196,7 @@ public class ReviewServiceImpl implements ReviewService {
                         .rating(r.getRating())
                         .title(r.getTitle())
                         .comment(r.getComment())
-                        .imageList(r.getImageList())
+                        .imageList(currentImages(r))
                         .createdAt(r.getCreatedAt())
                         .isLike(reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, r.getReviewId()))
                         .isOwner(userId.equals(r.getUser().getUserId()))
@@ -233,11 +233,11 @@ public class ReviewServiceImpl implements ReviewService {
                         .rating(r.getRating())
                         .title(r.getTitle())
                         .comment(r.getComment())
-                        .imageList(r.getImageList())
+                        .imageList(currentImages(r))
                         .createdAt(r.getCreatedAt())
                         .isLike(reviewLikeRepository.existsByUserUserIdAndReviewReviewId(user.getUserId(), r.getReviewId()))
                         .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId()))
-                        .isOwner(true) // /me なので常に true
+                        .isOwner(true)
                         .build())
                 .toList();
 
@@ -337,7 +337,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * レビュー削除（Controllerで認証済userIdのみ受け取る）
+     * レビュー削除
      */
     @Override
     @Transactional
@@ -355,7 +355,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     /**
-     * レビュー詳細取得（Controllerで認証済userIdのみ受け取る）
+     * レビュー詳細取得
      */
     @Override
     public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long reviewId, String currentUserId) {
@@ -387,7 +387,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .title(review.getTitle())
                 .comment(review.getComment())
                 .rating(review.getRating())
-                .imageList(review.getImageList())
+                .imageList(currentImages(review))
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())
                 .isLike(isLiked)

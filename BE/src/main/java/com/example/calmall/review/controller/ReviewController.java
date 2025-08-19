@@ -43,7 +43,7 @@ public class ReviewController {
     // 商品別レビュー取得
     @GetMapping(params = "itemCode")
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(@RequestParam String itemCode,
-                                                                        @RequestParam(defaultValue = "0") int page,
+                                                                        @RequestParam(defaultValue = "1") int page,
                                                                         @RequestParam(defaultValue = "10") int size,
                                                                         HttpServletRequest request) {
         User user = getLoginUser(request);
@@ -54,7 +54,7 @@ public class ReviewController {
 
     // 自分のレビュー一覧取得（フロントは userId を送らない）
     @GetMapping("/me")
-    public ResponseEntity<ReviewListByUserResponseDto> getMyReviews(@RequestParam(defaultValue = "0") int page,
+    public ResponseEntity<ReviewListByUserResponseDto> getMyReviews(@RequestParam(defaultValue = "1") int page,
                                                                     @RequestParam(defaultValue = "10") int size,
                                                                     HttpServletRequest request) {
         User loginUser = getLoginUser(request);
