@@ -218,7 +218,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .ratingStats(ratingStats)
                 .myReview(myReview)
                 .totalPages(reviewPage.getTotalPages())
-                .currentPage(reviewPage.getNumber())
+                .currentPage(reviewPage.getNumber() + 1)
                 .hasNext(reviewPage.hasNext())
                 .totalElements(reviewPage.getTotalElements())
                 .build());
@@ -254,7 +254,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .message("success")
                 .reviews(userReviews)
                 .totalPages(reviewPage.getTotalPages())
-                .currentPage(reviewPage.getNumber())
+                .currentPage(reviewPage.getNumber() + 1)
                 .hasNext(reviewPage.hasNext())
                 .totalElements(reviewPage.getTotalElements())
                 .build());
