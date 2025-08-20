@@ -157,7 +157,13 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                         String publicId = optional.get().getPublicId();
                         if (publicId != null) {
                             Map<?, ?> res = cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
-                            System.out.println("[DESTROY] Cloudinary publicId=" + publicId + " res=" + res);
+                            System.out.println("[DESTROY] Cloudinary publicId=" + publicId + " response=" + res);
+
+                            // res の中身で結果を確認
+                            Object result = res.get("result");
+                            if (result == null || !"ok".equals(result.toString())) {
+                                System.out.println("[DESTROY WARNING] Cloudinary 側削除失敗: " + result);
+                            }
                         } else {
                             System.out.println("[DESTROY] DBにpublicIdが存在しません: " + url);
                         }
@@ -198,6 +204,8 @@ public class ReviewImageServiceImpl implements ReviewImageService {
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
+
+
     // Helper
     private boolean isCloudinaryUrl(String url) {
         return url != null
