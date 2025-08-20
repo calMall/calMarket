@@ -35,7 +35,7 @@ export default async function ReviewDetail({ params }: { params: { id: string }}
     <div className="date">2077年7月7日</div>
     <div className="comment">手ごろな値段でとてもいい！</div>
   </div>
-
+"
   <div className="buttons">
     <button className="edit-btn">編集</button>
     <button className="delete-btn">削除</button>
@@ -48,5 +48,5 @@ export default async function ReviewDetail({ params }: { params: { id: string }}
   } catch (e) {
     console.error(e);
     return <ErrorComponent />;
-  }
+  }"
 }
