@@ -48,7 +48,11 @@ public class ReviewController {
                                                                         HttpServletRequest request) {
         User user = getLoginUser(request);
         String userId = (user != null) ? user.getUserId() : null;
-        return reviewService.getReviewsByItem(itemCode, userId, page, size);
+
+        // フロントは 1 始まり → Spring Data は 0 始まり のため変換
+        int pageIndex = Math.max(0, page - 1);
+
+        return reviewService.getReviewsByItem(itemCode, userId, pageIndex, size);
     }
 
 
@@ -59,11 +63,15 @@ public class ReviewController {
                                                                     HttpServletRequest request) {
         User loginUser = getLoginUser(request);
         if (loginUser == null) {
-            // 未ログイン時は 401
+            // 未ログイン時は401
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+
+        // フロントは1始まりの変換
+        int pageIndex = Math.max(0, page - 1);
+
         // ServiceにUser渡す
-        return reviewService.getReviewsByUser(loginUser, page, size);
+        return reviewService.getReviewsByUser(loginUser, pageIndex, size);
     }
 
     // レビュー編集
@@ -90,7 +98,7 @@ public class ReviewController {
         return reviewService.deleteReview(id, user.getUserId());
     }
 
-    // レビュー詳細取得（POST /api/reviews/{id} の仕様はそのまま踏襲）
+    // レビュー詳細取得
     @PostMapping("/{id}")
     public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(@PathVariable Long id,
                                                                    HttpServletRequest request) {
