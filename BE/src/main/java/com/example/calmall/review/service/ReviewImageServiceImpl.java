@@ -18,15 +18,18 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
 
+
 /**
  * レビュー画像のアップロード・削除機能を提供するサービスクラス
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReviewImageServiceImpl implements ReviewImageService {
@@ -141,69 +144,38 @@ public class ReviewImageServiceImpl implements ReviewImageService {
     }
 
     @Override
+    @Transactional
     public ResponseEntity<ApiResponseDto> deleteImages(ImageDeleteRequestDto requestDto) {
-        if (requestDto == null || requestDto.getImageUrls() == null || requestDto.getImageUrls().isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponseDto("fail"));
-        }
-
         for (String url : requestDto.getImageUrls()) {
             try {
-                if (url == null || url.isBlank()) continue;
+                // DB 先查
+                Optional<ReviewImage> opt = reviewImageRepository.findByImageUrl(url);
+                if (opt.isPresent()) {
+                    ReviewImage img = opt.get();
 
-                // --- Cloudinary URL 削除 ---
-                if (isCloudinaryUrl(url)) {
-                    Optional<ReviewImage> optional = reviewImageRepository.findByImageUrl(url);
-                    if (optional.isPresent()) {
-                        String publicId = optional.get().getPublicId();
-                        if (publicId != null) {
-                            Map<?, ?> res = cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
-                            System.out.println("[DESTROY] Cloudinary publicId=" + publicId + " response=" + res);
-
-                            // res の中身で結果を確認
-                            Object result = res.get("result");
-                            if (result == null || !"ok".equals(result.toString())) {
-                                System.out.println("[DESTROY WARNING] Cloudinary 側削除失敗: " + result);
-                            }
-                        } else {
-                            System.out.println("[DESTROY] DBにpublicIdが存在しません: " + url);
-                        }
-                    } else {
-                        System.out.println("[DESTROY] DBに該当URLが見つかりません: " + url);
+                    // Cloudinary 削除（例外捕捉，不讓它炸 API）
+                    try {
+                        cloudinary.uploader().destroy(img.getPublicId(),
+                                ObjectUtils.asMap("resource_type", "image", "invalidate", true));
+                    } catch (Exception e) {
+                        log.error("Cloudinary delete failed: url={} publicId={}", url, img.getPublicId(), e);
                     }
+
+                    // DB 削除（此處確保在 Transaction 下）
+                    reviewImageRepository.deleteByImageUrl(url);
+                } else {
+                    log.warn("Image URL not found in DB, skip delete: {}", url);
                 }
-
-                // --- 旧式ローカルファイルの削除（/uploads/**） ---
-                if (url.startsWith(FILE_URL_PREFIX)) {
-                    String filename = Paths.get(url).getFileName().toString();
-                    Path filePath = Paths.get(uploadDir).resolve(filename);
-                    System.out.println("[DELETE] 嘗試刪除路徑: " + filePath.toAbsolutePath());
-
-                    File file = filePath.toFile();
-                    if (file.exists()) {
-                        if (file.delete()) {
-                            System.out.println("[DELETE] ファイル削除成功: " + filename);
-                        } else {
-                            System.out.println("[DELETE WARNING] ファイル削除失敗（但DB削除は継続）: " + filename);
-                        }
-                    } else {
-                        System.out.println("[DELETE] 対象ファイルが存在しません: " + filename);
-                    }
-                }
-
-                // --- DBレコード削除 ---
-                int count = reviewImageRepository.deleteByImageUrl(url);
-                System.out.println("[DELETE] DB削除件数: " + count + "（URL: " + url + "）");
 
             } catch (Exception e) {
-                System.out.println("[DELETE ERROR] 削除中に例外発生: " + e.getMessage());
-                e.printStackTrace();
+                log.error("DeleteImages error url={}", url, e);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .body(new ApiResponseDto("fail"));
             }
         }
-
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
+
 
 
     // Helper
