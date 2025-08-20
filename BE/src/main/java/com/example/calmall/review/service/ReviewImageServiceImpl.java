@@ -14,14 +14,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -146,35 +142,49 @@ public class ReviewImageServiceImpl implements ReviewImageService {
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> deleteImages(ImageDeleteRequestDto requestDto) {
+        List<String> failedUrls = new ArrayList<>();
+
         for (String url : requestDto.getImageUrls()) {
             try {
-                // DB 先查
                 Optional<ReviewImage> opt = reviewImageRepository.findByImageUrl(url);
                 if (opt.isPresent()) {
                     ReviewImage img = opt.get();
 
-                    // Cloudinary 削除（例外捕捉，不讓它炸 API）
+                    // --- Cloudinary 側削除 ---
                     try {
                         cloudinary.uploader().destroy(img.getPublicId(),
                                 ObjectUtils.asMap("resource_type", "image", "invalidate", true));
                     } catch (Exception e) {
                         log.error("Cloudinary delete failed: url={} publicId={}", url, img.getPublicId(), e);
+                        failedUrls.add(url);
+                        continue;
                     }
 
-                    // DB 削除（此處確保在 Transaction 下）
-                    reviewImageRepository.deleteByImageUrl(url);
+                    // --- DB 側削除 ---
+                    int deleted = reviewImageRepository.deleteByImageUrl(url);
+                    if (deleted == 0) {
+                        failedUrls.add(url);
+                    }
                 } else {
-                    log.warn("Image URL not found in DB, skip delete: {}", url);
+                    // DB に存在しない場合 → 失敗リストへ
+                    failedUrls.add(url);
                 }
 
             } catch (Exception e) {
                 log.error("DeleteImages error url={}", url, e);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(new ApiResponseDto("fail"));
+                failedUrls.add(url);
             }
         }
+
+        if (!failedUrls.isEmpty()) {
+            // 部分または全部失敗 → 404
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponseDto("fail: 削除できなかったURL -> " + failedUrls));
+        }
+
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
+
 
 
 
