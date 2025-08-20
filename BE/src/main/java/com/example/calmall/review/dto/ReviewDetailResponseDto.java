@@ -1,5 +1,7 @@
 package com.example.calmall.review.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -8,18 +10,48 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * レビュー詳細取得のレスポンスDTO
- */
+
+// レビュー詳細取得のレスポンスDTO
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReviewDetailResponseDto {
+
+    // 投稿者のユーザーID（UUID形式）
+    private String userId;
+
+    // 投稿者のニックネーム
+    private String userNickname;
+
+    // 商品コード
+    private String itemCode;
+
+    // 商品名
+    private String itemName;
+
+    // 商品画像URLのリスト
+    private List<String> imageUrls;
+
     private String title; // レビュータイトル
     private String comment; // コメント
     private int rating; // 評価（1〜5）
     private List<String> imageList; // 画像URLのリスト
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Tokyo")
     private LocalDateTime createdAt; // 作成日時
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Tokyo")
     private LocalDateTime updatedAt; // 更新日時
+
+    // 総いいね数
+    private long likeCount;
+
+    // ログインユーザーがいいねしているか
+    @JsonProperty("isLike")
+    private boolean isLike;
+
+    // ログインユーザー自身かどうか
+    @JsonProperty("isOwner")
+    private boolean isOwner;
 }

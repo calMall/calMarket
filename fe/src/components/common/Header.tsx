@@ -36,7 +36,7 @@ export default function Header() {
         </div>
       </Link>
 
-      <div className="flex jc ac wf rt search-bar mn">
+      <div className="flex jc ac wf rt search-bar">
         <input
           type="text"
           className="hf wf bx"

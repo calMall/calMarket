@@ -9,40 +9,85 @@ export default async function ReviewDetail({ params }: { params: { id: string }}
   const { id } =  params;
 
   try {
-    const product = await getReviewDetail(Number(id));
+    const data = await getReviewDetail(Number(id));
+    const product = await getProductDetail(data.productId);
 
     return (
+      // <div className="review-item">
+      //   {/* 商品情報 */}
+      //   <div className="product-info grid-2" style={{ alignItems: "center", gap: "1rem" }}>
+      //     <ContainImage
+      //       src={product.imageUrl}
+      //       alt="商品画像"
+      //       width={120}
+      //       height={120}
+      //       className="product-image"
+      //     />
+      //     <div className="product-title">{product.name}</div>
+      //   </div>
+
+      //   {/* レビュー内容 */}
+      //   <div className="simple-review-contain">
+      //     <div className="review-title-in-product">{data.title}</div>
+      //     <Star score={data.score} />
+      //     <div className="date-font">
+      //       {new Date(data.createdAt).toLocaleDateString("ja-JP", {
+      //         year: "numeric",
+      //         month: "long",
+      //         day: "numeric",
+      //       })}
+      //     </div>
+      //     <div className="comment">{data.comment}</div>
+      //   </div>
+
+      //   {/* 編集・削除ボタン */}
+      //   <div className="je" style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+      //     <Link href={`/review/edit/${data.id}`}>
+      //       <button className="edit review-post-btn">編集</button>
+      //     </Link>
+      //     <form action={`/review/delete/${data.id}`} method="POST">
+      //       <button type="submit" className="delete review-post-btn">削除</button>
+      //     </form>
+      //   </div>
+      // </div>
       <CustomLayout>
-        <div className="review-detail">
-  <div className="product-info">
-    <ContainImage
-      src="https://image.rakuten.co.jp/bc7/cabinet/f/f7759176/fw1k1_001.jpg"
-      alt="Product Image"
-      className="product-image"
-    />
-    <div className="product-name">
-      【公式・新品・送料無料】デスクトップパソコン 一体型 office付き 新品 おすすめ 富士通 FMV Desktop F WF1-K1【FH75-K1ベースモデル】<br />
-      23.8型 Windows11 Home Celeron メモリ4GB SSD 256GB Office 搭載モデル RK_WF1K1_A002
-    </div>
-  </div>
+        <div className="review-item">
+          {/* 商品情報 */}
+          <div className="product-info grid-2" style={{ alignItems: "center", gap: "1rem" }}>
+            <ContainImage
+              src={product.imageUrl}
+              alt="商品画像"
+              width={120}
+              height={120}
+              className="product-image"
+            />
+            <div className="product-title">{product.name}</div>
+          </div>
 
-  <div className="review-info">
-    <div className="nickname">石田</div>
-    <div className="title">デスクトップパソコン</div>
-    <div className="star-rating">
-      <span>★</span><span>★</span><span>★</span><span>★</span><span>☆</span>
-    </div>
-    <div className="date">2077年7月7日</div>
-    <div className="comment">手ごろな値段でとてもいい！</div>
-  </div>
-"
-  <div className="buttons">
-    <button className="edit-btn">編集</button>
-    <button className="delete-btn">削除</button>
-  </div>
-</div>
+          {/* レビュー内容 */}
+          <div className="simple-review-contain">
+            <div className="review-title-in-product">{data.title}</div>
+            <Star score={data.score} />
+            <div className="date-font">
+              {new Date(data.createdAt).toLocaleDateString("ja-JP", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </div>
+            <div className="comment">{data.comment}</div>
+          </div>
 
-        
+          {/* 編集・削除ボタン */}
+          <div className="je" style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+            <Link href={`/review/edit/${data.id}`}>
+              <button className="edit review-post-btn">編集</button>
+            </Link>
+            <form action={`/review/delete/${data.id}`} method="POST">
+              <button type="submit" className="delete review-post-btn">削除</button>
+            </form>
+          </div>
+        </div>
       </CustomLayout>
     );
   } catch (e) {

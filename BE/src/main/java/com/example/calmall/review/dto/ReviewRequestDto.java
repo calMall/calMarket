@@ -8,13 +8,11 @@ import lombok.Getter;
 
 import java.util.List;
 
-/**
- * レビュー投稿用のリクエストDTOクラス
- */
+// レビュー投稿用のリクエストDTOクラス
 @Getter
 public class ReviewRequestDto {
 
-    // 商品コード（例：楽天の商品コード）
+    // 商品コード
     @NotBlank(message = "itemCode は必須です")
     private String itemCode;
 

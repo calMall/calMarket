@@ -14,7 +14,7 @@ import java.util.List;
 @Getter
 public class ReviewUpdateRequestDto {
 
-    // 評価（1〜5の範囲で必須）
+    // 評価（1〜5）
     @Min(value = 1, message = "rating は1以上である必要があります")
     @Max(value = 5, message = "rating は5以下である必要があります")
     private int rating;
@@ -26,6 +26,6 @@ public class ReviewUpdateRequestDto {
     @NotBlank(message = "comment は必須です")
     private String comment;
 
-    // 編集後の画像URLリスト（複数枚対応・任意）
+    // 編集後の画像URLリスト
     private List<String> imageList;
 }

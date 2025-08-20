@@ -37,12 +37,12 @@ public class UserController {
         User user = userService.authenticate(requestDto);
 
         if (user != null) {
-            // ✅ セッション作成（true：なければ作成）
+            // セッション作成（true：なければ作成）
             HttpSession session = request.getSession(true);
             session.setAttribute("user", user); // セッションにユーザー情報保存
 
-            // ✅ デバッグログ出力（セッションIDとユーザー名）
-            System.out.println("✅ セッションが作成されました");
+            //  デバッグログ出力（セッションIDとユーザー名）
+            System.out.println(" セッションが作成されました");
             System.out.println("🆔 セッションID: " + session.getId());
             System.out.println("👤 ユーザー: " + user.getNickname());
 
@@ -52,7 +52,7 @@ public class UserController {
                     .cartItemCount(0)
                     .build());
         } else {
-            System.out.println("❌ ログイン失敗：認証エラー");
+            System.out.println(" ログイン失敗：認証エラー");
             return ResponseEntity.status(401).body(
                     UserLoginResponseDto.builder()
                             .message("fail")
@@ -106,6 +106,25 @@ public class UserController {
         return userService.addAddress(userId, requestDto);
     }
 
+    // 配送先住所削除API
+    @PostMapping("/users/addresses/delete")
+    public ResponseEntity<ApiResponseDto> deleteAddress(
+            @RequestBody @Valid UserAddressRequestDto requestDto,
+            HttpServletRequest request) {
+
+        // セッションからログインユーザーを取得
+        HttpSession session = request.getSession(false);
+        User user = (session != null) ? (User) session.getAttribute("user") : null;
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponseDto("ログインが必要です"));
+        }
+
+        // ユーザーIDとリクエストDTOを使って削除処理を呼び出す
+        return userService.deleteAddress(user.getUserId(), requestDto);
+    }
+
+
 
     // Email重複確認API（クエリパラメータでemailを受け取る）
     @GetMapping("/users/check-email")
@@ -133,31 +152,10 @@ public class UserController {
     public ResponseEntity<String> testSession(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null) {
-            return ResponseEntity.ok("❌ session 不存在");
+            return ResponseEntity.ok(" session 不存在");
         }
 
         Object user = session.getAttribute("user");
-        return ResponseEntity.ok("✅ session 存在，user: " + (user != null ? user.toString() : "null"));
-    }
-    // 払い戻しリクエストAPI
-    @PostMapping("/refunds")
-    public ResponseEntity<RefundResponseDto> refund(
-            @RequestBody @Valid RefundRequestDto requestDto,
-            HttpServletRequest request) {
-
-        // セッションチェック
-        HttpSession session = request.getSession(false);
-        User user = (session != null) ? (User) session.getAttribute("user") : null;
-        if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                    RefundResponseDto.builder()
-                            .message("fail")
-                            .coupons(null)
-                            .build()
-            );
-        }
-
-        // ロジック呼び出し
-        return userService.refund(requestDto);
+        return ResponseEntity.ok("session 存在，user: " + (user != null ? user.toString() : "null"));
     }
 }

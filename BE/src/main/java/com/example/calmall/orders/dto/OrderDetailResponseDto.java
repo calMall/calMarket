@@ -5,53 +5,41 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
-// 注文詳細取得APIのレスポンスDTO
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderDetailResponseDto {
 
-    // レスポンスメッセージ（"success" または "fail"）
     private String message;
-
-    // 注文情報
     private OrderDetail order;
 
-    // 注文詳細の中身
+    // 注文詳細全体を表現するクラス
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class OrderDetail {
-
-        // 注文ID
         private Long orderId;
-
-        // 商品コード
-        private String itemCode;
-
-        // 商品名
-        private String itemName;
-
-        // 商品価格
-        private int price;
-
-        // 数量
-        private int quantity;
-
-        // 表示用日付
-        private String date;
-
-        // 画像リスト
-        private List<String> imageList;
-
-        // お届け先
         private String deliveryAddress;
+        private LocalDateTime orderDate; // 注文日時をLocalDateTime型に
+        private String status;
+        private List<OrderItemDto> orderItems; // 注文商品をリストで保持
+    }
 
-        // 注文日時（秒まで）
-        private String orderDate;
+    // 注文商品ごとの情報を表現するクラス
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class OrderItemDto {
+        private String itemCode;
+        private String itemName;
+        private int price;
+        private int quantity;
+        private List<String> imageList;
     }
 }

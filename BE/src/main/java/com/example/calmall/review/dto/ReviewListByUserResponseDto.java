@@ -1,7 +1,10 @@
 package com.example.calmall.review.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -14,7 +17,6 @@ import java.util.List;
 @AllArgsConstructor
 public class ReviewListByUserResponseDto {
 
-    // レスポンスメッセージ（success または fail）
     private String message;
 
     // ユーザーのレビュー一覧
@@ -32,9 +34,8 @@ public class ReviewListByUserResponseDto {
     // 全レビュー件数
     private long totalElements;
 
-    /**
-     * ユーザーのレビュー情報（商品別）
-     */
+
+    // ユーザーのレビュー情報（商品別）
     @Getter
     @Setter
     @Builder
@@ -66,6 +67,18 @@ public class ReviewListByUserResponseDto {
         private List<String> imageList;
 
         // 投稿日時
-        private String createdAt;
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Tokyo")
+        private LocalDateTime createdAt;
+
+        // ログインユーザーがいいねしているか
+        @JsonProperty("isLike")
+        private boolean isLike;
+
+        // レビューの総いいね数
+        private long likeCount;
+
+        // ログインユーザー自身かどうか
+        @JsonProperty("isOwner")
+        private boolean isOwner;
     }
 }

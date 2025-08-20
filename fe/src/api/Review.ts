@@ -73,4 +73,42 @@ export const getReviewByProduct = async (
   return data.json();
 };
 
+export const postUploadImage = async (
+  files: File[]
+): Promise<ImageUploadDto> => {
+  const formData = new FormData();
 
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  const data = await fetch(`${url}/reviews/images/upload`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+
+  if (!data.ok) {
+    const error: any = new Error(data.statusText);
+    error.status = data.status;
+    throw error;
+  }
+  return data.json();
+};
+
+export const getReviewByUser = async (
+  page: number,
+  size: number
+): Promise<ReviewListDTO> => {
+  const data = await fetch(`${url}/reviews`, {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (!data.ok) {
+    const error: any = new Error(data.statusText);
+    error.status = data.status;
+    throw error;
+  }
+  return data.json();
+};

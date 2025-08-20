@@ -51,7 +51,7 @@ export default function Login() {
           <CustomInput
             isPassword={isHidePassword}
             placeholder="パスワードを入力してください。"
-            classname="mt-05"
+            classname="mt-05 rp-2"
             text={password}
             setText={setPassword}
             func={onLogin}

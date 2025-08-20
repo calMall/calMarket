@@ -18,7 +18,7 @@ import jakarta.validation.constraints.Size;
 @AllArgsConstructor
 public class UserAddressRequestDto {
 
-    // 郵便番号（例：123-4567）
+    // 郵便番号
     @NotBlank(message = "郵便番号は必須です")
     @Pattern(regexp = "^\\d{3}-\\d{4}$", message = "郵便番号の形式が正しくありません（例：123-4567）")
     private String postalCode;
@@ -28,8 +28,8 @@ public class UserAddressRequestDto {
     @Size(max = 100, message = "address1 は100文字以内で入力してください")
     private String address1;
 
-    // 建物名・部屋番号など
-    @NotBlank(message = "建物名・部屋番号は必須です")
+
+    // 建物名・部屋番号など（任意）
     @Size(max = 100, message = "address2 は100文字以内で入力してください")
     private String address2;
 }

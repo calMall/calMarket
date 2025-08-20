@@ -11,10 +11,11 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "r.r10s.jp",
+        hostname: "**",
         pathname: "/**",
       },
     ],
+    minimumCacheTTL: 2678400,
   },
 };
 

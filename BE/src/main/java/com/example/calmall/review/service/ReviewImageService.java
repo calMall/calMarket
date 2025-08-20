@@ -8,9 +8,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-/**
- * 画像アップロードおよび削除処理のインターフェース
- */
+
+//  画像アップロードおよび削除処理
 public interface ReviewImageService {
 
     ResponseEntity<ImageUploadResponseDto> uploadImages(List<MultipartFile> files);

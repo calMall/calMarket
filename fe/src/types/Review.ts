@@ -39,3 +39,7 @@ interface Review {
   score: number;
   content: string;
 }
+
+interface ImageUploadDto extends ResponseDTO {
+  imageUrls: string[];
+}

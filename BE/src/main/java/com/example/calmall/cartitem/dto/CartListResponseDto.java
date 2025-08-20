@@ -7,39 +7,34 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
-// カート一覧取得APIのレスポンスDTO
+/**
+ * カート一覧取得APIのレスポンスDTO
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class CartListResponseDto {
 
-    // レスポンスメッセージ（"success" または "fail"）
-    private String message;
+    private String message; // レスポンスメッセージ（"success" または "fail"）
 
-    // カート内の商品リスト
-    private List<CartItem> cartItems;
+    private List<CartItemDto> cartItems; // カート内の商品リスト
 
-    // カート内の商品1件分の情報
+    /**
+     * カート内の商品1件分の情報（APIレスポンス用）
+     */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class CartItem {
+    public static class CartItemDto {
 
-        // 商品コード
-        private String itemCode;
-
-        // 商品名
-        private String itemName;
-
-        // 価格
-        private int price;
-
-        // 数量
-        private int quantity;
-
-        // 画像URLリスト
-        private List<String> imageUrls;
+        private Long id;
+        private String itemCode; // 商品コード
+        private String itemName; // 商品名
+        private int price;       // 価格
+        private int quantity;    // 数量
+        private List<String> imageUrls; // 画像URLリスト
+        private String option; // 商品オプション (もし存在する場合)
     }
 }

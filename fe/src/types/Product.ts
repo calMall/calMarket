@@ -15,6 +15,7 @@ interface CartListResponseDto extends ResponseDTO {
 }
 
 interface cartItem {
+  id: number;
   itemCode: string;
   itemName: string;
   price: number;

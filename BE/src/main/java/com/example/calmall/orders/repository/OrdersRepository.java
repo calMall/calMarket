@@ -3,9 +3,14 @@ package com.example.calmall.orders.repository;
 import com.example.calmall.orders.entity.Orders;
 import com.example.calmall.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 注文履歴を扱うJPAリポジトリ
@@ -13,30 +18,45 @@ import java.util.List;
 public interface OrdersRepository extends JpaRepository<Orders, Long> {
 
     /**
-     * 指定された userId のユーザーが、
-     * 指定された itemCode の商品を
-     * 指定日時以降に購入した履歴があるかを確認
-     *
-     * @param userId ユーザーの UUID（User.userId）
-     * @param itemCode 商品の itemCode（Product.itemCode）
-     * @param after 検索基準となる日時（1ヶ月前など）
-     * @return true = 購入履歴あり / false = 購入なし
+     * 指定ユーザーが指定商品の購入履歴を
+     * 指定日時以降に持っているかチェック
      */
-    boolean existsByUser_UserIdAndProduct_ItemCodeAndCreatedAtAfter(
-            String userId,
-            String itemCode,
-            LocalDateTime after
+    @Query("""
+        SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END
+        FROM Orders o
+        JOIN o.orderItems oi
+        WHERE o.user.userId = :userId
+          AND oi.product.itemCode = :itemCode  
+          AND o.createdAt > :after
+    """)
+    boolean existsPurchaseWithinPeriod(
+            @Param("userId") String userId,
+            @Param("itemCode") String itemCode,
+            @Param("after") LocalDateTime after
     );
 
     /**
-     * 指定された userId のユーザーが、
-     * 指定された itemCode の商品を購入した履歴をすべて取得
-     *
-     * @param userId ユーザーの UUID（User.userId）
-     * @param itemCode 商品の itemCode（Product.itemCode）
-     * @return 該当する注文履歴リスト
+     * 指定ユーザーが指定商品を購入した全注文を取得
      */
-    List<Orders> findByUser_UserIdAndProduct_ItemCode(String userId, String itemCode);
+    @Query("""
+        SELECT o
+        FROM Orders o
+        JOIN o.orderItems oi
+        WHERE o.user.userId = :userId
+          AND oi.product.itemCode = :itemCode 
+    """)
+    List<Orders> findOrdersByUserAndItemCode(
+            @Param("userId") String userId,
+            @Param("itemCode") String itemCode
+    );
+
     List<Orders> findTop10ByUserOrderByCreatedAtDesc(User user);
 
+    //ユーザの注文履歴
+    List<Orders> findByUser_UserId(String userId);
+    //ページネーション
+    Page<Orders> findByUser_UserId(String userId, Pageable pageable);
+    //注文詳細
+    Optional<Orders> findByIdAndUser_UserId(Long orderId, String userId);
+    
 }
