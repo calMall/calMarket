@@ -20,16 +20,20 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
     private final ProductRepository productRepository;
     private final RakutenApiService rakutenApiService;
 
+    // 起動時に実行するか
     @Value("${backfill.product-description:false}")
     private boolean enabled;
 
+    // ページサイズ
     @Value("${backfill.page-size:500}")
     private int pageSize;
 
+    // itemCaption を HTML で保存するか
     @Value("${backfill.persist-item-caption:true}")
     private boolean persistItemCaption;
 
-    @Value("${backfill.mode:clean}") // clean | refetch
+    // backfill.mode = clean | refetch
+    @Value("${backfill.mode:clean}")
     private String mode;
 
     @Override
@@ -39,7 +43,10 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
             return;
         }
 
-        int page = 0, updated = 0, processed = 0, refetched = 0;
+        int page = 0;
+        int updated = 0;
+        int processed = 0;
+        int refetched = 0;
 
         log.info("[Backfill] start pageSize={} mode={} persistItemCaption={}",
                 pageSize, mode, persistItemCaption);
@@ -54,7 +61,7 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
 
                     Product source = prod;
 
-                    // mode = refetch → 先打 API 取新資料
+                    // --- mode=refetch の場合、楽天API再取得 ---
                     if ("refetch".equalsIgnoreCase(mode)) {
                         var freshOpt = rakutenApiService.fetchProductFromRakuten(prod.getItemCode());
                         if (freshOpt.isPresent()) {
@@ -65,7 +72,7 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
                         }
                     }
 
-                    // 共通：跑 DescriptionSuperCleaner
+                    // --- SuperCleaner で再整形 ---
                     String cleanHtml = DescriptionSuperCleaner.buildCleanHtml(
                             source.getDescriptionHtml(),
                             source.getDescriptionPlain(),
@@ -75,15 +82,15 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
 
                     boolean dirty = false;
 
-                    if (!cleanHtml.equals(prod.getDescriptionHtml())) {
+                    if (!equalsSafe(cleanHtml, prod.getDescriptionHtml())) {
                         prod.setDescriptionHtml(cleanHtml);
                         dirty = true;
                     }
-                    if (!cleanPlain.equals(prod.getDescriptionPlain())) {
+                    if (!equalsSafe(cleanPlain, prod.getDescriptionPlain())) {
                         prod.setDescriptionPlain(cleanPlain);
                         dirty = true;
                     }
-                    if (persistItemCaption && !cleanHtml.equals(prod.getItemCaption())) {
+                    if (persistItemCaption && !equalsSafe(cleanHtml, prod.getItemCaption())) {
                         prod.setItemCaption(cleanHtml);
                         dirty = true;
                     }
@@ -91,6 +98,10 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
                     if (dirty) {
                         productRepository.save(prod);
                         updated++;
+                        if (log.isDebugEnabled()) {
+                            log.debug("[Backfill][Updated] itemCode={} len(html)={}",
+                                    prod.getItemCode(), cleanHtml.length());
+                        }
                     }
 
                 } catch (Exception e) {
@@ -102,7 +113,11 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
             page++;
         }
 
-        log.info("[Backfill] done processed={} updated={} refetched={}",
-                processed, updated, refetched);
+        log.info("[Backfill] done processed={} updated={} refetched={} pageSize={} mode={}",
+                processed, updated, refetched, pageSize, mode);
+    }
+
+    private boolean equalsSafe(String a, String b) {
+        return (a == b) || (a != null && a.equals(b));
     }
 }
