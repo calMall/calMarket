@@ -15,6 +15,8 @@ import com.example.calmall.user.entity.User;
 import com.example.calmall.user.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -22,7 +24,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -31,6 +32,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReviewServiceImpl.class);
 
     private final ReviewRepository reviewRepository;
     private final ReviewImageRepository reviewImageRepository;
@@ -43,35 +46,35 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> postReview(ReviewRequestDto requestDto, String userId) {
-        System.err.println("==== [DEBUG] postReview called userId=" + userId);
+        log.debug("==== [DEBUG] postReview called userId={}", userId);
 
         // ===== ユーザー存在チェック =====
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ユーザーが存在しません"));
-        System.err.println("==== [DEBUG] user found: " + user.getUserId());
+        log.debug("==== [DEBUG] user found: {}", user.getUserId());
 
         // ===== 商品存在チェック =====
         Product product = productRepository.findByItemCode(requestDto.getItemCode())
                 .orElseThrow(() -> new IllegalArgumentException("商品が存在しません"));
-        System.err.println("==== [DEBUG] product found: " + product.getItemCode());
+        log.debug("==== [DEBUG] product found: {}", product.getItemCode());
 
         // 再投稿防止チェック（削除済みレビューあり）
         if (!reviewRepository.findByUser_UserIdAndProduct_ItemCodeAndDeletedTrue(userId, product.getItemCode()).isEmpty()) {
-            System.err.println("==== [DEBUG] 再投稿禁止（削除済レビューあり）");
+            log.debug("==== [DEBUG] 再投稿禁止（削除済レビューあり）");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("削除済レビューが存在するため再投稿できません"));
         }
 
-        //  再投稿防止チェック（既に投稿済み）
+        // 再投稿防止チェック（既に投稿済み）
         if (!reviewRepository.findByProduct_ItemCodeAndUser_UserIdAndDeletedFalse(product.getItemCode(), userId).isEmpty()) {
-            System.err.println("==== [DEBUG] 再投稿禁止（既に投稿済み）");
+            log.debug("==== [DEBUG] 再投稿禁止（既に投稿済み）");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("この商品には既にレビューを投稿済みです"));
         }
 
         // 購入履歴チェック
         List<Orders> orders = ordersRepository.findOrdersByUserAndItemCode(userId, product.getItemCode());
-        System.err.println("==== [DEBUG] orders.size=" + orders.size());
+        log.debug("==== [DEBUG] orders.size={}", orders.size());
         if (orders.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("未購入の商品にはレビューできません"));
@@ -81,7 +84,7 @@ public class ReviewServiceImpl implements ReviewService {
         LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
         boolean purchasedWithinOneMonth =
                 ordersRepository.existsPurchaseWithinPeriod(userId, product.getItemCode(), oneMonthAgo);
-        System.err.println("==== [DEBUG] purchasedWithinOneMonth=" + purchasedWithinOneMonth);
+        log.debug("==== [DEBUG] purchasedWithinOneMonth={}", purchasedWithinOneMonth);
         if (!purchasedWithinOneMonth) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("購入後1ヶ月以内のユーザーのみレビュー可能です"));
@@ -101,21 +104,20 @@ public class ReviewServiceImpl implements ReviewService {
                 .build();
 
         Review savedReview = reviewRepository.save(review);
-        System.err.println("==== [DEBUG] review saved id=" + savedReview.getReviewId());
+        log.debug("==== [DEBUG] review saved id={}", savedReview.getReviewId());
 
         Set<String> finalImageList = new LinkedHashSet<>();
 
         if (requestDto.getImageList() != null && !requestDto.getImageList().isEmpty()) {
-
             // 1リクエスト内の重複URLを除去
             Set<String> uniqueUrls = new LinkedHashSet<>(requestDto.getImageList());
-            System.err.println("==== [DEBUG] imageList size=" + uniqueUrls.size());
+            log.debug("==== [DEBUG] imageList size={}", uniqueUrls.size());
 
             for (String imageUrl : uniqueUrls) {
                 Optional<ReviewImage> optionalReviewImage = reviewImageRepository.findByImageUrl(imageUrl);
 
                 if (optionalReviewImage.isEmpty()) {
-                    System.err.println("[SKIP] DBに存在しない画像: " + imageUrl);
+                    log.debug("[SKIP] DBに存在しない画像: {}", imageUrl);
                     continue;
                 }
 
@@ -123,46 +125,44 @@ public class ReviewServiceImpl implements ReviewService {
 
                 if (reviewImage.getReview() != null &&
                         !reviewImage.getReview().getReviewId().equals(savedReview.getReviewId())) {
-                    System.err.println("[SKIP] 他のレビューに紐付け済: " + imageUrl);
+                    log.debug("[SKIP] 他のレビューに紐付け済: {}", imageUrl);
                     continue;
                 }
 
                 if (reviewImage.getReview() != null &&
                         reviewImage.getReview().getReviewId().equals(savedReview.getReviewId())) {
-                    System.err.println("[SKIP] このレビューに既に紐付け済: " + imageUrl);
+                    log.debug("[SKIP] このレビューに既に紐付け済: {}", imageUrl);
                     continue;
                 }
 
                 reviewImageRepository.updateReviewBindingNative(reviewImage.getId(), savedReview.getReviewId());
                 finalImageList.add(imageUrl);
-                System.err.println("[LINKED] 紐付け完了: " + imageUrl);
+                log.debug("[LINKED] 紐付け完了: {}", imageUrl);
             }
         }
 
         savedReview.setImageList(new ArrayList<>(finalImageList));
-        System.err.println("==== [DEBUG] review linked images=" + savedReview.getImageList().size());
+        log.debug("==== [DEBUG] review linked images={}", savedReview.getImageList().size());
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
-
-    public List<String> currentImages (Review review) {
+    public List<String> currentImages(Review review) {
         return reviewImageRepository.findAllByReview(review).stream()
                 .map(ReviewImage::getImageUrl)
                 .collect(Collectors.toList());
     }
 
-
     // 商品別レビュー取得
     @Override
     public ResponseEntity<ReviewListByItemResponseDto> getReviewsByItem(String itemCode, String userId, int page, int size) {
-        System.err.println("==== [DEBUG] getReviewsByItem called itemCode=" + itemCode + " page=" + page);
+        log.debug("==== [DEBUG] getReviewsByItem called itemCode={} page={}", itemCode, page);
 
         Page<Review> reviewPage = reviewRepository.findByProduct_ItemCodeAndDeletedFalse(
                 itemCode, PageRequest.of(page, size)
         );
         List<Review> allReviews = reviewRepository.findByProduct_ItemCodeAndDeletedFalse(itemCode);
-        System.err.println("==== [DEBUG] reviewPage=" + reviewPage.getTotalElements() + " allReviews=" + allReviews.size());
+        log.debug("==== [DEBUG] reviewPage={} allReviews={}", reviewPage.getTotalElements(), allReviews.size());
 
         Map<Integer, Long> ratingStatsMap = allReviews.stream()
                 .collect(Collectors.groupingBy(Review::getRating, Collectors.counting()));
@@ -189,7 +189,7 @@ public class ReviewServiceImpl implements ReviewService {
                         .isOwner(userId != null && userId.equals(r.getUser().getUserId()))
                         .build())
                 .collect(Collectors.toList());
-        System.err.println("==== [DEBUG] reviewInfos size=" + reviewInfos.size());
+        log.debug("==== [DEBUG] reviewInfos size={}", reviewInfos.size());
 
         ReviewListByItemResponseDto.MyReview myReview = null;
         if (userId != null) {
@@ -208,7 +208,7 @@ public class ReviewServiceImpl implements ReviewService {
                         .isOwner(userId.equals(r.getUser().getUserId()))
                         .likeCount(reviewLikeRepository.countByReviewReviewId(r.getReviewId()))
                         .build();
-                System.err.println("==== [DEBUG] myReview exists reviewId=" + r.getReviewId());
+                log.debug("==== [DEBUG] myReview exists reviewId={}", r.getReviewId());
             }
         }
 
@@ -224,14 +224,13 @@ public class ReviewServiceImpl implements ReviewService {
                 .build());
     }
 
-
     // ユーザー別レビュー取得
     @Override
     public ResponseEntity<ReviewListByUserResponseDto> getReviewsByUser(User user, int page, int size) {
-        System.err.println("==== [DEBUG] getReviewsByUser called user=" + user.getUserId());
+        log.debug("==== [DEBUG] getReviewsByUser called user={}", user.getUserId());
 
         Page<Review> reviewPage = reviewRepository.findByUserAndDeletedFalse(user, PageRequest.of(page, size));
-        System.err.println("==== [DEBUG] reviewPage.total=" + reviewPage.getTotalElements());
+        log.debug("==== [DEBUG] reviewPage.total={}", reviewPage.getTotalElements());
 
         var userReviews = reviewPage.getContent().stream()
                 .map(r -> ReviewListByUserResponseDto.UserReview.builder()
@@ -249,7 +248,7 @@ public class ReviewServiceImpl implements ReviewService {
                         .isOwner(true)
                         .build())
                 .collect(Collectors.toList());
-        System.err.println("==== [DEBUG] userReviews size=" + userReviews.size());
+        log.debug("==== [DEBUG] userReviews size={}", userReviews.size());
 
         return ResponseEntity.ok(ReviewListByUserResponseDto.builder()
                 .message("success")
@@ -261,12 +260,11 @@ public class ReviewServiceImpl implements ReviewService {
                 .build());
     }
 
-
     // レビュー編集処理
     @Override
     @Transactional
     public ResponseEntity<ReviewDetailResponseDto> updateReview(Long reviewId, ReviewUpdateRequestDto requestDto, String userId) {
-        System.err.println("==== [DEBUG] updateReview called reviewId=" + reviewId + " userId=" + userId);
+        log.debug("==== [DEBUG] updateReview called reviewId={} userId={}", reviewId, userId);
 
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
@@ -283,13 +281,13 @@ public class ReviewServiceImpl implements ReviewService {
         review.setTitle(requestDto.getTitle());
         review.setComment(requestDto.getComment());
         review.setUpdatedAt(LocalDateTime.now());
-        System.err.println("==== [DEBUG] review updated fields");
+        log.debug("==== [DEBUG] review updated fields");
 
         List<String> currentImages = reviewImageRepository.findAllByReview(review).stream()
                 .map(ReviewImage::getImageUrl)
                 .collect(Collectors.toList());
         int currentCount = currentImages.size();
-        System.err.println("==== [DEBUG] currentImages count=" + currentCount);
+        log.debug("==== [DEBUG] currentImages count={}", currentCount);
 
         List<String> addUrls = requestDto.getImageList() != null
                 ? new ArrayList<>(new LinkedHashSet<>(requestDto.getImageList()))
@@ -307,7 +305,7 @@ public class ReviewServiceImpl implements ReviewService {
             if (img.getReview() != null && !img.getReview().getReviewId().equals(reviewId)) continue;
 
             reviewImageRepository.updateReviewBindingNative(img.getId(), reviewId);
-            System.err.println("==== [DEBUG] linked imageUrl=" + imageUrl);
+            log.debug("==== [DEBUG] linked imageUrl={}", imageUrl);
         }
 
         List<String> finalImageList = reviewImageRepository.findAllByReview(review).stream()
@@ -315,7 +313,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .collect(Collectors.toList());
         review.setImageList(finalImageList);
         reviewRepository.save(review);
-        System.err.println("==== [DEBUG] finalImageList size=" + finalImageList.size());
+        log.debug("==== [DEBUG] finalImageList size={}", finalImageList.size());
 
         boolean isLiked = reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, reviewId);
 
@@ -340,7 +338,7 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> deleteReview(Long reviewId, String userId) {
-        System.err.println("==== [DEBUG] deleteReview called reviewId=" + reviewId + " userId=" + userId);
+        log.debug("==== [DEBUG] deleteReview called reviewId={} userId={}", reviewId, userId);
 
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
@@ -351,7 +349,7 @@ public class ReviewServiceImpl implements ReviewService {
         }
         review.setDeleted(true);
         review.setUpdatedAt(LocalDateTime.now());
-        System.err.println("==== [DEBUG] review deleted id=" + reviewId);
+        log.debug("==== [DEBUG] review deleted id={}", reviewId);
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
@@ -361,7 +359,7 @@ public class ReviewServiceImpl implements ReviewService {
      */
     @Override
     public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long reviewId, String currentUserId) {
-        System.err.println("==== [DEBUG] getReviewDetail called reviewId=" + reviewId + " currentUserId=" + currentUserId);
+        log.debug("==== [DEBUG] getReviewDetail called reviewId={} currentUserId={}", reviewId, currentUserId);
 
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("レビューが存在しません"));
@@ -396,7 +394,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .isOwner(isOwner)
                 .build();
 
-        System.err.println("==== [DEBUG] getReviewDetail done reviewId=" + reviewId);
+        log.debug("==== [DEBUG] getReviewDetail done reviewId={}", reviewId);
         return ResponseEntity.ok(detail);
     }
 }
