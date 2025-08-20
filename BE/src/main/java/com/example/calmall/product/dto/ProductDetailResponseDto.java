@@ -17,10 +17,10 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ProductDetailResponseDto {
 
-    /** "success" / "fail" */
+
     private String message;
 
-    /** 商品詳細 */
+    // 商品詳細
     @JsonProperty("product")
     private ProductDto product;
 

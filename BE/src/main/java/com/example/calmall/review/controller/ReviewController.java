@@ -49,7 +49,7 @@ public class ReviewController {
         User user = getLoginUser(request);
         String userId = (user != null) ? user.getUserId() : null;
 
-        // フロントは 1 始まり → Spring Data は 0 始まり のため変換
+        // フロントは1始まり → Springは0始まりのため変換
         int pageIndex = Math.max(0, page - 1);
 
         return reviewService.getReviewsByItem(itemCode, userId, pageIndex, size);

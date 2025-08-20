@@ -22,15 +22,13 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 
-/**
- * レビュー画像のアップロード・削除機能を提供するサービスクラス
- */
+// レビュー画像のアップロード・削除機能
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReviewImageServiceImpl implements ReviewImageService {
 
-    // 旧ローカル保存用ディレクトリ（後方互換の削除処理でのみ使用）
+//     旧ローカル保存用ディレクトリ
     @Value("${file.upload-dir:uploads}")
     private String uploadDir;
 
@@ -38,7 +36,6 @@ public class ReviewImageServiceImpl implements ReviewImageService {
 
     private final ReviewImageRepository reviewImageRepository;
 
-    // Cloudinary（CloudinaryConfig で Bean 化）
     private final Cloudinary cloudinary;
 
     @PostConstruct
@@ -63,7 +60,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                     .body(new ImageUploadResponseDto("画像は最大3枚までです", List.of()));
         }
 
-        // --- 同一リクエスト内での重複ファイルを除外する処理 ---
+        // 同一リクエスト内での重複ファイルを除外する処理
         Set<String> seenFileKeys = new HashSet<>();
         List<MultipartFile> uniqueFiles = new ArrayList<>();
         for (MultipartFile file : files) {
@@ -80,9 +77,9 @@ public class ReviewImageServiceImpl implements ReviewImageService {
         // 実際にアップロードされた画像のURLを格納するリスト
         List<String> imageUrls = new ArrayList<>();
 
-        // --- 各ファイルを順に処理 ---
+        // 各ファイルを順に処理
         for (MultipartFile file : uniqueFiles) {
-            // --- ファイル形式チェック ---
+            // ファイル形式チェック
             String contentType = file.getContentType();
             if (!Objects.equals(contentType, "image/jpeg") && !Objects.equals(contentType, "image/png")) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -90,7 +87,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
             }
 
             try {
-                // --- Cloudinary にアップロード（フォルダ "reviews"） ---
+                // Cloudinaryにアップロードフォルダreviews）
                 Map<?, ?> result = cloudinary.uploader().upload(
                         file.getBytes(),
                         ObjectUtils.asMap(
@@ -100,7 +97,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                 );
 
                 String secureUrl = Objects.toString(result.get("secure_url"), null);
-                String publicId = Objects.toString(result.get("public_id"), null); // ★ public_id 取得
+                String publicId = Objects.toString(result.get("public_id"), null);
 
                 if (secureUrl == null) {
                     System.out.println("[UPLOAD ERROR] Cloudinary returned null secure_url");
@@ -108,13 +105,13 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                             .body(new ImageUploadResponseDto("画像保存に失敗しました", List.of()));
                 }
 
-                // --- レスポンス用のURLを追加 ---
+                // レスポンス用のURLを追加
                 imageUrls.add(secureUrl);
 
-                // --- DBに保存（レビュー未紐付け状態で登録） ---
+                // DBに保存（レビュー未紐付け状態で登録）
                 ReviewImage reviewImage = ReviewImage.builder()
-                        .imageUrl(secureUrl)     // Cloudinary の URL を保存
-                        .publicId(publicId)      // ★ public_id を保存
+                        .imageUrl(secureUrl)
+                        .publicId(publicId)
                         .contentType(contentType)
                         .createdAt(LocalDateTime.now())
                         .build();
@@ -135,7 +132,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
             }
         }
 
-        // --- 成功したURLのみ返却 ---
+        // 成功したURLのみ返却
         return ResponseEntity.ok(new ImageUploadResponseDto("success", imageUrls));
     }
 
@@ -150,7 +147,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                 if (opt.isPresent()) {
                     ReviewImage img = opt.get();
 
-                    // --- Cloudinary 側削除 ---
+                    // Cloudinary側削除
                     try {
                         cloudinary.uploader().destroy(img.getPublicId(),
                                 ObjectUtils.asMap("resource_type", "image", "invalidate", true));
@@ -160,7 +157,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                         continue;
                     }
 
-                    // --- DB 側削除 ---
+                    // DB 側削除
                     int deleted = reviewImageRepository.deleteByImageUrl(url);
                     if (deleted == 0) {
                         failedUrls.add(url);
@@ -183,15 +180,5 @@ public class ReviewImageServiceImpl implements ReviewImageService {
         }
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
-    }
-
-
-
-
-    // Helper
-    private boolean isCloudinaryUrl(String url) {
-        return url != null
-                && url.startsWith("https://res.cloudinary.com/")
-                && url.contains("/image/upload/");
     }
 }

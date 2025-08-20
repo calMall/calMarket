@@ -38,10 +38,10 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public ResponseEntity<ProductDetailResponseDto> getProductDetail(String itemCode) {
 
-        // --- 1) DB から既存商品を検索 ---
+        // DBから既存商品を検索
         Product product = productRepository.findByItemCode(itemCode).orElse(null);
 
-        // --- 2) 無ければ 楽天API から取得し保存 ---
+        // なければ 楽天APIから取得し保存
         if (product == null) {
             log.info("[source=RakutenAPI] DB未登録 → 楽天API照会 itemCode={}", itemCode);
             product = rakutenApiService.fetchProductFromRakuten(itemCode).orElse(null);
@@ -81,13 +81,11 @@ public class ProductServiceImpl implements ProductService {
             log.info("[normalize] 説明文をクリーン化して保存 itemCode={}", product.getItemCode());
         }
 
-        // --- 4) 成功レスポンスを返却 ---
+        // 成功レスポンスを返却
         return ResponseEntity.ok(buildSuccessResponse(product));
     }
 
-    /**
-     * 在庫による購入可否判定（inventory が 1 以上で購入可）
-     */
+    //　在庫による購入可否判定（inventory が 1 以上で購入可）
     @Override
     public ResponseEntity<Boolean> isPurchasable(String itemCode) {
         return productRepository.findByItemCode(itemCode)
@@ -95,14 +93,12 @@ public class ProductServiceImpl implements ProductService {
                 .orElseGet(() -> new ResponseEntity<>(false, HttpStatus.BAD_REQUEST));
     }
 
-    // -------------------- private helpers --------------------
-
-    // null セーフな等価比較
+    // nullセーフな等価比較
     private boolean equalsSafe(String a, String b) {
         return (a == b) || (a != null && a.equals(b));
     }
 
-    // 成功レスポンスDTOの組み立て（itemCaption に HTML を入れる）
+    // 成功レスポンスDTOの組み立て
     private ProductDetailResponseDto buildSuccessResponse(Product product) {
         Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode());
         int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(product.getItemCode());
@@ -110,7 +106,7 @@ public class ProductServiceImpl implements ProductService {
         ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
                 .itemCode(product.getItemCode())
                 .itemName(product.getItemName())
-                .itemCaption(product.getItemCaption()) // HTML
+                .itemCaption(product.getItemCaption())
                 .catchcopy(product.getCatchcopy())
                 .score(score != null ? Math.round(score * 10.0) / 10.0 : 0.0)
                 .reviewCount(reviewCount)

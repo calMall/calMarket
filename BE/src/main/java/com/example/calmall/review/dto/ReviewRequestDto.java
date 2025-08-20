@@ -8,9 +8,7 @@ import lombok.Getter;
 
 import java.util.List;
 
-/**
- * レビュー投稿用のリクエストDTOクラス
- */
+// レビュー投稿用のリクエストDTOクラス
 @Getter
 public class ReviewRequestDto {
 
