@@ -43,11 +43,11 @@ export const getReviewDetail = async (
     method: "POST",
     credentials: "include",
   });
+  console.log(data.statusText);
 
   if (!data.ok) {
     const error: any = new Error(data.statusText);
     error.status = data.status;
-    console.log(error);
     throw error;
   }
   return data.json();
@@ -72,3 +72,5 @@ export const getReviewByProduct = async (
   }
   return data.json();
 };
+
+

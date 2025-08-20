@@ -908,3 +908,104 @@ textarea {
   font-size: small;
   color: rgba($color: #000000, $alpha: 0.7);
 }
+
+.review-detail {
+  max-width: 600px;
+  padding: 16px;
+  font-family: Arial, sans-serif;
+  color: #333;
+
+  .product-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+
+    .product-image {
+      width: 70px;
+      height: 70px;
+      object-fit: contain;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .product-name {
+      font-weight: bold;
+      font-size: 14px;
+      line-height: 1.4;
+      white-space: pre-line; /* to preserve line breaks */
+      color: #000;
+      flex: 1;
+    }
+  }
+
+  .review-info {
+    .nickname {
+      font-weight: bold;
+      margin-bottom: 4px;
+      font-size: 16px;
+    }
+
+    .title {
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .star-rating {
+      font-size: 24px;
+      color: #3498db; /* Blue stars */
+      margin-bottom: 8px;
+      span {
+        margin-right: 2px;
+      }
+    }
+
+    .date {
+      font-size: 14px;
+      color: #777;
+      margin-bottom: 8px;
+    }
+
+    .comment {
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+  }
+
+  .buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+
+    button {
+      border: none;
+      padding: 8px 14px;
+      font-weight: 600;
+      font-size: 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      transition: background-color 0.2s ease;
+
+      &.edit-btn {
+        background-color: #5aa3a3;
+        color: #fff;
+        &:hover {
+          background-color: #458282;
+        }
+      }
+
+      &.delete-btn {
+        background-color: #e21717;
+        color: #fff;
+        &:hover {
+          background-color: #a21313;
+        }
+      }
+    }
+  }
+}
+
+
