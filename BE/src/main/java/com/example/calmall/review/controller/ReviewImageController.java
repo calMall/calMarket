@@ -27,6 +27,7 @@ public class ReviewImageController {
     // 複数画像アップロードAPI（最大3枚）
     @PostMapping("/upload")
     public ResponseEntity<?> uploadImages(@RequestParam("files") List<MultipartFile> files) {
+        System.err.println("==== [DEBUG] /upload called, files=" + (files != null ? files.size() : "null"));
         if (files.size() > 3) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiResponseDto("画像は最大3枚までアップロードできます"));
@@ -35,10 +36,10 @@ public class ReviewImageController {
         return reviewImageService.uploadImages(files);
     }
 
-
-    // アップロード済み画像の削除API
     @PostMapping("/delete")
     public ResponseEntity<ApiResponseDto> deleteImages(@Valid @RequestBody ImageDeleteRequestDto requestDto) {
+        System.err.println("==== [DEBUG] /delete called, body=" + (requestDto != null ? requestDto.getImageUrls() : "null"));
         return reviewImageService.deleteImages(requestDto);
     }
+
 }
