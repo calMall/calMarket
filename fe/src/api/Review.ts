@@ -79,6 +79,7 @@ export const getReviewDetail = async (
     method: "POST",
     credentials: "include",
   });
+  console.log(data.statusText);
 
   if (!data.ok) {
     let errorMessage = data.statusText;
@@ -88,7 +89,6 @@ export const getReviewDetail = async (
     }
     const error: any = new Error(errorMessage);
     error.status = data.status;
-
     throw error;
   }
   return data.json();
