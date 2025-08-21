@@ -294,7 +294,7 @@ public class ReviewServiceImpl implements ReviewService {
                 : new ArrayList<>();
 
         if (currentCount + addUrls.size() > 3) {
-            throw new IllegalArgumentException("画像は最大3枚まで追加できます（超える場合は削除APIで削除してください）");
+            throw new IllegalArgumentException("画像は最大3枚まで追加できます）");
         }
 
         for (String imageUrl : addUrls) {
@@ -332,9 +332,7 @@ public class ReviewServiceImpl implements ReviewService {
         return ResponseEntity.ok(responseDto);
     }
 
-    /**
-     * レビュー削除
-     */
+    // レビュー削除
     @Override
     @Transactional
     public ResponseEntity<ApiResponseDto> deleteReview(Long reviewId, String userId) {
@@ -354,9 +352,8 @@ public class ReviewServiceImpl implements ReviewService {
         return ResponseEntity.ok(new ApiResponseDto("success"));
     }
 
-    /**
-     * レビュー詳細取得
-     */
+
+    //レビュー詳細取得
     @Override
     public ResponseEntity<ReviewDetailResponseDto> getReviewDetail(Long reviewId, String currentUserId) {
         log.debug("==== [DEBUG] getReviewDetail called reviewId={} currentUserId={}", reviewId, currentUserId);
@@ -378,6 +375,7 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         ReviewDetailResponseDto detail = ReviewDetailResponseDto.builder()
+                .reviewId(review.getReviewId()) // ★追加
                 .userNickname(userNickname)
                 .itemCode(itemCode)
                 .itemName(itemName)
