@@ -68,13 +68,23 @@ export default function CheckoutOrderImmediately({ searchParams }: props) {
 
   // お届け先をロードする関数
   const onMyInfoChange = async () => {
-    const data = await getMyInfo();
-    if (data.message === "success") {
-      console.log(data);
-      setMyInfo(data);
-      if (data.deliveryAddressDetails.length > 0) {
-        setSelectedAddress(data.deliveryAddressDetails[0]);
+    try {
+      const data = await getMyInfo();
+      if (data.message === "success") {
+        console.log(data);
+        setMyInfo(data);
+        if (data.deliveryAddressDetails.length > 0) {
+          setSelectedAddress(data.deliveryAddressDetails[0]);
+        }
       }
+    } catch (e: any) {
+      if (e.status === 401) {
+        alert("ログインが必要です。ログインページに移動します。");
+        userStore.logout();
+        return router.push("/login");
+      }
+      alert("カートの情報を取得できませんでした。");
+      router.replace("/cart");
     }
   };
 

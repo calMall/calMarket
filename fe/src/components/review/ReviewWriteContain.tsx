@@ -1,28 +1,71 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CustomButton from "../common/CustomBtn";
-import { postReview, postUploadImage } from "@/api/Review";
+import { deleteReviewImage, postReview, postUploadImage } from "@/api/Review";
 import { useRouter } from "next/navigation";
 import CustomInput from "../common/CustomInput";
 import UserStore from "@/store/user";
 import { IoCameraOutline, IoCloseSharp } from "react-icons/io5";
+import { FaCheck } from "react-icons/fa";
 interface props {
   itemCode: string;
+  initialData: ReviewDTOonProduct | null;
 }
-export default function ReviewWriteContain({ itemCode }: props) {
-  const [hovered, setHovered] = useState(0);
-  const [rating, setRating] = useState(0);
-  const [content, setContent] = useState("");
-  const [title, setTitle] = useState("");
+export default function ReviewWriteContain({ itemCode, initialData }: props) {
+  const [hovered, setHovered] = useState(initialData ? initialData.rating : 0);
+  const [rating, setRating] = useState(initialData ? initialData.rating : 0);
+  const [content, setContent] = useState(
+    initialData ? initialData.comment : ""
+  );
+  const [title, setTitle] = useState(initialData ? initialData.title : "");
   const router = useRouter();
   const userStore = UserStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const [imageList, setImageList] = useState<File[]>([]);
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [initialImages, setInitialImages] = useState<string[]>(
+    initialData ? initialData.imageList : []
+  );
+  const [selectedImage, setSelectedImage] = useState<string[]>([]);
+  const deleteInitImage = async () => {
+    if (window.confirm("選択した画像を削除しますか？")) {
+      if (selectedImage.length === 0)
+        return alert("選択された画像がありません");
+      try {
+        const data = await deleteReviewImage(selectedImage);
+        if (data.message === "success") {
+          setInitialImages((prev) => {
+            return prev.filter((p) => !selectedImage.includes(p));
+          });
+          setSelectedImage([]);
+          alert();
+        }
+      } catch (e: any) {
+        if (e.status === 401) {
+          alert("ログインが必要です。ログインページに移動します。");
+          userStore.logout();
+          router.push("/login");
+        } else {
+          alert(e.message);
+        }
+      }
+    }
+  };
+  const clickInitImage = (name: string) => {
+    if (selectedImage.includes(name)) {
+      setSelectedImage((prev) => prev.filter((img) => name !== img));
+    } else {
+      setSelectedImage((prev) => [...prev, name]);
+    }
+  };
   const onImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-
+    if (initialImages) {
+      if (files && initialImages.length + files.length > 3) {
+        alert("画像は3枚までアップロードできます。");
+        return;
+      }
+    }
     if (files && files.length > 3) {
       alert("画像は3枚までアップロードできます。");
       return;
@@ -44,39 +87,59 @@ export default function ReviewWriteContain({ itemCode }: props) {
   const deleteImage = (imageName: string) => {
     setImageList((prev) => prev.filter((image) => image.name !== imageName));
   };
+
   const onPostReview = async () => {
     if (!rating) return alert("レビューには星の評価が必要です。");
     if (!content) return alert("レビュー内容を入力してください。");
-    if (imageList && imageList.length > 0) {
-      const imageUrls = await postUploadImage(imageList);
-      setUploadedImages(imageUrls.imageUrls);
-    }
-    const review: ReviewRequestDto = {
-      itemCode: decodeURIComponent(itemCode),
-      rating,
-      comment: content,
-      title: title,
-      imageList: uploadedImages,
-    };
     try {
-      const res = await postReview(review);
+      let uploaded: string[] = [];
+
+      if (imageList && imageList.length > 0) {
+        const imageUrls = await postUploadImage(imageList);
+        console.log(imageUrls);
+        uploaded = imageUrls.imageUrls;
+      }
+
+      const review: ReviewRequestDto = {
+        itemCode: decodeURIComponent(itemCode),
+        rating,
+        comment: content,
+        title: title,
+        imageList: uploaded,
+      };
+      const method = initialData ? "PATCH" : "POST";
+      const res = await postReview(
+        method,
+        review,
+        initialData ? initialData!.reviewId : null
+      );
       if (res.message === "success") {
-        alert("レビューが投稿されました。");
+        if (method === "POST") {
+          alert("レビューが投稿されました。");
+        } else if (method === "PATCH") {
+          alert("レビューを編集しました。");
+        }
         router.back();
       } else {
         alert("レビューの投稿に失敗しました。");
       }
     } catch (e: any) {
-      console.log(e);
       if (e.status === 401) {
         alert("ログインが必要です。ログインページに移動します。");
         userStore.logout();
         router.push("/login");
       } else {
-        alert("レビューの投稿中にエラーが発生しました。");
+        alert(e.message);
       }
     }
   };
+
+  // useEffect(() => {
+  //   if (initialImages && initialImages.length === 0) {
+  //     setInitialImages(null);
+  //   }
+  // }, [initialImages]);
+
   return (
     <div className="mt-2">
       <div style={{ display: "flex", gap: "4px" }}>
@@ -112,13 +175,35 @@ export default function ReviewWriteContain({ itemCode }: props) {
             onChange={changeContent}
           />
         </div>
-        <div className="wf flex je ">
-          <CustomButton
-            func={onPostReview}
-            text="投稿"
-            classname="review-post-btn"
-          />
-        </div>
+        {initialImages.length > 0 && (
+          <>
+            <div className="flex jb ac">
+              <h4>登録されている画像</h4>
+              <button className="cart-del-btn" onClick={deleteInitImage}>
+                選択した画像を削除
+              </button>
+            </div>
+            <div className="image-upload-btn bx flex ac jc gap-1">
+              {initialImages &&
+                initialImages.length > 0 &&
+                initialImages.map((image) => (
+                  <button
+                    key={image}
+                    onClick={() => clickInitImage(image)}
+                    className="rt image-preview hf flex ac jc hover-anime"
+                  >
+                    {selectedImage.includes(image) && (
+                      <div className="selected-img flex ac jc ab">
+                        <FaCheck />
+                      </div>
+                    )}
+                    <img src={image} alt="review-img" />
+                  </button>
+                ))}
+            </div>
+          </>
+        )}
+
         <h4>画像をアップロード</h4>
         <div className="image-upload-btn bx flex ac jc gap-1">
           {imageList.length <= 0 ? (
@@ -150,6 +235,13 @@ export default function ReviewWriteContain({ itemCode }: props) {
           hidden
           multiple
           accept="image/*"
+        />
+      </div>
+      <div className="wf flex je mt-1">
+        <CustomButton
+          func={onPostReview}
+          text={initialData ? "編集" : "投稿"}
+          classname="review-post-btn"
         />
       </div>
     </div>

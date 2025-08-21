@@ -2,7 +2,6 @@
 
 import { addeAddress, deleteAddress, getMyInfo } from "@/api/User";
 import UserStore from "@/store/user";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import DeliveryMenu from "./DeliveryMenu";

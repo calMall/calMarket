@@ -30,9 +30,9 @@ export default function InfiniteReview() {
   }, []);
   return (
     <CustomLayout>
-      {reviews.map((review) => (
-        <ReviewItem review={review} key={review.reviewId} />
-      ))}
+      {/* {reviews.map((review) => (
+        <ReviewItem  review={review} key={review.reviewId} />
+      ))} */}
       <InfiniteScroll
         children
         className="grid-full"
