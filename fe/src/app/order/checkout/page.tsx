@@ -21,13 +21,13 @@ export default function CheckoutOrder({}: props) {
   const [selectedAddress, setSelectedAddress] =
     useState<deliveryAddressDetail | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // modalを表示するかどうか
   const [viewModal, setViewModal] = useState(false);
 
   // カート情報ロード関数
   const fetchData = async () => {
-    const searchParams = useSearchParams();
     const ids = searchParams.get("ids") ?? "";
     try {
       const data = await getCheckout(ids.split(",").map((id) => Number(id)));
