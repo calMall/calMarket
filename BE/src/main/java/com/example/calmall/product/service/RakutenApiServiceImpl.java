@@ -1,7 +1,7 @@
 package com.example.calmall.product.service;
 
 import com.example.calmall.product.entity.Product;
-import com.example.calmall.product.text.DescriptionSuperCleaner;
+import com.example.calmall.product.text.DescriptionCleanerFacade; // ★ Facade導入
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +22,9 @@ public class RakutenApiServiceImpl implements RakutenApiService {
 
     private final RestTemplate restTemplate;
 
+    // ★ Spring Bean で Facade 注入
+    private final DescriptionCleanerFacade descriptionCleanerFacade;
+
     @Value("${rakuten.app.id}")
     private String appId;
 
@@ -32,14 +35,12 @@ public class RakutenApiServiceImpl implements RakutenApiService {
     @SuppressWarnings("unchecked")
     public Optional<Product> fetchProductFromRakuten(String itemCode) {
 
-        // Debug用
         if (log.isDebugEnabled()) {
             StringBuilder hex = new StringBuilder();
             for (char c : itemCode.toCharArray()) hex.append(String.format("%02X ", (int) c));
             log.debug("[RakutenApi] raw itemCode='{}' hex={}", itemCode, hex);
         }
 
-        // API URL
         StringBuilder sb = new StringBuilder("https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601")
                 .append("?applicationId=").append(appId)
                 .append("&itemCode=").append(itemCode)
@@ -70,7 +71,6 @@ public class RakutenApiServiceImpl implements RakutenApiService {
             return Optional.empty();
         }
 
-        // v2/v1対応
         Map<String, Object> item;
         Object first = items.get(0);
         if (first instanceof Map<?, ?> m) {
@@ -90,18 +90,16 @@ public class RakutenApiServiceImpl implements RakutenApiService {
             return Optional.empty();
         }
 
-        // Product Mapping
         Product product = new Product();
         product.setItemCode(getString(item, "itemCode"));
         product.setItemName(getString(item, "itemName"));
 
         String rawCaption = getString(item, "itemCaption");
 
-        // 保存時直接HTML整形
-        String cleanHtml  = DescriptionSuperCleaner.buildCleanHtml(null, null, rawCaption);
-        String cleanPlain = DescriptionSuperCleaner.toPlain(cleanHtml);
+        // ★ Facade 経由（LLM → fallback）
+        String cleanHtml  = descriptionCleanerFacade.buildCleanHtml(null, null, rawCaption);
+        String cleanPlain = descriptionCleanerFacade.toPlain(cleanHtml);
 
-        // dangerouslySetInnerHTML
         product.setItemCaption(cleanHtml);
         product.setDescriptionPlain(cleanPlain);
         product.setDescriptionHtml(cleanHtml);
@@ -110,7 +108,6 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         product.setPrice(getInt(item, "itemPrice", 0));
         product.setItemUrl(getString(item, "itemUrl"));
 
-        // 画像
         List<String> images = new ArrayList<>();
         Object midObj = item.get("mediumImageUrls");
         if (midObj instanceof List<?> list) {
@@ -125,7 +122,6 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         }
         product.setImages(images);
 
-        // 在庫・作成日時
         product.setInventory(ThreadLocalRandom.current().nextInt(0, 301));
         product.setStatus(true);
         product.setCreatedAt(LocalDateTime.now());
@@ -134,7 +130,6 @@ public class RakutenApiServiceImpl implements RakutenApiService {
         return Optional.of(product);
     }
 
-    // helpers
     private String getString(Map<?, ?> map, String key) {
         Object v = map.get(key);
         return (v == null) ? null : String.valueOf(v);

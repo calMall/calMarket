@@ -18,6 +18,11 @@ interface props {
 
 export default function ReviewMenu({ reviewId, refreshData, itemCode }: props) {
   const [viewMenu, setViewMenu] = useState(false);
+<<<<<<< HEAD
+=======
+  const userStore = UserStore();
+  const router = useRouter();
+>>>>>>> cab78baf0bacc370f5c5c294241594d6449714ca
   const useUnauthorized = UseUnauthorized();
   const ref = useRef<HTMLDivElement>(null);
   const parentRef = useRef<HTMLDivElement>(null);
@@ -27,10 +32,17 @@ export default function ReviewMenu({ reviewId, refreshData, itemCode }: props) {
 
   const onDelete = async () => {
     if (window.confirm("レビューを削除しますか？")) {
+<<<<<<< HEAD
       try {
         const res = await deleteReview(reviewId);
         if (res.message === "success") {
           refreshData(reviewId);
+=======
+      refreshData(reviewId);
+      try {
+        const res = await deleteReview(reviewId);
+        if (res.message === "success") {
+>>>>>>> cab78baf0bacc370f5c5c294241594d6449714ca
           alert("レビューを削除しました。");
         }
       } catch (e: any) {

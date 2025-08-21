@@ -3,7 +3,7 @@ package com.example.calmall.product.service;
 import com.example.calmall.product.dto.ProductDetailResponseDto;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
-import com.example.calmall.product.text.DescriptionSuperCleaner;
+import com.example.calmall.product.text.DescriptionCleanerFacade;
 import com.example.calmall.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,27 +21,17 @@ import java.util.List;
 @Slf4j
 public class ProductServiceImpl implements ProductService {
 
-    // 商品エンティティを扱うリポジトリ
     private final ProductRepository productRepository;
-
-    // 楽天APIから商品情報を取得するサービス
     private final RakutenApiService rakutenApiService;
-
-    // レビュー関連情報の取得に使用
     private final ReviewRepository reviewRepository;
 
-    /**
-     * 商品詳細取得処理
-     * DBから取得。無ければ楽天APIから取得してDBへ保存
-     * フロントは HTML を直接受け取るため、itemCaption に HTML をセット
-     */
+    // Spring から注入
+    private final DescriptionCleanerFacade descriptionCleanerFacade;
+
     @Override
     public ResponseEntity<ProductDetailResponseDto> getProductDetail(String itemCode) {
-
-        // DBから既存商品を検索
         Product product = productRepository.findByItemCode(itemCode).orElse(null);
 
-        // なければ 楽天APIから取得し保存
         if (product == null) {
             log.info("[source=RakutenAPI] DB未登録 → 楽天API照会 itemCode={}", itemCode);
             product = rakutenApiService.fetchProductFromRakuten(itemCode).orElse(null);
@@ -55,12 +45,13 @@ public class ProductServiceImpl implements ProductService {
             log.info("[source=DB] 既存商品を取得 itemCode={} name={}", product.getItemCode(), product.getItemName());
         }
 
-        String cleanHtml = DescriptionSuperCleaner.buildCleanHtml(
+        // Facade経由でLLM → fallback Cleaner
+        String cleanHtml = descriptionCleanerFacade.buildCleanHtml(
                 product.getDescriptionHtml(),
                 product.getDescriptionPlain(),
                 product.getItemCaption()
         );
-        String cleanPlain = DescriptionSuperCleaner.toPlain(cleanHtml);
+        String cleanPlain = descriptionCleanerFacade.toPlain(cleanHtml);
 
         boolean dirty = false;
         if (!equalsSafe(cleanHtml, product.getDescriptionHtml())) {
@@ -71,7 +62,6 @@ public class ProductServiceImpl implements ProductService {
             product.setDescriptionPlain(cleanPlain);
             dirty = true;
         }
-        // フロントHTML使用
         if (!equalsSafe(cleanHtml, product.getItemCaption())) {
             product.setItemCaption(cleanHtml);
             dirty = true;
@@ -81,11 +71,9 @@ public class ProductServiceImpl implements ProductService {
             log.info("[normalize] 説明文をクリーン化して保存 itemCode={}", product.getItemCode());
         }
 
-        // 成功レスポンスを返却
         return ResponseEntity.ok(buildSuccessResponse(product));
     }
 
-    //　在庫による購入可否判定（inventory が 1 以上で購入可）
     @Override
     public ResponseEntity<Boolean> isPurchasable(String itemCode) {
         return productRepository.findByItemCode(itemCode)
@@ -93,12 +81,10 @@ public class ProductServiceImpl implements ProductService {
                 .orElseGet(() -> new ResponseEntity<>(false, HttpStatus.BAD_REQUEST));
     }
 
-    // nullセーフな等価比較
     private boolean equalsSafe(String a, String b) {
         return (a == b) || (a != null && a.equals(b));
     }
 
-    // 成功レスポンスDTOの組み立て
     private ProductDetailResponseDto buildSuccessResponse(Product product) {
         Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode());
         int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(product.getItemCode());
@@ -122,7 +108,6 @@ public class ProductServiceImpl implements ProductService {
                 .build();
     }
 
-    // 失敗レスポンスDTOの組み立て
     private ProductDetailResponseDto buildFailResponse() {
         return ProductDetailResponseDto.builder()
                 .message("fail")

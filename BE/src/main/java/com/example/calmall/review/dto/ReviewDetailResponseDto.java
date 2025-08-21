@@ -18,10 +18,13 @@ import java.util.List;
 @AllArgsConstructor
 public class ReviewDetailResponseDto {
 
-    // 投稿者のユーザーID（UUID形式）
+    // レビューID
+    private Long reviewId;
+
+    // ユーザーID
     private String userId;
 
-    // 投稿者のニックネーム
+    // ニックネーム
     private String userNickname;
 
     // 商品コード
