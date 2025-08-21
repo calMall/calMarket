@@ -51,6 +51,8 @@ export default function CheckoutOrder({ searchParams }: props) {
         return router.push("/login");
       }
       alert("カートの情報を取得できませんでした。");
+      console.log(e);
+      console.log(e.message);
       router.replace("/cart");
     }
   };
@@ -91,6 +93,8 @@ export default function CheckoutOrder({ searchParams }: props) {
         return router.push("/login");
       }
       alert("カートの情報を取得できませんでした。");
+      console.log(e);
+      console.log(e.message);
       router.replace("/cart");
     }
   };
