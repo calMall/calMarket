@@ -1,5 +1,5 @@
 interface ReviewRequestDto {
-  itemCode: string;
+  itemCode?: string;
   rating: number;
   title: string;
   comment: string;
@@ -14,6 +14,7 @@ interface ReviewDTO {
 }
 
 interface ReviewDTOonProduct extends ReviewDTO {
+  itemCode: string;
   like: boolean;
   likeCount: number;
   userNickname: string;

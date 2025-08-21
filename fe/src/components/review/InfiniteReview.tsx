@@ -6,6 +6,7 @@ import InfiniteScroll from "react-infinite-scroll-component";
 import ReviewItem from "./ReviewItem";
 import { getReviewByProduct } from "@/api/Review";
 import UserStore from "@/store/user";
+import SpinnerComponent from "../common/SpinnerComponent";
 
 interface props {
   itemCode: string;
@@ -52,9 +53,9 @@ export default function InfiniteReview({ itemCode, size, isNextPage }: props) {
   return (
     <>
       {myReview && (
-        <div className="my-review-contain mt-1">
+        <div className="mt-1">
           <h3>あなたのレビュー</h3>
-          <div className="my-review mt-1">
+          <div className="my-review mt-1 my-review-contain ">
             <ReviewItem
               itemCode={itemCode}
               refreshData={filterDeletedReview}
@@ -84,11 +85,7 @@ export default function InfiniteReview({ itemCode, size, isNextPage }: props) {
         dataLength={reviews.length}
         next={refreshData}
         hasMore={hasNextPage}
-        loader={
-          <div className="flex jc mt-1 mb-1 wf">
-            <Image width={50} height={50} src="/spinner.gif" alt="loading" />
-          </div>
-        }
+        loader={<SpinnerComponent />}
         scrollableTarget="scrollableDiv"
       />
     </>

@@ -4,10 +4,8 @@ import { getReviewByProduct } from "@/api/Review";
 import { useEffect, useState } from "react";
 import Star from "../product/Star";
 import BarChart from "./BarChart";
-import Image from "next/image";
-import ReviewItem from "./ReviewItem";
 import InfiniteReview from "./InfiniteReview";
-import UserStore from "@/store/user";
+import SpinnerComponent from "../common/SpinnerComponent";
 
 interface props {
   itemCode: string;
@@ -43,16 +41,7 @@ export default function ReviewContain({ itemCode, rating }: props) {
 
         <div className="flex flex-col gap-05">
           {loading ? (
-            <div>
-              <div className="loading-spinner flex ac">
-                <Image
-                  src={"/spinner.gif"}
-                  alt="loading"
-                  width={50}
-                  height={50}
-                />
-              </div>
-            </div>
+            <SpinnerComponent />
           ) : (
             ratingStats?.map((item, idx) => (
               <BarChart
@@ -67,16 +56,7 @@ export default function ReviewContain({ itemCode, rating }: props) {
       </div>
       <div className="flex-col gap-1 ">
         {loading ? (
-          <div>
-            <div className="loading-spinner flex ac jc">
-              <Image
-                src={"/spinner.gif"}
-                alt="loading"
-                width={50}
-                height={50}
-              ></Image>
-            </div>
-          </div>
+          <SpinnerComponent />
         ) : reviews.length > 0 ? (
           <InfiniteReview itemCode={itemCode} size={10} isNextPage={true} />
         ) : (

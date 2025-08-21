@@ -11,8 +11,13 @@ import { FaCheck } from "react-icons/fa";
 interface props {
   itemCode: string;
   initialData: ReviewDTOonProduct | null;
+  reviewId?: number;
 }
-export default function ReviewWriteContain({ itemCode, initialData }: props) {
+export default function ReviewWriteContain({
+  itemCode,
+  initialData,
+  reviewId,
+}: props) {
   const [hovered, setHovered] = useState(initialData ? initialData.rating : 0);
   const [rating, setRating] = useState(initialData ? initialData.rating : 0);
   const [content, setContent] = useState(
@@ -89,6 +94,7 @@ export default function ReviewWriteContain({ itemCode, initialData }: props) {
   };
 
   const onPostReview = async () => {
+    const method = initialData ? "PATCH" : "POST";
     if (!rating) return alert("レビューには星の評価が必要です。");
     if (!content) return alert("レビュー内容を入力してください。");
     try {
@@ -96,23 +102,25 @@ export default function ReviewWriteContain({ itemCode, initialData }: props) {
 
       if (imageList && imageList.length > 0) {
         const imageUrls = await postUploadImage(imageList);
-        console.log(imageUrls);
         uploaded = imageUrls.imageUrls;
       }
-
+      if (initialImages.length > 0) {
+        uploaded = [...uploaded, ...initialImages];
+      }
       const review: ReviewRequestDto = {
-        itemCode: decodeURIComponent(itemCode),
+        ...(initialData ? {} : { itemCode: decodeURIComponent(itemCode) }),
         rating,
         comment: content,
         title: title,
         imageList: uploaded,
       };
-      const method = initialData ? "PATCH" : "POST";
+
       const res = await postReview(
         method,
         review,
-        initialData ? initialData!.reviewId : null
+        reviewId && initialData ? reviewId : null
       );
+      console.log(res);
       if (res.message === "success") {
         if (method === "POST") {
           alert("レビューが投稿されました。");
@@ -121,7 +129,11 @@ export default function ReviewWriteContain({ itemCode, initialData }: props) {
         }
         router.back();
       } else {
-        alert("レビューの投稿に失敗しました。");
+        if (method === "POST") {
+          return alert("レビューの投稿に失敗しました。");
+        } else if (method === "PATCH") {
+          return alert("レビューの編集に失敗しました。");
+        }
       }
     } catch (e: any) {
       if (e.status === 401) {

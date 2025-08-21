@@ -73,13 +73,11 @@ export default function CartContain({ initCartList }: props) {
 
   return (
     <div>
-      <h2>カート({initCartList.length})</h2>
+      <h2>カート({cartList.length})</h2>
       <div className="bb wf jb flex pb-1">
         <div>
           <input
             type="checkbox"
-            // value={""}
-            // defaultChecked={checkList.length === cartList.length}
             checked={checkList.length === cartList.length}
             onChange={checkAll}
           />
