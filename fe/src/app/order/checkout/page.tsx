@@ -9,7 +9,7 @@ import CheckoutItem from "@/components/order/CheckoutItem";
 import DeliveryAddressModal from "@/components/user/DeliveryAddressModal";
 import UserStore from "@/store/user";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 interface props {}
 
 export default function CheckoutOrder({}: props) {
@@ -105,69 +105,71 @@ export default function CheckoutOrder({}: props) {
 
   return (
     <CustomLayout>
-      {viewModal && (
-        <ModalCover>
-          <DeliveryAddressModal
-            setMyInfo={setMyInfo}
-            setSelectedAddress={setSelectedAddress}
-            selectedAddress={selectedAddress}
-            setViewModal={setViewModal}
-            initialDeliveryAddress={myInfo?.deliveryAddressDetails}
-          />
-        </ModalCover>
-      )}
-      <div>
-        <h2>ご注文内容の確認</h2>
-        <div className="bb wf jb flex pb-1"></div>
-        <div className="cart-grid">
-          <div className="mt-1 flex flex-col gap-1">
-            {isLoading ? (
-              <p>Loading...</p>
-            ) : (
-              <>
-                {checkoutList.map((item) => (
-                  <CheckoutItem key={item.id} item={item} />
-                ))}
-              </>
-            )}
-          </div>
-          <div>
-            <div className="cart-border mt-1">
-              <div className="flex jb ac pd-1 ">
-                <div>お届け先</div>
-                <CustomButton
-                  func={setViewModal.bind(null, true)}
-                  text="変更"
-                />
-              </div>
-              <div className="flex-col flex gap-1 pd-1">
-                <div className="bb" />
-                <div className="fw-500">{selectedAddress?.postalCode}</div>
-                <div>{selectedAddress?.address1}</div>
-              </div>
-            </div>
-            <div className="cart-border mt-1">
-              <div className="flex jb ac pd-1">
-                <div>商品合計</div>
-                <div>￥{allPrice.toLocaleString()}</div>
-              </div>
-              <div className="flex jb ac pd-1">
-                <div>送料</div>
-                <div>無料</div>
-              </div>
-              <div className="flex jb ac pd-1">
-                <div>合計金額</div>
-                <div className="fw-600">￥{allPrice.toLocaleString()}</div>
-              </div>
-            </div>
-            <CustomButton
-              classname="mt-1"
-              text="お払いへ進む"
-              func={goCheckout}
+      <Suspense>
+        {viewModal && (
+          <ModalCover>
+            <DeliveryAddressModal
+              setMyInfo={setMyInfo}
+              setSelectedAddress={setSelectedAddress}
+              selectedAddress={selectedAddress}
+              setViewModal={setViewModal}
+              initialDeliveryAddress={myInfo?.deliveryAddressDetails}
             />
+          </ModalCover>
+        )}
+        <div>
+          <h2>ご注文内容の確認</h2>
+          <div className="bb wf jb flex pb-1"></div>
+          <div className="cart-grid">
+            <div className="mt-1 flex flex-col gap-1">
+              {isLoading ? (
+                <p>Loading...</p>
+              ) : (
+                <>
+                  {checkoutList.map((item) => (
+                    <CheckoutItem key={item.id} item={item} />
+                  ))}
+                </>
+              )}
+            </div>
+            <div>
+              <div className="cart-border mt-1">
+                <div className="flex jb ac pd-1 ">
+                  <div>お届け先</div>
+                  <CustomButton
+                    func={setViewModal.bind(null, true)}
+                    text="変更"
+                  />
+                </div>
+                <div className="flex-col flex gap-1 pd-1">
+                  <div className="bb" />
+                  <div className="fw-500">{selectedAddress?.postalCode}</div>
+                  <div>{selectedAddress?.address1}</div>
+                </div>
+              </div>
+              <div className="cart-border mt-1">
+                <div className="flex jb ac pd-1">
+                  <div>商品合計</div>
+                  <div>￥{allPrice.toLocaleString()}</div>
+                </div>
+                <div className="flex jb ac pd-1">
+                  <div>送料</div>
+                  <div>無料</div>
+                </div>
+                <div className="flex jb ac pd-1">
+                  <div>合計金額</div>
+                  <div className="fw-600">￥{allPrice.toLocaleString()}</div>
+                </div>
+              </div>
+              <CustomButton
+                classname="mt-1"
+                text="お払いへ進む"
+                func={goCheckout}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      </Suspense>
     </CustomLayout>
   );
 }
