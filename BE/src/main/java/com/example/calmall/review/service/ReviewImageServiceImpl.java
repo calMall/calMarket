@@ -14,25 +14,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
+import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
 
-/**
- * レビュー画像のアップロード・削除機能を提供するサービスクラス
- */
+
+// レビュー画像のアップロード・削除機能
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class ReviewImageServiceImpl implements ReviewImageService {
 
-    // 旧ローカル保存用ディレクトリ（後方互換の削除処理でのみ使用）
+//     旧ローカル保存用ディレクトリ
     @Value("${file.upload-dir:uploads}")
     private String uploadDir;
 
@@ -40,7 +36,6 @@ public class ReviewImageServiceImpl implements ReviewImageService {
 
     private final ReviewImageRepository reviewImageRepository;
 
-    // Cloudinary（CloudinaryConfig で Bean 化）
     private final Cloudinary cloudinary;
 
     @PostConstruct
@@ -49,15 +44,13 @@ public class ReviewImageServiceImpl implements ReviewImageService {
         System.out.println("[CONFIG] Cloudinary ready");
     }
 
-    /**
-     * 複数画像をアップロードする（JPG/PNGのみ・最大3枚）
-     * － 新版：ローカル保存ではなく Cloudinary にアップロードし、DB には secure_url を保存
-     */
+
+    // 複数画像をアップロードする（JPG/PNGのみ最大3枚）
     @Override
     public ResponseEntity<ImageUploadResponseDto> uploadImages(List<MultipartFile> files) {
         System.out.println("[DEBUG] uploadImages() が呼び出されました (Cloudinary)");
 
-        // --- 枚数チェック（最大3枚） ---
+        // 枚数チェック（最大3枚）
         if (files == null || files.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ImageUploadResponseDto("画像が選択されていません", List.of()));
@@ -67,8 +60,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                     .body(new ImageUploadResponseDto("画像は最大3枚までです", List.of()));
         }
 
-        // --- 同一リクエスト内での重複ファイルを除外する処理 ---
-        // key として「元ファイル名 + サイズ」を利用して一意性を判定
+        // 同一リクエスト内での重複ファイルを除外する処理
         Set<String> seenFileKeys = new HashSet<>();
         List<MultipartFile> uniqueFiles = new ArrayList<>();
         for (MultipartFile file : files) {
@@ -85,9 +77,9 @@ public class ReviewImageServiceImpl implements ReviewImageService {
         // 実際にアップロードされた画像のURLを格納するリスト
         List<String> imageUrls = new ArrayList<>();
 
-        // --- 各ファイルを順に処理 ---
+        // 各ファイルを順に処理
         for (MultipartFile file : uniqueFiles) {
-            // --- ファイル形式チェック ---
+            // ファイル形式チェック
             String contentType = file.getContentType();
             if (!Objects.equals(contentType, "image/jpeg") && !Objects.equals(contentType, "image/png")) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -95,7 +87,7 @@ public class ReviewImageServiceImpl implements ReviewImageService {
             }
 
             try {
-                // --- Cloudinary にアップロード（フォルダ "reviews"） ---
+                // Cloudinaryにアップロードフォルダreviews）
                 Map<?, ?> result = cloudinary.uploader().upload(
                         file.getBytes(),
                         ObjectUtils.asMap(
@@ -105,24 +97,27 @@ public class ReviewImageServiceImpl implements ReviewImageService {
                 );
 
                 String secureUrl = Objects.toString(result.get("secure_url"), null);
+                String publicId = Objects.toString(result.get("public_id"), null);
+
                 if (secureUrl == null) {
                     System.out.println("[UPLOAD ERROR] Cloudinary returned null secure_url");
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                             .body(new ImageUploadResponseDto("画像保存に失敗しました", List.of()));
                 }
 
-                // --- レスポンス用のURLを追加 ---
+                // レスポンス用のURLを追加
                 imageUrls.add(secureUrl);
 
-                // --- DBに保存（レビュー未紐付け状態で登録） ---
+                // DBに保存（レビュー未紐付け状態で登録）
                 ReviewImage reviewImage = ReviewImage.builder()
-                        .imageUrl(secureUrl)            // ← ここからは Cloudinary の URL を保存
+                        .imageUrl(secureUrl)
+                        .publicId(publicId)
                         .contentType(contentType)
                         .createdAt(LocalDateTime.now())
                         .build();
                 reviewImageRepository.save(reviewImage);
 
-                System.out.println("[UPLOAD] 画像保存成功 (Cloudinary): " + secureUrl);
+                System.out.println("[UPLOAD] 画像保存成功 (Cloudinary): " + secureUrl + " publicId=" + publicId);
 
             } catch (IOException e) {
                 System.out.println("[UPLOAD ERROR] Cloudinary 送信失敗: " + e.getMessage());
@@ -137,101 +132,53 @@ public class ReviewImageServiceImpl implements ReviewImageService {
             }
         }
 
-        // --- 成功したURLのみ返却 ---
+        // 成功したURLのみ返却
         return ResponseEntity.ok(new ImageUploadResponseDto("success", imageUrls));
     }
 
-    /**
-     * 画像のURLリストを受け取り、対応するファイルとDBレコードを削除
-     * － Cloudinary URL は Cloudinary 側も削除
-     * － 旧式の /uploads/** はローカルから削除（後方互換）
-     */
     @Override
+    @Transactional
     public ResponseEntity<ApiResponseDto> deleteImages(ImageDeleteRequestDto requestDto) {
-        if (requestDto == null || requestDto.getImageUrls() == null || requestDto.getImageUrls().isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponseDto("fail"));
-        }
+        List<String> failedUrls = new ArrayList<>();
 
         for (String url : requestDto.getImageUrls()) {
             try {
-                if (url == null || url.isBlank()) continue;
+                Optional<ReviewImage> opt = reviewImageRepository.findByImageUrl(url);
+                if (opt.isPresent()) {
+                    ReviewImage img = opt.get();
 
-                // --- Cloudinary URL 削除 ---
-                if (isCloudinaryUrl(url)) {
-                    String publicId = guessPublicIdFromUrl(url);
-                    if (publicId != null) {
-                        Map<?, ?> res = cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
-                        System.out.println("[DESTROY] Cloudinary publicId=" + publicId + " res=" + res);
-                    } else {
-                        System.out.println("[DESTROY] Cloudinary publicId 推定失敗: " + url);
+                    // Cloudinary側削除
+                    try {
+                        cloudinary.uploader().destroy(img.getPublicId(),
+                                ObjectUtils.asMap("resource_type", "image", "invalidate", true));
+                    } catch (Exception e) {
+                        log.error("Cloudinary delete failed: url={} publicId={}", url, img.getPublicId(), e);
+                        failedUrls.add(url);
+                        continue;
                     }
-                }
 
-                // --- 旧式ローカルファイルの削除（/uploads/**） ---
-                if (url.startsWith(FILE_URL_PREFIX)) {
-                    String filename = Paths.get(url).getFileName().toString();
-                    Path filePath = Paths.get(uploadDir).resolve(filename);
-                    System.out.println("[DELETE] 嘗試刪除路徑: " + filePath.toAbsolutePath());
-
-                    File file = filePath.toFile();
-                    if (file.exists()) {
-                        if (file.delete()) {
-                            System.out.println("[DELETE] ファイル削除成功: " + filename);
-                        } else {
-                            System.out.println("[DELETE WARNING] ファイル削除失敗（但DB削除は継続）: " + filename);
-                        }
-                    } else {
-                        System.out.println("[DELETE] 対象ファイルが存在しません: " + filename);
+                    // DB 側削除
+                    int deleted = reviewImageRepository.deleteByImageUrl(url);
+                    if (deleted == 0) {
+                        failedUrls.add(url);
                     }
+                } else {
+                    // DB に存在しない場合 → 失敗リストへ
+                    failedUrls.add(url);
                 }
-
-                // --- DBレコード削除 ---
-                int count = reviewImageRepository.deleteByImageUrl(url);
-                System.out.println("[DELETE] DB削除件数: " + count + "（URL: " + url + "）");
 
             } catch (Exception e) {
-                System.out.println("[DELETE ERROR] 削除中に例外発生: " + e.getMessage());
-                e.printStackTrace();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(new ApiResponseDto("fail"));
+                log.error("DeleteImages error url={}", url, e);
+                failedUrls.add(url);
             }
+        }
+
+        if (!failedUrls.isEmpty()) {
+            // 部分または全部失敗 → 404
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponseDto("fail: 削除できなかったURL -> " + failedUrls));
         }
 
         return ResponseEntity.ok(new ApiResponseDto("success"));
-    }
-
-    // ---- Helper ----
-
-    private boolean isCloudinaryUrl(String url) {
-        // 例: https://res.cloudinary.com/<cloud>/image/upload/v.../reviews/abc.png
-        return url.startsWith("https://res.cloudinary.com/") && url.contains("/image/upload/");
-    }
-
-    /**
-     * Cloudinary の secure_url から public_id を推定
-     * 例:
-     *   https://res.cloudinary.com/<cloud>/image/upload/v1724080530/reviews/abc.png
-     *   → public_id = "reviews/abc"
-     * ※ 現段階では DB に public_id カラムがない想定の暫定対応。
-     *   将来的には review_images に public_id を追加して保存することを推奨。
-     */
-    private String guessPublicIdFromUrl(String secureUrl) {
-        try {
-            int idx = secureUrl.indexOf("/upload/");
-            if (idx < 0) return null;
-            String tail = secureUrl.substring(idx + "/upload/".length()); // v123.../reviews/abc.png
-            // 先頭のバージョン vxxxx/ を除去
-            if (tail.startsWith("v")) {
-                int slash = tail.indexOf('/');
-                if (slash > 0) tail = tail.substring(slash + 1);
-            }
-            int lastDot = tail.lastIndexOf('.');
-            String noExt = (lastDot > 0) ? tail.substring(0, lastDot) : tail; // reviews/abc
-            int q = noExt.indexOf('?');
-            if (q >= 0) noExt = noExt.substring(0, q);
-            return noExt;
-        } catch (Exception e) {
-            return null;
-        }
     }
 }

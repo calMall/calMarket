@@ -14,7 +14,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class CalmallApplication {
 
     public static void main(String[] args) {
-        System.out.println("Current working directory: " + new File(".").getAbsolutePath());
         SpringApplication.run(CalmallApplication.class, args);
     }
 }

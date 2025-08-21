@@ -5,10 +5,8 @@ import com.example.calmall.review.dto.*;
 import com.example.calmall.user.entity.User;
 import org.springframework.http.ResponseEntity;
 
-/**
- * レビュー機能に関するサービスインターフェース
- * - 投稿、取得（商品・ユーザー別）、編集、削除を提供
- */
+
+// レビュー機能に関するサービスインターフェース
 public interface ReviewService {
 
     // レビューを投稿する

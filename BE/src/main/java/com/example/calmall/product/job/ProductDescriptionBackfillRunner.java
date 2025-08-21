@@ -18,11 +18,9 @@ import org.springframework.stereotype.Component;
 public class ProductDescriptionBackfillRunner implements CommandLineRunner {
 
     private final ProductRepository productRepository;
-
-    // 楽天API 再取得に使用
     private final RakutenApiService rakutenApiService;
 
-    // 起動時に実行するか（true のときだけ実行）
+    // 起動時に実行するか
     @Value("${backfill.product-description:false}")
     private boolean enabled;
 
@@ -30,18 +28,13 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
     @Value("${backfill.page-size:500}")
     private int pageSize;
 
-    // itemCaption を HTML（超クリーン）で保存するか
-    // フロントが dangerouslySetInnerHTML で描画する前提なら true 推奨
+    // itemCaption を HTML で保存するか
     @Value("${backfill.persist-item-caption:true}")
     private boolean persistItemCaption;
 
-    // 説明の文字数がこの閾値未満なら「古い/短い」とみなして再取得を試みる（0 で無効）
-    @Value("${backfill.refetch-threshold:200}")
-    private int refetchThreshold;
-
-    // 常に楽天APIから再取得して上書き（検証用）。true だと全件叩くので注意
-    @Value("${backfill.refetch-always:false}")
-    private boolean refetchAlways;
+    // backfill.mode = clean | refetch
+    @Value("${backfill.mode:clean}")
+    private String mode;
 
     @Override
     public void run(String... args) {
@@ -55,8 +48,8 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
         int processed = 0;
         int refetched = 0;
 
-        log.info("[Backfill] start pageSize={} refetchThreshold={} refetchAlways={} persistItemCaption={}",
-                pageSize, refetchThreshold, refetchAlways, persistItemCaption);
+        log.info("[Backfill] start pageSize={} mode={} persistItemCaption={}",
+                pageSize, mode, persistItemCaption);
 
         while (true) {
             Page<Product> p = productRepository.findAll(PageRequest.of(page, pageSize));
@@ -66,53 +59,24 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
                 try {
                     processed++;
 
-                    String html0 = nz(prod.getDescriptionHtml());
-                    String plain0 = nz(prod.getDescriptionPlain());
-                    String cap0 = nz(prod.getItemCaption());
+                    Product source = prod;
 
-                    // 再取得が必要か判定
-                    boolean needsRefetch = refetchAlways
-                            || isTooShort(html0, plain0, cap0, refetchThreshold);
-
-                    if (needsRefetch) {
+                    // --- mode=refetch の場合、楽天API再取得 ---
+                    if ("refetch".equalsIgnoreCase(mode)) {
                         var freshOpt = rakutenApiService.fetchProductFromRakuten(prod.getItemCode());
                         if (freshOpt.isPresent()) {
-                            Product fresh = freshOpt.get();
-                            // 取得直後の Product は SuperCleaner 済みのはず（あなたの実装準拠）
-                            // 念のためもう一度最終整形
-                            String cleanHtml = DescriptionSuperCleaner.buildCleanHtml(
-                                    fresh.getDescriptionHtml(),
-                                    fresh.getDescriptionPlain(),
-                                    fresh.getItemCaption()
-                            );
-                            String cleanPlain = DescriptionSuperCleaner.toPlain(cleanHtml);
-
-                            prod.setDescriptionHtml(cleanHtml);
-                            prod.setDescriptionPlain(cleanPlain);
-                            if (persistItemCaption) {
-                                prod.setItemCaption(cleanHtml); // フロントは HTML を描画
-                            }
-
-                            productRepository.save(prod);
-                            updated++;
+                            source = freshOpt.get();
                             refetched++;
-
-                            if (log.isDebugEnabled()) {
-                                log.debug("[Backfill][Refetched] itemCode={} len(html)={}→{}",
-                                        prod.getItemCode(), html0.length(), cleanHtml.length());
-                            }
-                            continue; // 再整形・保存済みなので次へ
                         } else {
                             log.warn("[Backfill] refetch failed itemCode={}", prod.getItemCode());
-                            // 失敗した場合は従来どおりローカル値で整形にフォールバック
                         }
                     }
 
-                    // ここからは DB 内テキストを最終整形するだけ（再取得なしケース）
+                    // --- SuperCleaner で再整形 ---
                     String cleanHtml = DescriptionSuperCleaner.buildCleanHtml(
-                            prod.getDescriptionHtml(),
-                            prod.getDescriptionPlain(),
-                            prod.getItemCaption()
+                            source.getDescriptionHtml(),
+                            source.getDescriptionPlain(),
+                            source.getItemCaption()
                     );
                     String cleanPlain = DescriptionSuperCleaner.toPlain(cleanHtml);
 
@@ -135,8 +99,8 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
                         productRepository.save(prod);
                         updated++;
                         if (log.isDebugEnabled()) {
-                            log.debug("[Backfill][Normalized] itemCode={} len(html)={}→{}",
-                                    prod.getItemCode(), html0.length(), cleanHtml.length());
+                            log.debug("[Backfill][Updated] itemCode={} len(html)={}",
+                                    prod.getItemCode(), cleanHtml.length());
                         }
                     }
 
@@ -149,18 +113,8 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
             page++;
         }
 
-        log.info("[Backfill] done processed={} updated={} refetched={} pageSize={}",
-                processed, updated, refetched, pageSize);
-    }
-
-    private boolean isTooShort(String html, String plain, String cap, int threshold) {
-        if (threshold <= 0) return false;
-        int maxLen = Math.max(Math.max(nz(html).length(), nz(plain).length()), nz(cap).length());
-        return maxLen < threshold;
-    }
-
-    private String nz(String s) {
-        return (s == null) ? "" : s;
+        log.info("[Backfill] done processed={} updated={} refetched={} pageSize={} mode={}",
+                processed, updated, refetched, pageSize, mode);
     }
 
     private boolean equalsSafe(String a, String b) {
