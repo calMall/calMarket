@@ -24,9 +24,10 @@ export default function CheckoutOrder({}: props) {
 
   // modalを表示するかどうか
   const [viewModal, setViewModal] = useState(false);
-  const searchParams = useSearchParams();
+
   // カート情報ロード関数
   const fetchData = async () => {
+    const searchParams = useSearchParams();
     const ids = searchParams.get("ids") ?? "";
     try {
       const data = await getCheckout(ids.split(",").map((id) => Number(id)));
