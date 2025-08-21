@@ -9,10 +9,12 @@ import CheckoutItem from "@/components/order/CheckoutItem";
 import DeliveryAddressModal from "@/components/user/DeliveryAddressModal";
 import UserStore from "@/store/user";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
-interface props {}
+import { useEffect, useState } from "react";
+interface props {
+  ids: string;
+}
 
-export default function CheckoutOrder({}: props) {
+export default function CheckoutOrder({ ids }: props) {
   const userStore = UserStore();
   const [checkoutList, setCheckoutList] = useState<CheckoutItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,7 +30,6 @@ export default function CheckoutOrder({}: props) {
 
   // カート情報ロード関数
   const fetchData = async () => {
-    const ids = searchParams.get("ids") ?? "";
     try {
       const data = await getCheckout(ids.split(",").map((id) => Number(id)));
       if (data.message === "success") {
