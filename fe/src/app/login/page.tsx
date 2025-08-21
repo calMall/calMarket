@@ -34,13 +34,13 @@ export default function Login() {
   return (
     <CustomLayout>
       <div className="login-box">
-        <h3 className="flex jc">ログイン</h3>
+        <h3 className="flex jc mb-1">ログイン</h3>
         <Link className="signup-link" href={"/signup"}>
           アカウントをお持ちでない方はこちら
         </Link>
         <div className="mt-1">メール</div>
         <CustomInput
-          placeholder="IDを入力してください。"
+          placeholder="メールを入力してください。"
           classname="mt-05"
           text={email}
           setText={setEmail}

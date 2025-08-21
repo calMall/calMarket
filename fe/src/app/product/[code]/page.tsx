@@ -13,7 +13,7 @@ export default async function ProductDetail({
   try {
     const { code } = await params;
 
-    const data = await getProductDetail(code);
+    const data = await getProductDetail(decodeURIComponent(code));
 
     return (
       <CustomLayout>

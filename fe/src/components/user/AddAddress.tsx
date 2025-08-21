@@ -14,7 +14,18 @@ export default function AddAddress({ initialData, setIsView, onFunc }: props) {
   );
 
   const onChangePostalCode = (value: string) => {
-    const sanitized = value.replace(/[^0-9-]/g, "");
+    let sanitized = value.replace(/[^0-9-]/g, "");
+    const digits = sanitized.replace(/-/g, "");
+    if (digits.length > 3) {
+      sanitized = digits.slice(0, 3) + "-" + digits.slice(3);
+    } else {
+      sanitized = digits;
+    }
+
+    if (sanitized.length > 8) {
+      sanitized = sanitized.slice(0, 8);
+    }
+
     setPostalCode(sanitized);
   };
 

@@ -6,6 +6,7 @@ export const getProductDetail = async (
     method: "GET",
     credentials: "include",
   });
+
   if (!data.ok) throw new Error(data.statusText);
   return data.json();
 };

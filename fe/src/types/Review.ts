@@ -18,6 +18,7 @@ interface ReviewDTOonProduct extends ReviewDTO {
   likeCount: number;
   userNickname: string;
   createdAt: string;
+  isOwner: boolean;
 }
 type RatingStats = [
   { score: 5; count: number },
