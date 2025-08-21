@@ -8,13 +8,11 @@ import ModalCover from "@/components/common/ModalCover";
 import CheckoutItem from "@/components/order/CheckoutItem";
 import DeliveryAddressModal from "@/components/user/DeliveryAddressModal";
 import UserStore from "@/store/user";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-interface props {
-  searchParams: Promise<{ ids: string }>;
-}
+interface props {}
 
-export default function CheckoutOrder({ searchParams }: props) {
+export default function CheckoutOrder({}: props) {
   const userStore = UserStore();
   const [checkoutList, setCheckoutList] = useState<CheckoutItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,10 +24,10 @@ export default function CheckoutOrder({ searchParams }: props) {
 
   // modalを表示するかどうか
   const [viewModal, setViewModal] = useState(false);
-
+  const searchParams = useSearchParams();
   // カート情報ロード関数
   const fetchData = async () => {
-    const { ids } = await searchParams;
+    const ids = searchParams.get("ids") ?? "";
     try {
       const data = await getCheckout(ids.split(",").map((id) => Number(id)));
       if (data.message === "success") {
