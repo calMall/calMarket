@@ -10,106 +10,84 @@ public final class DescriptionSuperCleaner {
 
     private DescriptionSuperCleaner() {}
 
-    // -------- config --------
-    // 是否輸出區塊標題（預設 false）
-    private static final boolean SHOW_SECTION_TITLES = false;
-    private static final String TITLE_BULLETS = "特長・注意";
-    private static final String TITLE_TABLE  = "商品情報";
-    // 是否印 debug
-    private static final boolean DEBUG = false;
+    // =========================================================
+    // 正規表現
+    // =========================================================
+    private static final Pattern TAG_PATTERN = Pattern.compile("<[^>]+>");
+    private static final Pattern BULLET_HEAD = Pattern.compile("^[\\p{Z}\\t　]*[・●\\-*•◆■□◇▶▷◉◦]\\s*");
+    private static final Pattern KV_PATTERN = Pattern.compile("^\\s*([^：:]{1,40})[：:]+\\s*(.+)$");
+    private static final Pattern SPACES_MANY = Pattern.compile("[ \\t\\x0B\\f\\r　]+");
+    private static final Pattern SENTENCE_SPLIT = Pattern.compile("(?<=。|！|!|？|\\?|\\.|、)(?!$)");
 
-    // -------- patterns --------
-    private static final Pattern KV_PATTERN     = Pattern.compile("^\\s*([^：:]{1,40})[：:]+\\s*(.+)$");
-    private static final Pattern BULLET_PATTERN = Pattern.compile("^\\s*(?:[・●\\-*•]|\\u2022)\\s*(.+)$");
-    private static final Pattern TAG_PATTERN    = Pattern.compile("<[^>]+>");
+    // ノイズ除去キーワード
+    private static final Set<String> NOISE_WORDS = Set.of(
+            "特長", "特長・注意", "注意事項", "商品情報", "商品詳細", "※", "【", "】"
+    );
 
-    private static void debug(String tag, String msg) {
-        if (DEBUG) System.out.println("[DESC] " + tag + " :: " + msg);
-    }
-
-    /** 逐行轉 HTML：bullet→ul，key:value→table，其餘→p（保序） */
+    // =========================================================
+    // 公開API
+    // =========================================================
     public static String buildCleanHtml(String descriptionHtml, String descriptionPlain, String itemCaption) {
-        String base       = chooseBase(descriptionHtml, descriptionPlain, itemCaption);
+        String base = chooseBase(descriptionHtml, descriptionPlain, itemCaption);
         String normalized = normalize(base);
-        List<String> lines = splitToLines(normalized);
 
-        debug("BASE", base);
-        debug("NORMALIZED", normalized);
-        debug("LINES", String.join(" || ", lines));
+        // 行分割 + 長文 fallback
+        List<String> lines = splitToLinesWithFallback(normalized);
+        lines = mergeBrokenLines(lines);
 
-        StringBuilder out = new StringBuilder(normalized.length() + 256);
-        boolean inUl = false;
-        boolean inTable = false;
-        boolean inBody = false; // 聚合連續段落
+        List<String> specLines = new ArrayList<>();
+        List<String> materialLines = new ArrayList<>();
+        List<String> featureLines = new ArrayList<>();
 
-        for (String rawLine : lines) {
-            String line = rawLine.trim();
-            if (line.isEmpty()) continue;
+        for (String ln : lines) {
+            String t = ln.trim();
+            if (t.isEmpty() || isNoise(t)) continue;
 
-            // 1) bullet
-            Matcher mb = BULLET_PATTERN.matcher(line);
-            if (mb.find()) {
-                String item = esc(mb.group(1).trim());
-                // 關 table/body
-                if (inBody) { out.append("</section>"); inBody = false; }
-                if (inTable) { out.append("</table></section>"); inTable = false; }
-
-                // 開 ul
-                if (!inUl) {
-                    out.append("<section class=\"desc-section bullets\">");
-                    if (SHOW_SECTION_TITLES) out.append("<h3>").append(esc(TITLE_BULLETS)).append("</h3>");
-                    out.append("<ul>");
-                    inUl = true;
-                }
-                out.append("<li>").append(item).append("</li>");
+            // カテゴリ分け
+            if (t.contains("規格") || t.contains("サイズ")) {
+                specLines.add(t);
                 continue;
             }
-
-            // 2) key:value
-            Matcher mkv = KV_PATTERN.matcher(line);
-            if (mkv.find()) {
-                String key = mkv.group(1).trim();
-                String val = mkv.group(2).trim();
-                if (!key.isEmpty() && !val.isEmpty() && !key.equals(val)) {
-                    // 關 ul/body
-                    if (inUl)   { out.append("</ul></section>"); inUl = false; }
-                    if (inBody) { out.append("</section>"); inBody = false; }
-
-                    // 開 table
-                    if (!inTable) {
-                        out.append("<section class=\"desc-section table\">");
-                        if (SHOW_SECTION_TITLES) out.append("<h3>").append(esc(TITLE_TABLE)).append("</h3>");
-                        out.append("<table>");
-                        inTable = true;
-                    }
-                    out.append("<tr><th>").append(esc(key)).append("</th><td>")
-                            .append(esc(val)).append("</td></tr>");
-                    continue;
-                }
+            if (t.contains("素材") || t.contains("成分")) {
+                materialLines.add(t);
+                continue;
             }
-
-            // 3) 一般段落
-            if (inUl)   { out.append("</ul></section>"); inUl = false; }
-            if (inTable){ out.append("</table></section>"); inTable = false; }
-
-            if (!inBody) {
-                out.append("<section class=\"desc-section body\">");
-                inBody = true;
-            }
-            out.append("<p>").append(esc(line)).append("</p>");
+            featureLines.add(t);
         }
 
-        // 收尾
-        if (inUl)   out.append("</ul></section>");
-        if (inTable)out.append("</table></section>");
-        if (inBody) out.append("</section>");
+        // HTML 構築
+        StringBuilder out = new StringBuilder();
 
-        String html = clampToLastSection(out.toString());
-        debug("HTML", html);
-        return html;
+        if (!specLines.isEmpty()) {
+            out.append("<section class=\"desc-section\"><h4>仕様</h4><ul>");
+            for (String s : specLines) {
+                out.append("<li>").append(esc(cleanNoise(s))).append("</li>");
+            }
+            out.append("</ul></section>");
+        }
+
+        if (!materialLines.isEmpty()) {
+            out.append("<section class=\"desc-section\"><h4>素材・成分</h4><ul>");
+            for (String m : materialLines) {
+                out.append("<li>").append(esc(cleanNoise(m))).append("</li>");
+            }
+            out.append("</ul></section>");
+        }
+
+        if (!featureLines.isEmpty()) {
+            out.append("<section class=\"desc-section\"><h4>特徴</h4><ul>");
+            for (String f : featureLines) {
+                out.append("<li>").append(esc(cleanNoise(f))).append("</li>");
+            }
+            out.append("</ul></section>");
+        }
+
+        return clampToLastSection(out.toString());
     }
 
-    /** HTML → Plain（保留換行） */
+    /**
+     * HTML からタグを除去してプレーンテキスト化
+     */
     public static String toPlain(String html) {
         if (html == null) return "";
         String s = html;
@@ -120,33 +98,18 @@ public final class DescriptionSuperCleaner {
         s = TAG_PATTERN.matcher(s).replaceAll("");
         s = HtmlUtils.htmlUnescape(s);
         s = s.replace("\u00A0", " ");
-        s = s.replaceAll("[ \\t\\x0B\\f\\r]+", " ");
+        s = SPACES_MANY.matcher(s).replaceAll(" ");
         s = s.replaceAll("\\n{2,}", "\n").trim();
         return s;
     }
 
-    // -------- helpers --------
+    // =========================================================
+    // 内部ユーティリティ
+    // =========================================================
     private static String chooseBase(String html, String plain, String caption) {
-        if (html  != null && !html.isBlank())  return stripHtmlKeepBreaks(html);
+        if (html != null && !html.isBlank()) return stripHtmlKeepBreaks(html);
         if (plain != null && !plain.isBlank()) return plain;
         return caption != null ? caption : "";
-    }
-
-    private static String normalize(String s) {
-        if (s == null) return "";
-        String t = HtmlUtils.htmlUnescape(s);
-        t = t.replace("\u00A0", " ");
-        t = t.replace('\u3000', ' ');
-        t = t.replace("\r\n", "\n").replace("\r", "\n");
-        return t.trim();
-    }
-
-    private static List<String> splitToLines(String text) {
-        List<String> out = new ArrayList<>();
-        for (String line : text.split("\\n")) {
-            if (!line.trim().isEmpty()) out.add(line);
-        }
-        return out;
     }
 
     private static String stripHtmlKeepBreaks(String html) {
@@ -157,6 +120,67 @@ public final class DescriptionSuperCleaner {
         s = s.replaceAll("(?i)</\\s*tr\\s*>", "\n");
         s = TAG_PATTERN.matcher(s).replaceAll("");
         return s;
+    }
+
+    private static String normalize(String s) {
+        if (s == null) return "";
+        String t = HtmlUtils.htmlUnescape(s);
+        t = t.replace('\u00A0', ' ').replace('\u3000', ' ');
+        t = t.replace("\r\n", "\n").replace("\r", "\n");
+        return t.trim();
+    }
+
+    private static List<String> splitToLinesWithFallback(String text) {
+        List<String> lines = new ArrayList<>();
+        String[] raw = text.split("\\n");
+        for (String r : raw) {
+            String t = r.trim();
+            if (t.isEmpty()) continue;
+            if (t.length() > 120 && t.indexOf('。') >= 0) {
+                for (String s : SENTENCE_SPLIT.split(t)) {
+                    String x = s.trim();
+                    if (!x.isEmpty()) lines.add(x);
+                }
+            } else {
+                lines.add(t);
+            }
+        }
+        return lines;
+    }
+
+    private static List<String> mergeBrokenLines(List<String> lines) {
+        List<String> merged = new ArrayList<>();
+        StringBuilder buf = new StringBuilder();
+        for (String l : lines) {
+            if (!l.endsWith("。") && !l.endsWith("」") && !l.endsWith("』") && l.length() < 40) {
+                buf.append(l);
+            } else {
+                if (buf.length() > 0) {
+                    buf.append(l);
+                    merged.add(buf.toString());
+                    buf.setLength(0);
+                } else {
+                    merged.add(l);
+                }
+            }
+        }
+        if (buf.length() > 0) merged.add(buf.toString());
+        return merged;
+    }
+
+    private static boolean isNoise(String s) {
+        for (String n : NOISE_WORDS) {
+            if (s.contains(n)) return true;
+        }
+        return false;
+    }
+
+    private static String cleanNoise(String s) {
+        String t = s;
+        for (String n : NOISE_WORDS) {
+            t = t.replace(n, "");
+        }
+        return t.trim();
     }
 
     private static String clampToLastSection(String html) {
@@ -174,7 +198,8 @@ public final class DescriptionSuperCleaner {
                 case '>' -> sb.append("&gt;");
                 case '&' -> sb.append("&amp;");
                 case '"' -> sb.append("&quot;");
-                default  -> sb.append(c);
+                case '\'' -> sb.append("&#39;");
+                default -> sb.append(c);
             }
         }
         return sb.toString();

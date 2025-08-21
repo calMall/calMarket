@@ -13,9 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * レビューの「いいね」機能のビジネスロジックを実装するサービスクラス
- */
+
+// レビューの「いいね」機能のビジネスロジックを実装するサービスクラス
 @Service
 @RequiredArgsConstructor
 public class ReviewLikeServiceImpl implements ReviewLikeService {
@@ -23,9 +22,7 @@ public class ReviewLikeServiceImpl implements ReviewLikeService {
     private final ReviewLikeRepository reviewLikeRepository;
     private final ReviewRepository reviewRepository;
 
-    /**
-     * 「いいね」のトグル処理を行う（存在すれば削除、無ければ追加）
-     */
+    // いいねのトグル処理を行う
     @Override
     @Transactional
     public boolean toggleLike(User user, Long reviewId) {
@@ -35,14 +32,14 @@ public class ReviewLikeServiceImpl implements ReviewLikeService {
             return false;
         }
 
-        // 既に「いいね」しているかを確認
+        // 既にいいねしているかを確認
         boolean alreadyLiked = reviewLikeRepository.existsByUserUserIdAndReviewReviewId(user.getUserId(), reviewId);
 
         if (alreadyLiked) {
-            // 既に「いいね」している場合は削除
+            // 既にいいねしている場合は削除
             reviewLikeRepository.deleteByUserUserIdAndReviewReviewId(user.getUserId(), reviewId);
         } else {
-            // 「いいね」していない場合は新規登録
+            // いいねしていない場合は新規登録
             ReviewLike like = ReviewLike.builder()
                     .user(user)
                     .review(review)
@@ -53,9 +50,7 @@ public class ReviewLikeServiceImpl implements ReviewLikeService {
         return true;
     }
 
-    /**
-     * 指定レビューに「いいね」したユーザーの一覧を返す
-     */
+    //  指定レビューに「いいね」したユーザーの一覧を返す
     @Override
     public List<ReviewLikeListResponseDto.LikeUser> getLikesByReviewId(Long reviewId) {
         List<ReviewLike> likes = reviewLikeRepository.findAllByReviewReviewId(reviewId);
