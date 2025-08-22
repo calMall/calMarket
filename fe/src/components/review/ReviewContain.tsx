@@ -41,7 +41,9 @@ export default function ReviewContain({ itemCode, rating }: props) {
 
         <div className="flex flex-col gap-05">
           {loading ? (
-            <SpinnerComponent />
+            <div className="mt-2">
+              <SpinnerComponent />
+            </div>
           ) : (
             ratingStats?.map((item, idx) => (
               <BarChart
@@ -56,11 +58,13 @@ export default function ReviewContain({ itemCode, rating }: props) {
       </div>
       <div className="flex-col gap-1 ">
         {loading ? (
-          <SpinnerComponent />
+          <div className="mt-2">
+            <SpinnerComponent />
+          </div>
         ) : reviews.length > 0 ? (
           <InfiniteReview itemCode={itemCode} size={10} isNextPage={true} />
         ) : (
-          <div>レビューはまだありません。</div>
+          <div className="mt-2">レビューはまだありません。</div>
         )}
       </div>
     </div>

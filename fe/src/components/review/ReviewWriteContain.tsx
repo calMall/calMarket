@@ -8,6 +8,7 @@ import CustomInput from "../common/CustomInput";
 import UserStore from "@/store/user";
 import { IoCameraOutline, IoCloseSharp } from "react-icons/io5";
 import { FaCheck } from "react-icons/fa";
+import CustomAlert from "../common/CustomAlert";
 interface props {
   itemCode: string;
   initialData: ReviewDTOonProduct | null;
@@ -32,6 +33,8 @@ export default function ReviewWriteContain({
     initialData ? initialData.imageList : []
   );
   const [selectedImage, setSelectedImage] = useState<string[]>([]);
+  const [isImageUploading, setIsImageUploading] = useState(false);
+  const [isReviewloading, setIsReviewUploading] = useState(false);
   const deleteInitImage = async () => {
     if (window.confirm("選択した画像を削除しますか？")) {
       if (selectedImage.length === 0)
@@ -101,8 +104,10 @@ export default function ReviewWriteContain({
       let uploaded: string[] = [];
 
       if (imageList && imageList.length > 0) {
+        setIsImageUploading(true);
         const imageUrls = await postUploadImage(imageList);
         uploaded = imageUrls.imageUrls;
+        setIsImageUploading(false);
       }
       if (initialImages.length > 0) {
         uploaded = [...uploaded, ...initialImages];
@@ -114,46 +119,49 @@ export default function ReviewWriteContain({
         title: title,
         imageList: uploaded,
       };
-
+      setIsReviewUploading(true);
       const res = await postReview(
         method,
         review,
         reviewId && initialData ? reviewId : null
       );
       console.log(res);
-      if (res.message === "success") {
-        if (method === "POST") {
-          alert("レビューが投稿されました。");
-        } else if (method === "PATCH") {
-          alert("レビューを編集しました。");
-        }
-        router.back();
-      } else {
-        if (method === "POST") {
-          return alert("レビューの投稿に失敗しました。");
-        } else if (method === "PATCH") {
-          return alert("レビューの編集に失敗しました。");
-        }
+      setIsReviewUploading(false);
+
+      if (method === "POST") {
+        alert("レビューが投稿されました。");
+      } else if (method === "PATCH") {
+        alert("レビューを編集しました。");
       }
+      router.back();
     } catch (e: any) {
       if (e.status === 401) {
         alert("ログインが必要です。ログインページに移動します。");
         userStore.logout();
         router.push("/login");
       } else {
+        if (method === "POST") {
+          return alert("レビューの投稿に失敗しました。");
+        } else if (method === "PATCH") {
+          return alert("レビューの編集に失敗しました。");
+        }
         alert(e.message);
       }
     }
   };
 
-  // useEffect(() => {
-  //   if (initialImages && initialImages.length === 0) {
-  //     setInitialImages(null);
-  //   }
-  // }, [initialImages]);
-
   return (
     <div className="mt-2">
+      {(isImageUploading || isReviewloading) && (
+        <CustomAlert
+          status="loading"
+          text={
+            isImageUploading
+              ? "画像をアップロードしています"
+              : "レビューを投稿しています"
+          }
+        />
+      )}
       <div style={{ display: "flex", gap: "4px" }}>
         {[1, 2, 3, 4, 5].map((star) => (
           <span
