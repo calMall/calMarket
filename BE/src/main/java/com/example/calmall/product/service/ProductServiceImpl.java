@@ -95,7 +95,7 @@ public class ProductServiceImpl implements ProductService {
             } else {
                 log.debug("[normalize] DB命中かつ整形済み → LLM スキップ itemCode={}", product.getItemCode());
             }
-d        }
+        }
 
         return ResponseEntity.ok(buildSuccessResponse(product));
     }
@@ -109,20 +109,16 @@ d        }
 
     /**
      * LLM整形が必要かどうかを判定
-     * ・入力不足や禁止文言が混在 → 強制整形
-     * ・desc-section + 本文要素あり、かつ<li>の先頭に装飾記号がない、かつ<section>で開始 → 整形済み
      */
     private static boolean needsClean(Product p) {
         final String html = p.getDescriptionHtml();
         final String plain = p.getDescriptionPlain();
         final String caption = p.getItemCaption();
 
-        // 何もソースが無い場合は整形が必要
         if (!StringUtils.hasText(html) && !StringUtils.hasText(plain) && !StringUtils.hasText(caption)) {
             return true;
         }
 
-        // 禁止文言が含まれていれば整形が必要
         final String[] banned = {
                 "入力が必要です。原文を入力してください。",
                 "please provide input",
@@ -130,27 +126,25 @@ d        }
                 "placeholder",
                 "これはテストです"
         };
-        String all = (html == null ? "" : html) + "\n" + (plain == null ? "" : plain) + "\n" + (caption == null ? "" : caption);
+        String all = (html == null ? "" : html) + "\n" +
+                (plain == null ? "" : plain) + "\n" +
+                (caption == null ? "" : caption);
         for (String b : banned) {
             if (all.contains(b)) return true;
         }
 
-        // HTMLが当社想定の構造なら整形不要
         if (StringUtils.hasText(html)
                 && html.contains("desc-section")
                 && (html.contains("<p>") || html.contains("<ul") || html.contains("<table"))) {
-            // <li>先頭に装飾記号がある場合は再整形
             if (java.util.regex.Pattern.compile("<li>\\s*[・●•\\-*]").matcher(html).find()) {
                 return true;
             }
-            // <section> 開始でない場合（前にゴミ文字がある）は再整形
             if (!html.trim().startsWith("<section")) {
                 return true;
             }
             return false;
         }
 
-        // それ以外は整形が必要
         return true;
     }
 
@@ -165,7 +159,7 @@ d        }
         ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
                 .itemCode(product.getItemCode())
                 .itemName(product.getItemName())
-                .itemCaption(product.getItemCaption()) // captionは維持
+                .itemCaption(product.getItemCaption())
                 .catchcopy(product.getCatchcopy())
                 .score(score != null ? Math.round(score * 10.0) / 10.0 : 0.0)
                 .reviewCount(reviewCount)
