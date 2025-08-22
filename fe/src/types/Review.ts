@@ -45,3 +45,22 @@ interface Review {
 interface ImageUploadDto extends ResponseDTO {
   imageUrls: string[];
 }
+interface reviewDetail {
+  comment: string;
+  createdAt: string;
+  imageList: string[];
+  imageUrls: string[];
+  isLike: boolean;
+  isOwner: boolean;
+  itemCode: string;
+  itemName: string;
+  like: boolean;
+  likeCount: number;
+  owner: boolean;
+  rating: number;
+  reviewId: number;
+  title: string;
+  updatedAt: string;
+  userId: string;
+  userNickname: string;
+}

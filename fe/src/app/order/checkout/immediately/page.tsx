@@ -7,6 +7,7 @@ import CustomButton from "@/components/common/CustomBtn";
 import CustomLayout from "@/components/common/CustomLayout";
 import ModalCover from "@/components/common/ModalCover";
 import CheckoutItem from "@/components/order/CheckoutItem";
+import OrderedItemLoading from "@/components/order/OrderedItemLoading";
 import DeliveryAddressModal from "@/components/user/DeliveryAddressModal";
 import UserStore from "@/store/user";
 import { get } from "http";
@@ -142,7 +143,7 @@ export default function CheckoutOrderImmediately({ searchParams }: props) {
         <div className="cart-grid">
           <div className="mt-1 flex flex-col gap-1">
             {isLoading ? (
-              <p>Loading...</p>
+              [1, 2, 3].map((_) => <OrderedItemLoading key={_} />)
             ) : checkoutItem ? (
               <>
                 <CheckoutItem item={checkoutItem} />

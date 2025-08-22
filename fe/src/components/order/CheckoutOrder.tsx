@@ -10,6 +10,8 @@ import DeliveryAddressModal from "@/components/user/DeliveryAddressModal";
 import UserStore from "@/store/user";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import OderListLoadingBox from "./OderListLoadingBox";
+import OrderedItemLoading from "./OrderedItemLoading";
 interface props {
   ids: string;
 }
@@ -123,7 +125,7 @@ export default function CheckoutOrder({ ids }: props) {
         <div className="cart-grid">
           <div className="mt-1 flex flex-col gap-1">
             {isLoading ? (
-              <p>Loading...</p>
+              [1, 2, 3].map((_) => <OrderedItemLoading key={_} />)
             ) : (
               <>
                 {checkoutList.map((item) => (
