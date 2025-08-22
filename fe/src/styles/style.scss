@@ -786,12 +786,6 @@ h2 {
   margin: 20px auto;
 }
 
-.product-image {
-  width: 150px;
-  height: auto;
-  object-fit: contain;
-}
-
 .product-info {
   font-size: 14px;
   line-height: 1.6;
@@ -1137,7 +1131,8 @@ textarea {
   margin-right: 1rem;
 }
 .add-address-btns {
-  button {
+  button,
+  .update {
     border-radius: 5px;
     padding: 0.5rem;
     box-sizing: border-box;
@@ -1334,12 +1329,49 @@ textarea {
   top: 50%;
   transform: translate(-50%, -50%);
 }
-.order-loding {
+.order-loading {
   width: 128px;
   height: 128px;
 }
 
-.order-loding-text {
+.order-loading-text {
   height: 1rem;
   width: 100%;
+}
+.order-loading-text-50 {
+  height: 1rem;
+  width: 50%;
+}
+.order-loading-text-20 {
+  height: 1rem;
+  width: 20%;
+}
+
+.review-detail-btns,
+.review-detail-delete {
+  font-size: medium;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 2.5rem;
+  background-color: $main-dark-color;
+  &:hover {
+    background-color: $main-deep-dark-color;
+    box-shadow: none;
+    transition: 0.3s;
+  }
+  padding: 0.5rem;
+  box-sizing: border-box;
+  border-radius: 10px;
+  @include shadow-box();
+}
+.review-detail-delete {
+  padding: 0.5rem;
+  color: white;
+  background-color: rgb(221, 36, 36);
+  &:hover {
+    background-color: rgb(156, 20, 20);
+    box-shadow: none;
+    transition: 0.3s;
+  }
 }
