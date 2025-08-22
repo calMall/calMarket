@@ -4,6 +4,7 @@ import com.example.calmall.product.dto.ProductDetailResponseDto;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
 import com.example.calmall.product.text.DescriptionCleanerFacade;
+import com.example.calmall.product.text.DescriptionFallbackBuilder;
 import com.example.calmall.product.text.DescriptionHtmlToPlain;
 import com.example.calmall.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
@@ -50,8 +51,19 @@ public class ProductServiceImpl implements ProductService {
                 return new ResponseEntity<>(buildFailResponse(), HttpStatus.BAD_REQUEST);
             }
 
-            // 3) 初回保存前に必要なら LLM 整形
-            if (needsClean(product)) {
+            // 3) 初回保存前に説明文を決定
+            if (isAllBlank(product.getDescriptionHtml(), product.getDescriptionPlain(), product.getItemCaption())) {
+                // テキストが完全に無い → LLMは使わず簡易説明を生成
+                String fallback = DescriptionFallbackBuilder.buildFromMeta(
+                        product.getItemName(),
+                        product.getImages() == null ? 0 : product.getImages().size()
+                );
+                product.setDescriptionHtml(fallback);
+                product.setDescriptionPlain(DescriptionHtmlToPlain.toPlain(fallback));
+                log.debug("[normalize] 入力テキスト無し → 画像点数と商品名で簡易説明を生成 itemCode={}", itemCode);
+
+            } else if (needsClean(product)) {
+                // テキストはあるが未整形 → LLM
                 log.debug("[normalize] 新規取得 → LLM 整形開始 itemCode={}", itemCode);
                 final String cleanHtml = descriptionCleanerFacade.buildCleanHtml(
                         product.getDescriptionHtml(),
@@ -65,7 +77,7 @@ public class ProductServiceImpl implements ProductService {
                 log.debug("[normalize] 新規取得だが整形不要と判定 itemCode={}", itemCode);
             }
 
-            // 4) caption 補正（LLM 後の本文から拾う）
+            // 4) caption 補正（本文/プレーンから拾う）
             final String fixedCaption = fixCaptionIfNeeded(product.getItemCaption(),
                     product.getDescriptionHtml(), product.getDescriptionPlain());
             if (!equalsSafe(fixedCaption, product.getItemCaption())) {
@@ -82,8 +94,26 @@ public class ProductServiceImpl implements ProductService {
 
             boolean dirty = false;
 
-            // 5) 必要なら LLM で再整形
-            if (needsClean(product)) {
+            // 5) 説明が全て空なら簡易説明を生成して保存
+            if (isAllBlank(product.getDescriptionHtml(), product.getDescriptionPlain(), product.getItemCaption())) {
+                String fallback = DescriptionFallbackBuilder.buildFromMeta(
+                        product.getItemName(),
+                        product.getImages() == null ? 0 : product.getImages().size()
+                );
+                String fallbackPlain = DescriptionHtmlToPlain.toPlain(fallback);
+
+                if (!equalsSafe(fallback, product.getDescriptionHtml())) {
+                    product.setDescriptionHtml(fallback);
+                    dirty = true;
+                }
+                if (!equalsSafe(fallbackPlain, product.getDescriptionPlain())) {
+                    product.setDescriptionPlain(fallbackPlain);
+                    dirty = true;
+                }
+                log.debug("[normalize] 入力テキスト無し → 簡易説明を保存予定 itemCode={}", product.getItemCode());
+
+            } else if (needsClean(product)) {
+                // 6) 必要なら LLM で再整形
                 log.debug("[normalize] DB命中だが未整形/不正規 → LLM 整形開始 itemCode={}", product.getItemCode());
                 final String cleanHtml = descriptionCleanerFacade.buildCleanHtml(
                         product.getDescriptionHtml(),
@@ -104,7 +134,7 @@ public class ProductServiceImpl implements ProductService {
                 log.debug("[normalize] DB命中かつ整形済み → LLM スキップ itemCode={}", product.getItemCode());
             }
 
-            // 6) caption 補正（見出し語や空なら本文から再生成）
+            // 7) caption 補正（見出し語や空なら本文から再生成）
             final String fixedCaption = fixCaptionIfNeeded(product.getItemCaption(),
                     product.getDescriptionHtml(), product.getDescriptionPlain());
             if (!equalsSafe(fixedCaption, product.getItemCaption())) {
@@ -130,17 +160,20 @@ public class ProductServiceImpl implements ProductService {
     }
 
     /**
-     * LLM 整形が必要かを判定
+     * LLM 整形が必要かを判定。
+     * ※ 全ソース空の場合は上位で簡易説明に切替えるので、ここでは扱わない。
      */
     private static boolean needsClean(Product p) {
         final String html = p.getDescriptionHtml();
         final String plain = p.getDescriptionPlain();
         final String caption = p.getItemCaption();
 
-        if (!StringUtils.hasText(html) && !StringUtils.hasText(plain) && !StringUtils.hasText(caption)) {
-            return true;
+        // 全部空 → ここでは LLM 不要扱い（上位で簡易説明へ）
+        if (isAllBlank(html, plain, caption)) {
+            return false;
         }
 
+        // プレースホルダ／不適切ワードが含まれる場合は整形
         final String[] banned = {
                 "入力が必要です。原文を入力してください。",
                 "please provide input",
@@ -153,21 +186,26 @@ public class ProductServiceImpl implements ProductService {
             if (all.toLowerCase().contains(b.toLowerCase())) return true;
         }
 
+        // HTML 構造の簡易判定
         if (StringUtils.hasText(html)
                 && html.contains("desc-section")
                 && (html.contains("<p>") || html.contains("<ul") || html.contains("<table"))) {
-            if (Pattern.compile("<li>\\s*[・●•\\-*]").matcher(html).find()) return true;
-            if (!html.trim().startsWith("<section")) return true;
+            if (Pattern.compile("<li>\\s*[・●•\\-*]").matcher(html).find()) return true; // 箇条書きの飾り記号を除去したい
+            if (!html.trim().startsWith("<section")) return true;                        // 先頭にゴミ文字
             return false;
         }
-        return true;
+        return true; // それ以外は未整形とみなす
     }
 
-    /**
-     * caption を必要に応じて補正する。
-     * - 既存 caption が空/見出し語/プレースホルダなら本文から生成
-     * - 120 文字に丸める
-     */
+    // 3ソース（HTML/プレーン/キャプション）がすべて空か
+    private static boolean isAllBlank(String html, String plain, String caption) {
+        return !StringUtils.hasText(html)
+                && !StringUtils.hasText(plain)
+                && !StringUtils.hasText(caption);
+    }
+
+
+    // captionを必要に応じて補正する。
     private String fixCaptionIfNeeded(String current, String html, String plain) {
         if (!isBadCaption(current)) return current;
 
@@ -175,18 +213,18 @@ public class ProductServiceImpl implements ProductService {
         if (!StringUtils.hasText(picked)) {
             picked = pickCaptionFromPlain(plain);
         }
-        if (!StringUtils.hasText(picked)) return ""; // 何も拾えない場合は空で返す
+        if (!StringUtils.hasText(picked)) return ""; // 拾えない場合は空
 
         picked = picked.trim();
         if (picked.length() > 120) picked = picked.substring(0, 120).trim();
         return picked;
     }
 
-    // HTML から本文の最初の自然文を拾う（見出しや箇条書きは避ける）
+    // HTMLから本文の最初の自然文を拾う
     private static String pickCaptionFromHtml(String html) {
         if (!StringUtils.hasText(html)) return "";
 
-        // body セクション内の <p> を最優先
+        // body セクション内の <p> を優先
         String pFromBody = findFirstTagText(html, "<section[^>]*class=\"[^\"]*desc-section\\s*body[^\"]*\"[^>]*>", "p");
         if (StringUtils.hasText(pFromBody) && !isBadCaption(pFromBody)) return normalizeOneLine(pFromBody);
 
@@ -214,19 +252,18 @@ public class ProductServiceImpl implements ProductService {
         return "";
     }
 
-    // 既存 caption として不適か判定
+    // captionとして不適か判定
     private static boolean isBadCaption(String s) {
         if (!StringUtils.hasText(s)) return true;
         String t = normalizeOneLine(s);
-        if (t.length() <= 2) return true;                 // 短すぎ
+        if (t.length() <= 2) return true;                  // 短すぎ
         if (HEADING_ONLY.matcher(t).matches()) return true; // 見出しだけ
-        // プレースホルダ類
         String low = t.toLowerCase();
         if (low.contains("入力が必要") || low.contains("provide input") || low.contains("placeholder")) return true;
         return false;
     }
 
-    // HTML から最初のタグ内容を抽出（section 条件で範囲を絞ることも可）
+    // HTMLから最初のタグ内容を抽出
     private static String findFirstTagText(String html, String sectionRegex, String tag) {
         String target = html;
         if (StringUtils.hasText(sectionRegex)) {
@@ -235,7 +272,6 @@ public class ProductServiceImpl implements ProductService {
             if (ms.find()) {
                 target = ms.group(1);
             } else {
-                // 見つからなければ全体を対象に続行
                 target = html;
             }
         }
@@ -253,14 +289,14 @@ public class ProductServiceImpl implements ProductService {
         return "";
     }
 
+    // 1行化記号を除去
     private static String normalizeOneLine(String s) {
         if (s == null) return "";
-        String t = s.replace('\u00A0', ' ')
+        return s.replace('\u00A0', ' ')
                 .replace('\u3000', ' ')
                 .replaceAll("\\s+", " ")
-                .replaceAll("^[・●•\\-*\\s]+", "") // 行頭の飾りを除去
+                .replaceAll("^[・●•\\-*\\s]+", "")
                 .trim();
-        return t;
     }
 
     private boolean equalsSafe(String a, String b) {
@@ -274,7 +310,7 @@ public class ProductServiceImpl implements ProductService {
         ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
                 .itemCode(product.getItemCode())
                 .itemName(product.getItemName())
-                .itemCaption(product.getItemCaption()) // caption は維持（補正済みを返す）
+                .itemCaption(product.getItemCaption())
                 .catchcopy(product.getCatchcopy())
                 .score(score != null ? Math.round(score * 10.0) / 10.0 : 0.0)
                 .reviewCount(reviewCount)
