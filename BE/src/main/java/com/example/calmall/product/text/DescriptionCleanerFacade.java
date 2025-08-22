@@ -6,8 +6,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * 商品説明文のクリーン化を統合的に扱う Facade
- * - 今は LLM（Groq）のみ利用。失敗しても fallback しない
+ * 商品説明文の整形を司る Facade。
+ *
+ * 【重要変更点】
+ * - フォールバック（ローカル整形）は廃止。LLMが失敗/未設定なら例外を投げて fail-fast。
+ * - LLM出力が「実質的に原文と同等（=パススルー）」なら例外を投げて fail-fast。
+ * - 詳細な DEBUG ログを出力（入力プレビュー/出力プレビュー/失敗理由）。
  */
 @Component
 @RequiredArgsConstructor
@@ -18,48 +22,67 @@ public class DescriptionCleanerFacade {
     private final LlmDescriptionFormatter llmFormatter;
 
     /**
-     * HTML ベースの説明文を整形
+     * HTMLベースの説明文を LLM で構造化HTMLに整形する。
+     * @param descriptionHtml 楽天API等からのHTML
+     * @param descriptionPlain 同上プレーンテキスト
+     * @param itemCaption 商品キャプション（あれば参考）
+     * @return 構造化済みの安全なHTML断片
      */
     public String buildCleanHtml(String descriptionHtml, String descriptionPlain, String itemCaption) {
         try {
-            // 呼び出し前のログ
             log.debug("[Groq LLM] Calling cleanToHtml...");
             log.debug("[Groq LLM] inputHtml={} inputPlain={} itemCaption={}",
                     preview(descriptionHtml), preview(descriptionPlain), preview(itemCaption));
 
-            // LLM呼び出し
-            String llm = llmFormatter.cleanToHtml(descriptionHtml, descriptionPlain, itemCaption);
+            final String llm = llmFormatter.cleanToHtml(descriptionHtml, descriptionPlain, itemCaption);
 
-            // 呼び出し後のログ
-            if (llm != null) {
-                log.debug("[Groq LLM] response length={} preview={}", llm.length(), preview(llm));
-            } else {
-                log.warn("[Groq LLM] returned null response");
+            log.debug("[Groq LLM] raw response length={} preview={}",
+                    (llm == null ? -1 : llm.length()), preview(llm));
+
+            // 原文パススルー（実質未整形）を検知 → 例外
+            if (looksLikePassThrough(llm, descriptionHtml, descriptionPlain, itemCaption)) {
+                throw new IllegalStateException("[Groq LLM] appears disabled or returned pass-through content");
             }
 
-            if (llm != null && !llm.isBlank()) {
-                return llm;
+            if (llm == null || llm.isBlank()) {
+                throw new IllegalStateException("[Groq LLM] returned empty response");
             }
-            throw new IllegalStateException("[Groq LLM] returned empty response");
+
+            return llm;
 
         } catch (Exception e) {
-            log.error("[Groq LLM failed]", e);
-            throw e; // fallbackしない
+            log.error("[Groq LLM failed] {}", e.toString(), e);
+            // フォールバックはしない。明示的に失敗させることで早期に不具合を検知。
+            throw e;
         }
     }
 
-    /**
-     * プレーンテキスト化（AI使わないのでそのまま残す）
-     */
+    /** プレーン変換（※ここは既存のローカル処理を残す。AIは使わない簡易用途） */
     public String toPlain(String html) {
-        return DescriptionSuperCleaner.toPlain(html);
+        return DescriptionSuperCleanerBase.toPlain(html);
+    }
+
+    // ---- helpers ----
+
+    /** 長文プレビュー用（200文字で丸め） */
+    private String preview(String s) {
+        if (s == null) return "null";
+        return (s.length() > 200) ? s.substring(0, 200) + "..." : s;
     }
 
     /**
-     * 長い文字列を短くプレビューするユーティリティ
+     * LLM出力が原文の事実上の通し（パススルー）かを簡易判定。
+     * 完全一致ではなく、「空白やタグを除けばほぼ含有している」場合もNGとする。
      */
-    private String preview(String input) {
-        if (input == null) return "null";
-        return input.length() > 200 ? input.substring(0, 200) + "..." : input;
+    private boolean looksLikePassThrough(String out, String html, String plain, String caption) {
+        if (out == null) return true;
+        final String normOut = out.replaceAll("\\s+", "");
+        final String a = (html == null ? "" : html).replaceAll("\\s+", "");
+        final String b = (plain == null ? "" : plain).replaceAll("\\s+", "");
+        final String c = (caption == null ? "" : caption).replaceAll("\\s+", "");
+        // どれか一つでも「ほぼ包含」していればパススルーとみなす
+        return (!a.isEmpty() && normOut.contains(a))
+                || (!b.isEmpty() && normOut.contains(b))
+                || (!c.isEmpty() && normOut.contains(c));
     }
 }

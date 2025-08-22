@@ -3,7 +3,9 @@ package com.example.calmall.product.text;
 import org.springframework.web.util.HtmlUtils;
 
 /**
- * ローカル側の最小整形ユーティリティ（LLM失敗時の保険）。
+ * ローカル側の最小整形ユーティリティ。
+ * ※ フォールバックは Facade/Formatter では使わない方針だが、
+ *    toPlain 等の共通関数のために残している。
  */
 public final class DescriptionSuperCleanerBase {
 
@@ -36,7 +38,13 @@ public final class DescriptionSuperCleanerBase {
         return s;
     }
 
-    /** どうしても LLM も使えない時の簡易出力（プレーンを <p> に包むだけ） */
+    /** プレーンテキスト化（必要に応じて公開） */
+    public static String toPlain(String html) {
+        if (html == null) return "";
+        return stripHtmlKeepBreaks(html);
+    }
+
+    /** どうしても LLM も使えない時の簡易出力（※現在は使用しない設計） */
     public static String localCleanToHtml(String descriptionHtml, String descriptionPlain, String itemCaption) {
         String base = chooseBasePreferHtml(descriptionHtml, descriptionPlain, itemCaption);
         if (base.isBlank()) return "";
