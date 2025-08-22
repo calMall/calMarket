@@ -4,15 +4,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-
-//商品説明文の整形をLLMにするFacade
+// 商品説明文の整形を LLM に一任する Facade（フォールバック無し）
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class DescriptionCleanerFacade {
 
     private final LlmDescriptionFormatter llmFormatter;
-
 
     // HTMLベースの説明文を「LLMのみ」で整形して返す
     public String buildCleanHtml(String descriptionHtml, String descriptionPlain, String itemCaption) {
@@ -28,9 +26,9 @@ public class DescriptionCleanerFacade {
         return llm;
     }
 
-    // LLM出力をそのまま返す方針なので、toPlain も使用しない前提（呼び出し元で不要なら削除可）
+    // 必要なら残す（内部委譲）。不要なら削除してもOK。
     public String toPlain(String html) {
-        return html == null ? "" : html.replaceAll("<[^>]+>", "").trim();
+        return DescriptionHtmlToPlain.toPlain(html);
     }
 
     private static String preview(String s) {

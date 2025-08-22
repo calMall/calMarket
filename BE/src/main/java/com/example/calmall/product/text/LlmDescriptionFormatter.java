@@ -12,8 +12,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.*;
 
-
-// LLM を用いた商品説明の整形。
+/**
+ * LLM を用いた商品説明の整形（LLM 全任・後処理なし・最低限検証のみ）。
+ */
 @Slf4j
 public class LlmDescriptionFormatter {
 
@@ -29,7 +30,7 @@ public class LlmDescriptionFormatter {
         this.parallelism = parallelism;
     }
 
-    // 原文（HTML/プレーン/キャプション）→ LLMで構造化 HTML
+    /** 原文（HTML/プレーン/キャプション）→ LLM で構造化 HTML（LLM全任） */
     public String cleanToHtml(String rawHtml, String rawPlain, String itemCaption) {
         final String base = chooseBasePreferHtml(rawHtml, rawPlain, itemCaption);
         if (!StringUtils.hasText(base)) {
@@ -71,6 +72,7 @@ public class LlmDescriptionFormatter {
             throw new IllegalStateException("LLM produced no fragments (all chunks failed).");
         }
 
+        // LLM 出力を「そのまま」結合（後端での整形/抽出は一切しない）
         final String merged = String.join("", parts);
 
         // 軽い検証のみ：<li> の先頭に装飾記号を含めない（非修正・違反なら失敗）
@@ -99,7 +101,7 @@ public class LlmDescriptionFormatter {
         throw last != null ? last : new IOException("Groq call failed");
     }
 
-    // 日本語プロンプト
+    /** 日本語プロンプト：LLM に完全委譲（箇条書きの先頭記号禁止まで明示） */
     private String callGroq(int chunkIndex, String chunk) throws IOException {
         final String system = """
 あなたはECサイト向けの「商品説明テキストの構造化クリーナー」です。
@@ -142,19 +144,21 @@ public class LlmDescriptionFormatter {
 
     // -------------------- helpers（整形ではなく分割・検証のための最小限） --------------------
 
-
+    /** HTML があれば優先。無ければプレーン、最後にキャプション。 */
     private static String chooseBasePreferHtml(String html, String plain, String caption) {
         if (StringUtils.hasText(html)) return html;
         if (StringUtils.hasText(plain)) return plain;
         return caption != null ? caption : "";
     }
 
+    /** HTMLエンティティ解除・改行正規化（内容を改変しない範囲の最小化） */
     private static String normalize(String s) {
         String t = (s == null) ? "" : HtmlUtils.htmlUnescape(s);
         t = t.replace("\r\n", "\n").replace("\r", "\n");
         return t.trim();
     }
 
+    /** 行ベースでチャンク化（LLM への入力サイズ制御；意味は変えない） */
     private static List<String> chunkSmart(String text, int targetLen) {
         final List<String> lines = Arrays.stream(text.split("\n"))
                 .map(String::trim).filter(l -> !l.isEmpty()).toList();
@@ -173,6 +177,7 @@ public class LlmDescriptionFormatter {
         return out;
     }
 
+    /** <li> の先頭に装飾記号が紛れ込んでいないかだけ検証（修正はしない） */
     private static void assertNoLeadingBulletMarks(String html) {
         final var m = java.util.regex.Pattern
                 .compile("<li>\\s*([・●•\\-*])", java.util.regex.Pattern.DOTALL)
