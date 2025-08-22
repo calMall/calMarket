@@ -1,15 +1,19 @@
 package com.example.calmall.product.text;
 
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
  * 商品説明文のクリーン化を統合的に扱う Facade
- * - まず LLM（Groq）で試し、失敗したら SuperCleaner へフォールバック
+ * - 今は LLM（Groq）のみ利用。失敗しても fallback しない
  */
 @Component
 @RequiredArgsConstructor
 public class DescriptionCleanerFacade {
+
+    private static final Logger log = LoggerFactory.getLogger(DescriptionCleanerFacade.class);
 
     private final LlmDescriptionFormatter llmFormatter;
 
@@ -18,24 +22,44 @@ public class DescriptionCleanerFacade {
      */
     public String buildCleanHtml(String descriptionHtml, String descriptionPlain, String itemCaption) {
         try {
-            // ★ LLM呼び出し（baseではなく3引数で渡す）
+            // 呼び出し前のログ
+            log.debug("[Groq LLM] Calling cleanToHtml...");
+            log.debug("[Groq LLM] inputHtml={} inputPlain={} itemCaption={}",
+                    preview(descriptionHtml), preview(descriptionPlain), preview(itemCaption));
+
+            // LLM呼び出し
             String llm = llmFormatter.cleanToHtml(descriptionHtml, descriptionPlain, itemCaption);
+
+            // 呼び出し後のログ
+            if (llm != null) {
+                log.debug("[Groq LLM] response length={} preview={}", llm.length(), preview(llm));
+            } else {
+                log.warn("[Groq LLM] returned null response");
+            }
+
             if (llm != null && !llm.isBlank()) {
                 return llm;
             }
-        } catch (Exception e) {
-            // LLM失敗時はログ残して fallback
-            System.err.println("[Groq LLM failed] " + e.getMessage());
-        }
+            throw new IllegalStateException("[Groq LLM] returned empty response");
 
-        // ★ fallback
-        return DescriptionSuperCleaner.buildCleanHtml(descriptionHtml, descriptionPlain, itemCaption);
+        } catch (Exception e) {
+            log.error("[Groq LLM failed]", e);
+            throw e; // fallbackしない
+        }
     }
 
     /**
-     * プレーンテキスト化
+     * プレーンテキスト化（AI使わないのでそのまま残す）
      */
     public String toPlain(String html) {
         return DescriptionSuperCleaner.toPlain(html);
+    }
+
+    /**
+     * 長い文字列を短くプレビューするユーティリティ
+     */
+    private String preview(String input) {
+        if (input == null) return "null";
+        return input.length() > 200 ? input.substring(0, 200) + "..." : input;
     }
 }
