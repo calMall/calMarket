@@ -7,10 +7,10 @@ export default function OderListLoadingBox() {
         <div className="rt cart-img loading-box " />
       </div>
       <div className="flex flex-col gap-05 wf">
-        <div className="order-loding-text loading-box " />
-        <div className="order-loding-text-50 loading-box " />
-        <div className="order-loding-text-20 loading-box mt-2" />
-        <div className="order-loding-text-20 loading-box  mt-1" />
+        <div className="order-loading-text loading-box " />
+        <div className="order-loading-text-50 loading-box " />
+        <div className="order-loading-text-20 loading-box mt-2" />
+        <div className="order-loading-text-20 loading-box  mt-1" />
       </div>
     </div>
   );
