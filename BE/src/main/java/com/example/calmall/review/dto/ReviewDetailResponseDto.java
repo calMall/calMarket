@@ -1,6 +1,7 @@
 package com.example.calmall.review.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,9 +17,10 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.ALWAYS)
 public class ReviewDetailResponseDto {
 
-    // レビューID
+    @JsonProperty("reviewId")
     private Long reviewId;
 
     // ユーザーID

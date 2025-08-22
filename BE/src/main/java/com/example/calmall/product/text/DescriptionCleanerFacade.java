@@ -1,41 +1,39 @@
 package com.example.calmall.product.text;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/**
- * 商品説明文のクリーン化を統合的に扱う Facade
- * - まず LLM（Groq）で試し、失敗したら SuperCleaner へフォールバック
- */
+// 商品説明文の整形を LLM に一任する Facade（フォールバック無し）
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DescriptionCleanerFacade {
 
     private final LlmDescriptionFormatter llmFormatter;
 
-    /**
-     * HTML ベースの説明文を整形
-     */
+    // HTMLベースの説明文を「LLMのみ」で整形して返す
     public String buildCleanHtml(String descriptionHtml, String descriptionPlain, String itemCaption) {
-        try {
-            // ★ LLM呼び出し（baseではなく3引数で渡す）
-            String llm = llmFormatter.cleanToHtml(descriptionHtml, descriptionPlain, itemCaption);
-            if (llm != null && !llm.isBlank()) {
-                return llm;
-            }
-        } catch (Exception e) {
-            // LLM失敗時はログ残して fallback
-            System.err.println("[Groq LLM failed] " + e.getMessage());
-        }
+        log.debug("[Groq LLM] Calling cleanToHtml...");
+        log.debug("[Groq LLM] inputHtml={} inputPlain={} itemCaption={}",
+                preview(descriptionHtml), preview(descriptionPlain), preview(itemCaption));
 
-        // ★ fallback
-        return DescriptionSuperCleaner.buildCleanHtml(descriptionHtml, descriptionPlain, itemCaption);
+        final String llm = llmFormatter.cleanToHtml(descriptionHtml, descriptionPlain, itemCaption);
+
+        log.debug("[Groq LLM] raw response length={} preview={}",
+                (llm != null ? llm.length() : 0), preview(llm));
+
+        return llm;
     }
 
-    /**
-     * プレーンテキスト化
-     */
+    // 必要なら残す（内部委譲）。不要なら削除してもOK。
     public String toPlain(String html) {
-        return DescriptionSuperCleaner.toPlain(html);
+        return DescriptionHtmlToPlain.toPlain(html);
+    }
+
+    private static String preview(String s) {
+        if (s == null) return "null";
+        final String t = s.replaceAll("\\s+", " ").trim();
+        return t.length() > 120 ? (t.substring(0, 110) + "...") : t;
     }
 }
