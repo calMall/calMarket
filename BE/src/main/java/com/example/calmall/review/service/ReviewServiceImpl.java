@@ -318,6 +318,7 @@ public class ReviewServiceImpl implements ReviewService {
         boolean isLiked = reviewLikeRepository.existsByUserUserIdAndReviewReviewId(userId, reviewId);
 
         ReviewDetailResponseDto responseDto = ReviewDetailResponseDto.builder()
+                .reviewId(review.getReviewId())
                 .userId(review.getUser().getUserId())
                 .title(review.getTitle())
                 .comment(review.getComment())
@@ -375,7 +376,7 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         ReviewDetailResponseDto detail = ReviewDetailResponseDto.builder()
-                .reviewId(review.getReviewId()) // ★追加
+                .reviewId(review.getReviewId())
                 .userNickname(userNickname)
                 .itemCode(itemCode)
                 .itemName(itemName)

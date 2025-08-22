@@ -18,7 +18,7 @@ import java.util.List;
 @AllArgsConstructor
 public class ReviewDetailResponseDto {
 
-    // レビューID
+    @JsonProperty("reviewId")
     private Long reviewId;
 
     // ユーザーID
