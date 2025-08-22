@@ -3,7 +3,7 @@ package com.example.calmall.product.text;
 import org.springframework.web.util.HtmlUtils;
 
 /**
- * 整形済み HTML からプレーンテキストを生成（改行・空白の最小正規化）。
+ * 整形済みHTML → プレーンテキスト変換
  */
 public final class DescriptionHtmlToPlain {
 

@@ -4,6 +4,7 @@ import com.example.calmall.product.dto.ProductDetailResponseDto;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
 import com.example.calmall.product.text.DescriptionCleanerFacade;
+import com.example.calmall.product.text.DescriptionHtmlToPlain;
 import com.example.calmall.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +16,7 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 
 /**
- * 商品情報に関する業務ロジック
+ * 商品の取得・正規化を担当
  */
 @Service
 @RequiredArgsConstructor
@@ -26,16 +27,15 @@ public class ProductServiceImpl implements ProductService {
     private final RakutenApiService rakutenApiService;
     private final ReviewRepository reviewRepository;
 
-    // Spring から注入（LLM全権整形）
     private final DescriptionCleanerFacade descriptionCleanerFacade;
 
     @Override
     public ResponseEntity<ProductDetailResponseDto> getProductDetail(String itemCode) {
-        // DB
+        // 1) まずDBを参照
         Product product = productRepository.findByItemCode(itemCode).orElse(null);
 
         if (product == null) {
-            // DB 無 → 樂天 API 取得
+            // 2) DBにない場合は楽天APIから取得
             log.info("[source=RakutenAPI] DB未登録 → 楽天API照会 itemCode={}", itemCode);
             product = rakutenApiService.fetchProductFromRakuten(itemCode).orElse(null);
             if (product == null) {
@@ -43,6 +43,7 @@ public class ProductServiceImpl implements ProductService {
                 return new ResponseEntity<>(buildFailResponse(), HttpStatus.BAD_REQUEST);
             }
 
+            // 3) 初回保存前に必要ならLLM整形
             if (needsClean(product)) {
                 log.debug("[normalize] 新規取得 → LLM 整形開始 itemCode={}", itemCode);
                 final String cleanHtml = descriptionCleanerFacade.buildCleanHtml(
@@ -50,19 +51,19 @@ public class ProductServiceImpl implements ProductService {
                         product.getDescriptionPlain(),
                         product.getItemCaption()
                 );
-                final String cleanPlain = descriptionCleanerFacade.toPlain(cleanHtml);
-
+                final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
                 product.setDescriptionHtml(cleanHtml);
                 product.setDescriptionPlain(cleanPlain);
+                // itemCaption は上書きしない
             } else {
-                log.debug("[normalize] 新規取得だが既に整形済みと判断 → LLM スキップ itemCode={}", itemCode);
+                log.debug("[normalize] 新規取得だが整形不要と判定 itemCode={}", itemCode);
             }
 
             product = productRepository.save(product);
             log.info("[persist] 楽天APIから取得した商品を保存 itemCode={}", product.getItemCode());
 
         } else {
-            // 4) DB 有 → 視需要決定是否跑 LLM
+            // 4) DBにある場合は必要に応じてLLM整形
             log.info("[source=DB] 既存商品を取得 itemCode={} name={}", product.getItemCode(), product.getItemName());
 
             if (needsClean(product)) {
@@ -72,7 +73,7 @@ public class ProductServiceImpl implements ProductService {
                         product.getDescriptionPlain(),
                         product.getItemCaption()
                 );
-                final String cleanPlain = descriptionCleanerFacade.toPlain(cleanHtml);
+                final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
 
                 boolean dirty = false;
                 if (!equalsSafe(cleanHtml, product.getDescriptionHtml())) {
@@ -83,12 +84,13 @@ public class ProductServiceImpl implements ProductService {
                     product.setDescriptionPlain(cleanPlain);
                     dirty = true;
                 }
+                // itemCaption は上書きしない
 
                 if (dirty) {
                     product = productRepository.save(product);
                     log.info("[normalize] 説明文をクリーン化して保存 itemCode={}", product.getItemCode());
                 } else {
-                    log.debug("[normalize] LLM 実行したが差分無し itemCode={}", product.getItemCode());
+                    log.debug("[normalize] LLM 実行したが差分なし itemCode={}", product.getItemCode());
                 }
             } else {
                 log.debug("[normalize] DB命中かつ整形済み → LLM スキップ itemCode={}", product.getItemCode());
@@ -105,21 +107,50 @@ d        }
                 .orElseGet(() -> new ResponseEntity<>(false, HttpStatus.BAD_REQUEST));
     }
 
+    /**
+     * LLM整形が必要かどうかを判定
+     * ・入力不足や禁止文言が混在 → 強制整形
+     * ・desc-section + 本文要素あり、かつ<li>の先頭に装飾記号がない、かつ<section>で開始 → 整形済み
+     */
     private static boolean needsClean(Product p) {
         final String html = p.getDescriptionHtml();
         final String plain = p.getDescriptionPlain();
         final String caption = p.getItemCaption();
 
+        // 何もソースが無い場合は整形が必要
         if (!StringUtils.hasText(html) && !StringUtils.hasText(plain) && !StringUtils.hasText(caption)) {
             return true;
         }
 
+        // 禁止文言が含まれていれば整形が必要
+        final String[] banned = {
+                "入力が必要です。原文を入力してください。",
+                "please provide input",
+                "no input provided",
+                "placeholder",
+                "これはテストです"
+        };
+        String all = (html == null ? "" : html) + "\n" + (plain == null ? "" : plain) + "\n" + (caption == null ? "" : caption);
+        for (String b : banned) {
+            if (all.contains(b)) return true;
+        }
+
+        // HTMLが当社想定の構造なら整形不要
         if (StringUtils.hasText(html)
                 && html.contains("desc-section")
                 && (html.contains("<p>") || html.contains("<ul") || html.contains("<table"))) {
+            // <li>先頭に装飾記号がある場合は再整形
+            if (java.util.regex.Pattern.compile("<li>\\s*[・●•\\-*]").matcher(html).find()) {
+                return true;
+            }
+            // <section> 開始でない場合（前にゴミ文字がある）は再整形
+            if (!html.trim().startsWith("<section")) {
+                return true;
+            }
             return false;
         }
 
+        // それ以外は整形が必要
         return true;
     }
 
@@ -134,7 +165,7 @@ d        }
         ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
                 .itemCode(product.getItemCode())
                 .itemName(product.getItemName())
-                .itemCaption(product.getItemCaption()) // ← ここは caption（要約/キャッチ）を保持
+                .itemCaption(product.getItemCaption()) // captionは維持
                 .catchcopy(product.getCatchcopy())
                 .score(score != null ? Math.round(score * 10.0) / 10.0 : 0.0)
                 .reviewCount(reviewCount)

@@ -13,7 +13,10 @@ import java.util.List;
 import java.util.concurrent.*;
 
 /**
- * LLM を用いた商品説明の整形（LLM 全任・後処理なし・最低限検証のみ）。
+ * LLMを用いた説明文整形
+ * ・入力テキストの分割
+ * ・LLM呼び出し（控えめ並列）
+ * ・出力の軽い検証とサニタイズ
  */
 @Slf4j
 public class LlmDescriptionFormatter {
@@ -30,7 +33,9 @@ public class LlmDescriptionFormatter {
         this.parallelism = parallelism;
     }
 
-    /** 原文（HTML/プレーン/キャプション）→ LLM で構造化 HTML（LLM全任） */
+    /**
+     * 原文（HTML/プレーン/キャプション）をLLMで整形してHTML断片を返す
+     */
     public String cleanToHtml(String rawHtml, String rawPlain, String itemCaption) {
         final String base = chooseBasePreferHtml(rawHtml, rawPlain, itemCaption);
         if (!StringUtils.hasText(base)) {
@@ -72,16 +77,16 @@ public class LlmDescriptionFormatter {
             throw new IllegalStateException("LLM produced no fragments (all chunks failed).");
         }
 
-        // LLM 出力を「そのまま」結合（後端での整形/抽出は一切しない）
+        // LLM出力を連結 → サニタイズ → 軽い検証
         final String merged = String.join("", parts);
+        final String sanitized = sanitizeMerged(merged);
+        assertNoLeadingBulletMarks(sanitized);
 
-        // 軽い検証のみ：<li> の先頭に装飾記号を含めない（非修正・違反なら失敗）
-        assertNoLeadingBulletMarks(merged);
-
-        return merged;
+        return sanitized;
     }
 
-    // --- Groq 呼び出し（指数バックオフ付） ---
+    // ----- Groq 呼び出し（指数バックオフ） -----
+
     private String callGroqOnceWithRetry(int chunkIndex, String chunk) throws IOException, InterruptedException {
         int attempt = 0;
         long backoff = 800;
@@ -101,7 +106,11 @@ public class LlmDescriptionFormatter {
         throw last != null ? last : new IOException("Groq call failed");
     }
 
-    /** 日本語プロンプト：LLM に完全委譲（箇条書きの先頭記号禁止まで明示） */
+    /**
+     * LLMプロンプト
+     * ・先頭に余計な文言を出さない
+     * ・<li>内に装飾記号を書かない
+     */
     private String callGroq(int chunkIndex, String chunk) throws IOException {
         final String system = """
 あなたはECサイト向けの「商品説明テキストの構造化クリーナー」です。
@@ -113,14 +122,14 @@ public class LlmDescriptionFormatter {
 
 【変換ルール】
 - 広告/クーポン/ショップ案内/FAQ/返品・交換/営業時間/連絡先/外部URL/JAN羅列/パンくず等のノイズは削除。
-- 「規格/サイズ/容量/素材・成分/内容量/セット内容」などは可能な限り <table> の Key-Value に整理。
-- 明確な列挙は <ul><li> に変換。
-- それ以外は自然な文で <p> として要約（機能・特徴・効果・使い方など）。
+- 「規格/サイズ/容量/素材・成分/内容量/セット内容」などは可能な限り<table>のKey-Valueに整理。
+- 明確な列挙は<ul><li>に変換。
+- それ以外は自然な文で<p>として要約（機能・特徴・使い方など）。
 - 重複や同義反復は圧縮（例：「特徴特徴」→「特徴」）。
-- 架空の情報を作らない。外部リンクを生成しない。
-- 片段（フラグメント）のみ返す（<html> 等は不要）。
-- 箇条書きの <li> テキスト先頭に『・』『●』『•』『-』『*』等の装飾記号を入れない。装飾は HTML の <ul> のみで表現する。
-- 箇条書きを使う場合は <section class="desc-section bullets"><ul>…</ul></section> を用い、各 <li> は素の文だけを書く。
+- 架空の情報は作らない。外部リンクを生成しない。
+- 出力は断片のみ（<html> 等は不要）。**<section>以外の先頭テキストを出力しない。**
+- 箇条書きの<li>テキスト先頭に『・』『●』『•』『-』『*』等の装飾記号を入れない（HTMLの<ul>側で表現する）。
+- **注意書き・謝罪・指示文・プレースホルダー文（例：「入力が必要です。原文を入力してください。」）は出力しない。**
 """;
 
         final String user = """
@@ -129,10 +138,10 @@ public class LlmDescriptionFormatter {
 %s
 
 出力要件:
-- 出力は HTML 断片のみ（<section> + <table>/<ul>/<p>）
-- 表にできない場合は <table> を省略可
-- 冗長/重複語の圧縮・言い換えで可読性を高める
-- 日本語の自然な文体で整形
+- 出力はHTML断片のみ（<section> + <table>/<ul>/<p>）
+- 表にできない場合は<table>省略可
+- 冗長/重複語を整理し読みやすく
+- 日本語の自然な文体
 """.formatted(chunkIndex + 1, chunk);
 
         return groq.chat(
@@ -142,23 +151,23 @@ public class LlmDescriptionFormatter {
         );
     }
 
-    // -------------------- helpers（整形ではなく分割・検証のための最小限） --------------------
+    // ----- ここからヘルパ -----
 
-    /** HTML があれば優先。無ければプレーン、最後にキャプション。 */
+    /** HTMLがあれば優先。無ければプレーン、最後にキャプション。 */
     private static String chooseBasePreferHtml(String html, String plain, String caption) {
         if (StringUtils.hasText(html)) return html;
         if (StringUtils.hasText(plain)) return plain;
         return caption != null ? caption : "";
     }
 
-    /** HTMLエンティティ解除・改行正規化（内容を改変しない範囲の最小化） */
+    /** 軽い正規化（エンティティ解除・改行統一） */
     private static String normalize(String s) {
         String t = (s == null) ? "" : HtmlUtils.htmlUnescape(s);
         t = t.replace("\r\n", "\n").replace("\r", "\n");
         return t.trim();
     }
 
-    /** 行ベースでチャンク化（LLM への入力サイズ制御；意味は変えない） */
+    /** サイズ制御のための行単位分割 */
     private static List<String> chunkSmart(String text, int targetLen) {
         final List<String> lines = Arrays.stream(text.split("\n"))
                 .map(String::trim).filter(l -> !l.isEmpty()).toList();
@@ -177,7 +186,41 @@ public class LlmDescriptionFormatter {
         return out;
     }
 
-    /** <li> の先頭に装飾記号が紛れ込んでいないかだけ検証（修正はしない） */
+    /**
+     * 先頭にゴミ文字が混入した場合などを除去
+     * ・<section>より前は捨てる
+     * ・よくある禁止文言を削除
+     * ・<section>で始まらないならエラー
+     */
+    private static String sanitizeMerged(String html) {
+        if (html == null) return "";
+        String s = html;
+
+        // <section> より前を削除
+        s = s.replaceFirst("(?s)^\\s*[^<]*?(?=<section\\b)", "");
+
+        // 禁止文言の追加除去
+        String[] banPhrases = {
+                "入力が必要です。原文を入力してください。",
+                "please provide input",
+                "no input provided",
+                "placeholder",
+                "これはテストです"
+        };
+        for (String bad : banPhrases) {
+            s = s.replace(bad, "");
+        }
+
+        // 最終的に<section>で始まらない場合は不正
+        if (!s.trim().startsWith("<section")) {
+            throw new IllegalStateException("LLM output did not start with <section> after sanitization.");
+        }
+        return s.trim();
+    }
+
+    /**
+     * <li> 先頭に装飾記号が入っていないかの簡易検証
+     */
     private static void assertNoLeadingBulletMarks(String html) {
         final var m = java.util.regex.Pattern
                 .compile("<li>\\s*([・●•\\-*])", java.util.regex.Pattern.DOTALL)
