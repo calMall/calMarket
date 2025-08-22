@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * 商品の取得・正規化を担当
@@ -29,6 +30,18 @@ public class ProductServiceImpl implements ProductService {
 
     private final DescriptionCleanerFacade descriptionCleanerFacade;
 
+    // 占位/ノイズとして判定する文言（caption の修復にも使う）
+    private static final String[] BANNED_PHRASES = {
+            "入力が必要です。原文を入力してください。",
+            "please provide input",
+            "no input provided",
+            "placeholder",
+            "これはテストです"
+    };
+
+    // <li> の先頭に装飾記号が残っているか（再整形の目安）
+    private static final Pattern BULLET_DECOR = Pattern.compile("<li>\\s*[・●•\\-*]");
+
     @Override
     public ResponseEntity<ProductDetailResponseDto> getProductDetail(String itemCode) {
         // 1) まずDBを参照
@@ -43,8 +56,8 @@ public class ProductServiceImpl implements ProductService {
                 return new ResponseEntity<>(buildFailResponse(), HttpStatus.BAD_REQUEST);
             }
 
-            // 3) 初回保存前に必要ならLLM整形
-            if (needsClean(product)) {
+            // 3) 初回保存前に必要なら LLM で整形（判定は desc のみ）
+            if (needsCleanDesc(product.getDescriptionHtml(), product.getDescriptionPlain())) {
                 log.debug("[normalize] 新規取得 → LLM 整形開始 itemCode={}", itemCode);
                 final String cleanHtml = descriptionCleanerFacade.buildCleanHtml(
                         product.getDescriptionHtml(),
@@ -54,8 +67,11 @@ public class ProductServiceImpl implements ProductService {
                 final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
                 product.setDescriptionHtml(cleanHtml);
                 product.setDescriptionPlain(cleanPlain);
-                // itemCaption は上書きしない
+                // caption が空 or 占位文言なら差し替え
+                product.setItemCaption(fixCaptionIfNeeded(product.getItemCaption(), cleanPlain));
             } else {
+                // desc は既に十分な体裁だが、caption の占位は別途修正
+                product.setItemCaption(fixCaptionIfNeeded(product.getItemCaption(), product.getDescriptionPlain()));
                 log.debug("[normalize] 新規取得だが整形不要と判定 itemCode={}", itemCode);
             }
 
@@ -63,10 +79,13 @@ public class ProductServiceImpl implements ProductService {
             log.info("[persist] 楽天APIから取得した商品を保存 itemCode={}", product.getItemCode());
 
         } else {
-            // 4) DBにある場合は必要に応じてLLM整形
+            // 4) DBにある場合：必要に応じて LLM、ついでに caption も補正
             log.info("[source=DB] 既存商品を取得 itemCode={} name={}", product.getItemCode(), product.getItemName());
 
-            if (needsClean(product)) {
+            boolean dirty = false;
+
+            // desc が粗い場合のみ LLM 実行
+            if (needsCleanDesc(product.getDescriptionHtml(), product.getDescriptionPlain())) {
                 log.debug("[normalize] DB命中だが未整形/不正規 → LLM 整形開始 itemCode={}", product.getItemCode());
                 final String cleanHtml = descriptionCleanerFacade.buildCleanHtml(
                         product.getDescriptionHtml(),
@@ -75,7 +94,6 @@ public class ProductServiceImpl implements ProductService {
                 );
                 final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
 
-                boolean dirty = false;
                 if (!equalsSafe(cleanHtml, product.getDescriptionHtml())) {
                     product.setDescriptionHtml(cleanHtml);
                     dirty = true;
@@ -84,7 +102,13 @@ public class ProductServiceImpl implements ProductService {
                     product.setDescriptionPlain(cleanPlain);
                     dirty = true;
                 }
-                // itemCaption は上書きしない
+
+                // caption が空 or 占位文言なら LLM 結果で補正
+                final String fixedCaption = fixCaptionIfNeeded(product.getItemCaption(), cleanPlain);
+                if (!equalsSafe(fixedCaption, product.getItemCaption())) {
+                    product.setItemCaption(fixedCaption);
+                    dirty = true;
+                }
 
                 if (dirty) {
                     product = productRepository.save(product);
@@ -92,8 +116,17 @@ public class ProductServiceImpl implements ProductService {
                 } else {
                     log.debug("[normalize] LLM 実行したが差分なし itemCode={}", product.getItemCode());
                 }
+
             } else {
-                log.debug("[normalize] DB命中かつ整形済み → LLM スキップ itemCode={}", product.getItemCode());
+                // desc はOK。caption だけ占位なら補正して保存
+                final String fixedCaption = fixCaptionIfNeeded(product.getItemCaption(), product.getDescriptionPlain());
+                if (!equalsSafe(fixedCaption, product.getItemCaption())) {
+                    product.setItemCaption(fixedCaption);
+                    product = productRepository.save(product);
+                    log.info("[normalize] caption を補正して保存 itemCode={}", product.getItemCode());
+                } else {
+                    log.debug("[normalize] DB命中かつ整形済み → LLM スキップ itemCode={}", product.getItemCode());
+                }
             }
         }
 
@@ -108,44 +141,51 @@ public class ProductServiceImpl implements ProductService {
     }
 
     /**
-     * LLM整形が必要かどうかを判定
+     * 説明文（desc）が LLM 整形を要するかを判定する。
+     * caption はここでは見ない（caption の占位は別途補正する）。
      */
-    private static boolean needsClean(Product p) {
-        final String html = p.getDescriptionHtml();
-        final String plain = p.getDescriptionPlain();
-        final String caption = p.getItemCaption();
-
-        if (!StringUtils.hasText(html) && !StringUtils.hasText(plain) && !StringUtils.hasText(caption)) {
+    private boolean needsCleanDesc(String html, String plain) {
+        // 入力が乏しい場合
+        if (!StringUtils.hasText(html) && !StringUtils.hasText(plain)) {
             return true;
         }
-
-        final String[] banned = {
-                "入力が必要です。原文を入力してください。",
-                "please provide input",
-                "no input provided",
-                "placeholder",
-                "これはテストです"
-        };
-        String all = (html == null ? "" : html) + "\n" +
-                (plain == null ? "" : plain) + "\n" +
-                (caption == null ? "" : caption);
-        for (String b : banned) {
-            if (all.contains(b)) return true;
+        // 占位・ノイズが混在
+        final String target = (html == null ? "" : html) + "\n" + (plain == null ? "" : plain);
+        for (String b : BANNED_PHRASES) {
+            if (target.contains(b)) return true;
         }
-
+        // 想定のセクション構造なら整形不要
         if (StringUtils.hasText(html)
                 && html.contains("desc-section")
                 && (html.contains("<p>") || html.contains("<ul") || html.contains("<table"))) {
-            if (java.util.regex.Pattern.compile("<li>\\s*[・●•\\-*]").matcher(html).find()) {
-                return true;
-            }
-            if (!html.trim().startsWith("<section")) {
-                return true;
-            }
+            // <li>先頭に装飾記号があれば再整形
+            if (BULLET_DECOR.matcher(html).find()) return true;
+            // <section> で開始しない（先頭にゴミ）なら再整形
+            if (!html.trim().startsWith("<section")) return true;
             return false;
         }
-
+        // それ以外は整形した方が安全
         return true;
+    }
+
+    /** caption が空/占位なら、plain から要約を作って返す。問題なければ元の caption を返す。 */
+    private String fixCaptionIfNeeded(String caption, String plainSource) {
+        if (isBlankOrBanned(caption)) {
+            String candidate = (plainSource == null) ? "" : plainSource.trim();
+            // 1行目または先頭80〜120文字程度で要約を作る
+            String firstLine = candidate.contains("\n") ? candidate.substring(0, candidate.indexOf('\n')).trim() : candidate;
+            if (firstLine.length() > 120) firstLine = firstLine.substring(0, 120).trim();
+            return StringUtils.hasText(firstLine) ? firstLine : "";
+        }
+        return caption;
+    }
+
+    private boolean isBlankOrBanned(String s) {
+        if (!StringUtils.hasText(s)) return true;
+        for (String b : BANNED_PHRASES) {
+            if (s.contains(b)) return true;
+        }
+        return false;
     }
 
     private boolean equalsSafe(String a, String b) {
@@ -159,7 +199,7 @@ public class ProductServiceImpl implements ProductService {
         ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
                 .itemCode(product.getItemCode())
                 .itemName(product.getItemName())
-                .itemCaption(product.getItemCaption())
+                .itemCaption(product.getItemCaption()) // 補正済み caption を返す
                 .catchcopy(product.getCatchcopy())
                 .score(score != null ? Math.round(score * 10.0) / 10.0 : 0.0)
                 .reviewCount(reviewCount)
