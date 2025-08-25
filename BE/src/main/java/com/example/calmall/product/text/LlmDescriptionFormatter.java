@@ -13,7 +13,9 @@ import java.util.List;
 import java.util.concurrent.*;
 
 
-// LLMで商品説明の整形
+/**
+ * LLMを用いた商品説明の整形
+ */
 @Slf4j
 public class LlmDescriptionFormatter {
 
@@ -29,8 +31,9 @@ public class LlmDescriptionFormatter {
         this.parallelism = parallelism;
     }
 
-
-    // 原文（HTML / プレーン / キャプション）をLLMで整形
+    /**
+     * 原文（HTML/プレーン/キャプション）をLLMで整形し HTML断片を返す
+     */
     public String cleanToHtml(String rawHtml, String rawPlain, String itemCaption) {
         final String base = chooseBasePreferHtml(rawHtml, rawPlain, itemCaption);
         if (!StringUtils.hasText(base)) {
@@ -78,8 +81,7 @@ public class LlmDescriptionFormatter {
         return sanitized;
     }
 
-    // Groq呼び出し
-
+    // --- Groq 呼び出し（指数バックオフ付き） ---
     private String callGroqOnceWithRetry(int chunkIndex, String chunk) throws IOException, InterruptedException {
         int attempt = 0;
         long backoff = 800;
@@ -99,35 +101,38 @@ public class LlmDescriptionFormatter {
         throw last != null ? last : new IOException("Groq call failed");
     }
 
-
-    // system / user プロンプト
+    // --- system / user プロンプト ---
     private String callGroq(int chunkIndex, String chunk) throws IOException {
         final String system = """
 あなたはECサイト向けの「商品説明テキストの構造化クリーナー」です。
 入力は雑多・重複・順序崩れを含む可能性があります。
 
 【出力フォーマット（厳守）】
-1) 最初に1個だけ <style> を出力してもよい（省略可）。必ず `.product-desc` / `.desc-section` を先頭にした**スコープ付き**の軽量CSSのみ（概ね 500行/20KB 未満）。body/html/ユニバーサル（*）直指定、アニメーション、外部フォント、URL参照は禁止。
-2) その直後に、埋め込み可能な**HTML断片**を出力する。先頭は必ず <section class="desc-section …"> から開始すること。
+1) 最初に1個だけ <style> を出力してもよい（省略可）。
+   - 必ず `.product-desc` / `.desc-section` を先頭にしたスコープ付きCSSのみ
+   - 最大500行/20KB未満
+   - body/html/* の直指定、アニメーション、外部フォント、URL参照は禁止
+2) 直後に <section class="desc-section …"> から始まる HTML断片を出力する。
 
-【許可される要素・属性（HTML側）】
+【許可される要素】
 <section class="desc-section table|bullets|body">、<table><tr><th|td>、<ul><li>、<p>
-（<style> は先頭1個のみ許可。<script>・<link>・<iframe> などは禁止）
+（<style> は先頭1個のみ許可。<script>/<link>/<iframe>は禁止）
 
 【CSSガイドライン】
-- 影響範囲は `.product-desc` / `.desc-section` 配下のみに限定（例: `.product-desc .desc-section {...}`）。
-- 表はボーダーと余白、箇条書きは行間・インデント、本文は段落間隔など最低限に留める。
-- 配色はニュートラル（ダーク対応は prefers-color-scheme のみ）。
+- 影響範囲は `.product-desc` / `.desc-section` 内のみに限定
+- デザインはシンプル（表はボーダー、箇条書きは余白、本文は行間）
+- 配色はニュートラル（ダーク対応は prefers-color-scheme のみ）
 
-【変換ルール（本文）】
-- 広告/クーポン/ショップ案内/FAQ/返品・交換/営業時間/連絡先/外部URL/JAN羅列/パンくず等のノイズは削除。
-- 「規格/サイズ/容量/素材・成分/内容量/セット内容」などは可能な限り <table> の Key-Value に整理。
-- 明確な列挙は <ul><li> に変換。それ以外は自然な文で <p> に要約（機能・特徴・使い方など）。
-- 重複や同義反復は圧縮（「特徴特徴」→「特徴」など）。
-- 架空の情報は作らない。外部リンクを生成しない。
-- 出力は **CSS（任意）→HTML断片** のみ（<html> 等は不要）。
-- 箇条書きの <li> テキスト先頭に『・』『●』『•』『-』『*』等の装飾記号を入れない。
-- **注意書き・謝罪・指示文・プレースホルダー文（例：「入力が必要です。原文を入力してください。」）は出力しない。**
+【変換ルール】
+- 広告/クーポン/ショップ案内/FAQ/返品・交換/営業時間/連絡先/外部URL/JAN羅列などは削除
+- 「規格/サイズ/容量/素材・成分/内容量/セット内容」などは<table>に整理
+- 箇条書きは<ul><li>
+- それ以外は<p>に要約
+- 重複語は圧縮（例:「特徴特徴」→「特徴」）
+- 架空の情報や外部リンクは生成禁止
+- 出力は **CSS(任意) → HTML断片** のみ
+- <li> の先頭に装飾記号は入れない
+- **システム/ユーザーからの指示文やプレースホルダー文は出力しない**
 """;
 
         final String user = """
@@ -136,7 +141,7 @@ public class LlmDescriptionFormatter {
 %s
 
 出力要件:
-- 先頭に1つだけ<style>（任意）→ 直後に<section>で始まるHTML断片
+- 先頭に <style>（任意）→ 続いて <section> で始まるHTML断片
 - 表にできない内容は<table>省略可
 - 冗長や重複を整理して読みやすく
 - 日本語の自然な文体
@@ -149,21 +154,20 @@ public class LlmDescriptionFormatter {
         );
     }
 
-    // HTMLを優先。無ければプレーン、最後にキャプション
+    // --- Utility ---
+
     private static String chooseBasePreferHtml(String html, String plain, String caption) {
         if (StringUtils.hasText(html)) return html;
         if (StringUtils.hasText(plain)) return plain;
         return caption != null ? caption : "";
     }
 
-    // 正規化
     private static String normalize(String s) {
         String t = (s == null) ? "" : HtmlUtils.htmlUnescape(s);
         t = t.replace("\r\n", "\n").replace("\r", "\n");
         return t.trim();
     }
 
-    // 目安サイズで行単位にまとめる
     private static List<String> chunkSmart(String text, int targetLen) {
         final List<String> lines = Arrays.stream(text.split("\n"))
                 .map(String::trim).filter(l -> !l.isEmpty()).toList();
@@ -182,31 +186,27 @@ public class LlmDescriptionFormatter {
         return out;
     }
 
-
-    // LLM連結出力のサニタイズ
+    /**
+     * LLM出力のサニタイズ
+     */
     private static String sanitizeMerged(String html) {
         if (html == null) return "";
         String s = html;
 
+        // <script> を削除
         s = s.replaceAll("(?is)<script[^>]*>.*?</script>", "");
 
+        // 最初の<style>を抽出（安全検査）
         String keepStyle = "";
-        java.util.regex.Matcher sm = java.util.regex.Pattern
-                .compile("(?is)^\\s*<style[^>]*>(.*?)</style>")
-                .matcher(s);
+        var sm = java.util.regex.Pattern.compile("(?is)^\\s*<style[^>]*>(.*?)</style>").matcher(s);
         if (sm.find()) {
-            final String styleBlock = sm.group(0);
-            final String styleBody  = sm.group(1);
+            String styleBlock = sm.group(0);
+            String styleBody  = sm.group(1);
 
-            boolean hasGlobalSelector =
-                    styleBody.matches("(?is).*(^|[\\s{;])(body|html|\\*)\\s*[,\\.{:#\\s].*");
-            boolean hasForbiddenAtRules =
-                    styleBody.matches("(?is).*(?:@keyframes|@font-face).*");
-            boolean hasUrlUsage =
-                    styleBody.matches("(?is).*url\\s*\\(.*\\).*");
-
-            boolean scopedOk =
-                    styleBody.matches("(?is).*(?:\\.(product-desc|desc-section)).*");
+            boolean hasGlobalSelector = styleBody.matches("(?is).*(^|[\\s{;])(body|html|\\*)\\s*[,\\.{:#\\s].*");
+            boolean hasForbiddenAtRules = styleBody.matches("(?is).*(?:@keyframes|@font-face).*");
+            boolean hasUrlUsage = styleBody.matches("(?is).*url\\s*\\(.*\\).*");
+            boolean scopedOk = styleBody.matches("(?is).*(?:\\.(product-desc|desc-section)).*");
 
             if (!hasGlobalSelector && !hasForbiddenAtRules && !hasUrlUsage && scopedOk) {
                 keepStyle = styleBlock;
@@ -214,19 +214,15 @@ public class LlmDescriptionFormatter {
             s = s.substring(sm.end());
         }
 
-        // 以降に現れる style は全部削除
+        // 残りの<style>は削除
         s = s.replaceAll("(?is)<style[^>]*>.*?</style>", "");
 
-        // <section> より前のノイズを落とす
+        // <section>より前のノイズを削除
         s = s.replaceFirst("(?s)^\\s*[^<]*?(?=<section\\b)", "");
 
-        // 最終的に <section> が先頭であること
-        if (!s.trim().startsWith("<section")) {
-            throw new IllegalStateException("LLM output did not start with <section> after sanitization.");
-        }
-
-        // よくある不要フレーズを削除
+        // 禁止文言を削除
         String[] banPhrases = {
+                "出力要件は、先頭に1つだけ",
                 "入力が必要です。原文を入力してください。",
                 "please provide input",
                 "no input provided",
@@ -237,18 +233,20 @@ public class LlmDescriptionFormatter {
             s = s.replace(bad, "");
         }
 
-        // 許容した style があれば先頭に戻す
+        if (!s.trim().startsWith("<section")) {
+            throw new IllegalStateException("LLM output did not start with <section> after sanitization.");
+        }
+
         return (keepStyle + s).trim();
     }
 
-    // <li> 先頭の装飾記号を禁止
+    // <li>先頭に装飾記号が無いか確認
     private static void assertNoLeadingBulletMarks(String html) {
-        final var m = java.util.regex.Pattern
+        var m = java.util.regex.Pattern
                 .compile("<li>\\s*([・●•\\-*])", java.util.regex.Pattern.DOTALL)
                 .matcher(html);
         if (m.find()) {
-            throw new IllegalStateException(
-                    "LLM bullet formatting violated: found leading bullet marks inside <li>.");
+            throw new IllegalStateException("LLM bullet formatting violated: found leading bullet marks inside <li>.");
         }
     }
 }
