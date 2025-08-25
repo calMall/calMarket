@@ -1,7 +1,7 @@
 import { FaRegCheckCircle } from "react-icons/fa";
 
 interface props {
-  status: OrderStatus;
+  status: OrderStatusUI;
 }
 export default function OrderStatus({ status }: props) {
   const statusOrder = { PENDING: 0, SHIPPED: 1, DELIVERED: 2 };
@@ -12,7 +12,7 @@ export default function OrderStatus({ status }: props) {
   };
   return (
     <div className="status-wrapper">
-      {(["PENDING", "SHIPPED", "DELIVERED"] as OrderStatus[]).map(
+      {(["PENDING", "SHIPPED", "DELIVERED"] as OrderStatusUI[]).map(
         (s, idx, arr) => (
           <div key={s} className="status-step ">
             <FaRegCheckCircle

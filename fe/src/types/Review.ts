@@ -15,7 +15,7 @@ interface ReviewDTO {
 
 interface ReviewDTOonProduct extends ReviewDTO {
   itemCode: string;
-  like: boolean;
+  isLike: boolean;
   likeCount: number;
   userNickname: string;
   createdAt: string;

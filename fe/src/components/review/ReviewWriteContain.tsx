@@ -35,26 +35,30 @@ export default function ReviewWriteContain({
   const [selectedImage, setSelectedImage] = useState<string[]>([]);
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [isReviewloading, setIsReviewUploading] = useState(false);
+  const [isImageDeleteLoading, setIsImageDeleteLoading] = useState(false);
   const deleteInitImage = async () => {
     if (window.confirm("選択した画像を削除しますか？")) {
       if (selectedImage.length === 0)
         return alert("選択された画像がありません");
       try {
+        setIsImageDeleteLoading(true);
         const data = await deleteReviewImage(selectedImage);
         if (data.message === "success") {
           setInitialImages((prev) => {
             return prev.filter((p) => !selectedImage.includes(p));
           });
+          setIsImageDeleteLoading(false);
           setSelectedImage([]);
-          alert();
+          alert("画像を削除しました。");
         }
       } catch (e: any) {
         if (e.status === 401) {
           alert("ログインが必要です。ログインページに移動します。");
           userStore.logout();
-          router.push("/login");
+          return router.push("/login");
         } else {
-          alert(e.message);
+          setIsImageDeleteLoading(false);
+          alert("画像を削除に失敗しました。");
         }
       }
     }
@@ -138,7 +142,7 @@ export default function ReviewWriteContain({
       if (e.status === 401) {
         alert("ログインが必要です。ログインページに移動します。");
         userStore.logout();
-        router.push("/login");
+        return router.push("/login");
       } else {
         if (method === "POST") {
           return alert("レビューの投稿に失敗しました。");
@@ -147,6 +151,8 @@ export default function ReviewWriteContain({
         }
         alert(e.message);
       }
+      setIsImageUploading(false);
+      setIsReviewUploading(false);
     }
   };
 
@@ -161,6 +167,9 @@ export default function ReviewWriteContain({
               : "レビューを投稿しています"
           }
         />
+      )}
+      {isImageDeleteLoading && (
+        <CustomAlert status="loading" text={"画像を削除しています"} />
       )}
       <div style={{ display: "flex", gap: "4px" }}>
         {[1, 2, 3, 4, 5].map((star) => (
