@@ -50,7 +50,7 @@ type OrderStatus =
   | "PENDING"
   | "CANCELLED"
   | "REFUNDED";
-
+type OrderStatusUI = "PENDING" | "SHIPPED" | "DELIVERED";
 interface OrderListResponseDto extends ResponseDTO {
   orders: OrderInfoOnList[];
 }

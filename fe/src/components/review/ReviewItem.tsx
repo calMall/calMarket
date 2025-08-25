@@ -19,7 +19,7 @@ export default function ReviewItem({
   isMy?: boolean;
   refreshData: Function;
 }) {
-  const [isLike, setIsLike] = useState(review.like);
+  const [isLike, setIsLike] = useState(review.isLike);
   const [likeCount, setLikeCount] = useState(review.likeCount);
   const [isViewModal, setIsViewModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
