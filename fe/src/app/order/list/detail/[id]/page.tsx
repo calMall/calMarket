@@ -44,7 +44,7 @@ export default function OrderDetail({
           userStore.logout();
           return router.push("/login");
         }
-        alert(e.message);
+        alert(e.message.split(":")[1].trim());
         router.back();
       }
     }
@@ -61,7 +61,7 @@ export default function OrderDetail({
           userStore.logout();
           return router.push("/login");
         }
-        alert(e.message);
+        alert(e.message.split(":")[1].trim());
         return router.back();
       }
     }
@@ -159,6 +159,9 @@ export default function OrderDetail({
                 </div>
               </div>
             ))}
+          <button className="red-hover" onClick={onRefundOrder}>
+            払い戻し
+          </button>
 
           <div className="order-date" style={{ marginBottom: "1rem" }}>
             注文日：{orderInfo && dateFormat(orderInfo.orderDate)}

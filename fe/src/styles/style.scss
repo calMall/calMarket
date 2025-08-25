@@ -1449,3 +1449,14 @@ textarea {
   padding-bottom: 1rem;
   color: red;
 }
+
+footer {
+  background-color: $main-color;
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem;
+  @include mobile() {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
