@@ -131,6 +131,13 @@ body {
   color: red;
 }
 
+.red-hover {
+  color: red;
+  &:hover {
+    color: #a21313;
+    transition: 0.3s;
+  }
+}
 .jb {
   justify-content: space-between;
 }
@@ -148,7 +155,7 @@ body {
 .header {
   background-color: $main-light-color;
   height: 4rem;
-  padding-right: 1.5rem;
+  padding-right: 0.5rem;
   @include shadow-box();
 }
 
@@ -1374,4 +1381,71 @@ textarea {
     box-shadow: none;
     transition: 0.3s;
   }
+}
+.status-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
+}
+
+.status-step {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.status-segment {
+  position: absolute;
+  top: 14%;
+  left: 50%;
+  width: 100%;
+  height: 6px;
+  background: #e0e0e0;
+  z-index: -1;
+}
+
+.status-segment.active {
+  background: #3498db;
+}
+
+@keyframes status-bar-anime {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.status-step {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  animation: status-bar-anime 1s;
+}
+
+.status-icon {
+  background: white;
+  border-radius: 50%;
+  font-size: large;
+  z-index: 3;
+}
+.status-icon.active {
+  background: $main-dark-color;
+  color: white;
+}
+
+.delivered-message {
+  font-size: large;
+  font-weight: bold;
+  padding-bottom: 1rem;
+  color: red;
 }
