@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import javax.management.RuntimeErrorException;
+
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
@@ -116,7 +118,8 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new RuntimeException("注文が見つからないか、アクセス権限がありません。"));
 
         if (!canCancel(orderId, userId)) {
-            throw new RuntimeException("キャンセルは注文受付（PENDING）状態のときのみ可能です。");
+            throw new RuntimeException("キャンセルは注文受付状態のときのみ可能です。"+"");
+
         }
 
         for (OrderItems item : order.getOrderItems()) {
@@ -140,7 +143,8 @@ public class OrderServiceImpl implements OrderService {
         Orders order = ordersRepository.findByIdAndUser_UserId(orderId, userId)
                 .orElseThrow(() -> new RuntimeException("注文が見つからないか、アクセス権限がありません。"));
         if (!canRefund(orderId, userId)) {
-            throw new RuntimeException("払い戻しは配達完了（DELIVERED）状態のときのみ可能です。");
+            throw new RuntimeException("払い戻しは配達完了状態のときのみ可能です。"+"");
+
         }
         order.setStatus("REFUNDED");
         ordersRepository.save(order);
