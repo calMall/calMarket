@@ -81,8 +81,8 @@ public class ProductServiceImpl implements ProductService {
                 log.info("[forceFetch][normalize] caption を補正 itemCode={}", itemCode);
             }
 
-            // 4) 既存があれば id を引き継いで上書き保存
-            Product saved = productRepository.save(mergeIdsIfNeeded(db, fetched));
+            // 4) DBに既存があれば置き換え保存
+            Product saved = productRepository.save(fetched);
             log.info("[forceFetch] 楽天APIの内容で保存 itemCode={}", saved.getItemCode());
             return ResponseEntity.ok(buildSuccessResponse(saved));
         }
@@ -142,11 +142,7 @@ public class ProductServiceImpl implements ProductService {
                 .orElseGet(() -> new ResponseEntity<>(false, HttpStatus.BAD_REQUEST));
     }
 
-    private static Product mergeIdsIfNeeded(Product db, Product fetched) {
-        return fetched; // そのまま返す
-    }
-
-    // --- 以下、既存のユーティリティ群は変更なし ---
+    // --- 以下、既存のユーティリティ群 ---
 
     private static boolean needsClean(Product p) {
         final String html = p.getDescriptionHtml();
@@ -186,6 +182,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private String fixCaptionIfNeeded(String current, String html, String plain) {
+        // HTML/CSS が混入していたら強制補正
+        if (current != null && (current.contains("<style") || current.contains("<section"))) {
+            current = null;
+        }
         if (!isBadCaption(current)) return current;
 
         String picked = pickCaptionFromHtml(html);
@@ -229,6 +229,7 @@ public class ProductServiceImpl implements ProductService {
         if (HEADING_ONLY.matcher(t).matches()) return true;
         String low = t.toLowerCase();
         if (low.contains("入力が必要") || low.contains("provide input") || low.contains("placeholder")) return true;
+        if (t.contains("<") || t.contains(">")) return true; // HTMLタグ混入禁止
         return false;
     }
 
