@@ -163,7 +163,9 @@ export default function OrderDetail({
           <div className="order-date" style={{ marginBottom: "1rem" }}>
             注文日：{orderInfo && dateFormat(orderInfo.orderDate)}
           </div>
-          {orderInfo && <OrderStatus status={orderInfo.status} />}
+          {orderInfo && (
+            <OrderStatus status={orderInfo.status as OrderStatusUI} />
+          )}
           <div className="delivered-message bb">
             {orderInfo && orderInfo.status === "DELIVERED"
               ? "配達が完了しました。"
