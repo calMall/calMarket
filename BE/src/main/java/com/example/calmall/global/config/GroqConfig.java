@@ -6,13 +6,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Groq クライアントの Spring 構成。
- * - API Key は環境変数 GROQ_API_KEY または application.properties から取得
- */
+
+//  Groq クライアントの Spring 構成クラス
 @Configuration
 public class GroqConfig {
 
+
+    // Groqクライアントを生成
     @Bean
     public GroqClient groqClient(
             @Value("${groq.api.base}") String base,
@@ -22,13 +22,17 @@ public class GroqConfig {
         return new GroqClient(base, key, timeoutMs);
     }
 
+
+    // LLM商品説明整形用フォーマッタ
     @Bean
     public LlmDescriptionFormatter llmDescriptionFormatter(
             GroqClient client,
-            @Value("${groq.model}") String model,
-            @Value("${groq.max.tokens:1024}") int maxTokens,
-            @Value("${groq.max.parallel:2}") int parallel
+            @Value("${groq.model}") String model
     ) {
+        // 推奨値を直接設定
+        int maxTokens = 768;
+        int parallel = 2;
+
         return new LlmDescriptionFormatter(client, model, maxTokens, parallel);
     }
 }
