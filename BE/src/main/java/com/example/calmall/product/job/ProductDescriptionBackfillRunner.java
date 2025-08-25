@@ -3,7 +3,7 @@ package com.example.calmall.product.job;
 import com.example.calmall.product.entity.Product;
 import com.example.calmall.product.repository.ProductRepository;
 import com.example.calmall.product.service.RakutenApiService;
-import com.example.calmall.product.text.DescriptionSuperCleaner;
+import com.example.calmall.product.text.DescriptionCleanerFacade; // ★ Facade 注入
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +19,9 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
 
     private final ProductRepository productRepository;
     private final RakutenApiService rakutenApiService;
+
+    // ★ 追加
+    private final DescriptionCleanerFacade descriptionCleanerFacade;
 
     // 起動時に実行するか
     @Value("${backfill.product-description:false}")
@@ -58,7 +61,6 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
             for (Product prod : p.getContent()) {
                 try {
                     processed++;
-
                     Product source = prod;
 
                     // --- mode=refetch の場合、楽天API再取得 ---
@@ -72,13 +74,13 @@ public class ProductDescriptionBackfillRunner implements CommandLineRunner {
                         }
                     }
 
-                    // --- SuperCleaner で再整形 ---
-                    String cleanHtml = DescriptionSuperCleaner.buildCleanHtml(
+                    // ★ Facade 経由（LLM → fallback）
+                    String cleanHtml = descriptionCleanerFacade.buildCleanHtml(
                             source.getDescriptionHtml(),
                             source.getDescriptionPlain(),
                             source.getItemCaption()
                     );
-                    String cleanPlain = DescriptionSuperCleaner.toPlain(cleanHtml);
+                    String cleanPlain = descriptionCleanerFacade.toPlain(cleanHtml);
 
                     boolean dirty = false;
 

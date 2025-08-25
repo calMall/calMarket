@@ -8,11 +8,17 @@ import CustomInput from "../common/CustomInput";
 import UserStore from "@/store/user";
 import { IoCameraOutline, IoCloseSharp } from "react-icons/io5";
 import { FaCheck } from "react-icons/fa";
+import CustomAlert from "../common/CustomAlert";
 interface props {
   itemCode: string;
   initialData: ReviewDTOonProduct | null;
+  reviewId?: number;
 }
-export default function ReviewWriteContain({ itemCode, initialData }: props) {
+export default function ReviewWriteContain({
+  itemCode,
+  initialData,
+  reviewId,
+}: props) {
   const [hovered, setHovered] = useState(initialData ? initialData.rating : 0);
   const [rating, setRating] = useState(initialData ? initialData.rating : 0);
   const [content, setContent] = useState(
@@ -27,6 +33,8 @@ export default function ReviewWriteContain({ itemCode, initialData }: props) {
     initialData ? initialData.imageList : []
   );
   const [selectedImage, setSelectedImage] = useState<string[]>([]);
+  const [isImageUploading, setIsImageUploading] = useState(false);
+  const [isReviewloading, setIsReviewUploading] = useState(false);
   const deleteInitImage = async () => {
     if (window.confirm("選択した画像を削除しますか？")) {
       if (selectedImage.length === 0)
@@ -89,59 +97,71 @@ export default function ReviewWriteContain({ itemCode, initialData }: props) {
   };
 
   const onPostReview = async () => {
+    const method = initialData ? "PATCH" : "POST";
     if (!rating) return alert("レビューには星の評価が必要です。");
     if (!content) return alert("レビュー内容を入力してください。");
     try {
       let uploaded: string[] = [];
 
       if (imageList && imageList.length > 0) {
+        setIsImageUploading(true);
         const imageUrls = await postUploadImage(imageList);
-        console.log(imageUrls);
         uploaded = imageUrls.imageUrls;
+        setIsImageUploading(false);
       }
-
+      if (initialImages.length > 0) {
+        uploaded = [...uploaded, ...initialImages];
+      }
       const review: ReviewRequestDto = {
-        itemCode: decodeURIComponent(itemCode),
+        ...(initialData ? {} : { itemCode: decodeURIComponent(itemCode) }),
         rating,
         comment: content,
         title: title,
         imageList: uploaded,
       };
-      const method = initialData ? "PATCH" : "POST";
+      setIsReviewUploading(true);
       const res = await postReview(
         method,
         review,
-        initialData ? initialData!.reviewId : null
+        reviewId && initialData ? reviewId : null
       );
-      if (res.message === "success") {
-        if (method === "POST") {
-          alert("レビューが投稿されました。");
-        } else if (method === "PATCH") {
-          alert("レビューを編集しました。");
-        }
-        router.back();
-      } else {
-        alert("レビューの投稿に失敗しました。");
+      console.log(res);
+      setIsReviewUploading(false);
+
+      if (method === "POST") {
+        alert("レビューが投稿されました。");
+      } else if (method === "PATCH") {
+        alert("レビューを編集しました。");
       }
+      router.back();
     } catch (e: any) {
       if (e.status === 401) {
         alert("ログインが必要です。ログインページに移動します。");
         userStore.logout();
         router.push("/login");
       } else {
+        if (method === "POST") {
+          return alert("レビューの投稿に失敗しました。");
+        } else if (method === "PATCH") {
+          return alert("レビューの編集に失敗しました。");
+        }
         alert(e.message);
       }
     }
   };
 
-  // useEffect(() => {
-  //   if (initialImages && initialImages.length === 0) {
-  //     setInitialImages(null);
-  //   }
-  // }, [initialImages]);
-
   return (
     <div className="mt-2">
+      {(isImageUploading || isReviewloading) && (
+        <CustomAlert
+          status="loading"
+          text={
+            isImageUploading
+              ? "画像をアップロードしています"
+              : "レビューを投稿しています"
+          }
+        />
+      )}
       <div style={{ display: "flex", gap: "4px" }}>
         {[1, 2, 3, 4, 5].map((star) => (
           <span

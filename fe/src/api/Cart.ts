@@ -64,11 +64,17 @@ export const getCheckout = async (
   });
 
   if (!data.ok) {
-    const error: any = new Error(data.statusText);
-    console.log(error);
+    let errorMessage = data.statusText;
+    const errorBody = await data.json();
+    if (errorBody && errorBody.message) {
+      errorMessage = errorBody.message;
+    }
+    const error: any = new Error(errorMessage);
     error.status = data.status;
+
     throw error;
   }
+
   return data.json();
 };
 

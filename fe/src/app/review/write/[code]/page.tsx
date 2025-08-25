@@ -41,6 +41,7 @@ export default async function ReviewWrite({
           <div className="review-itemname">{product.itemName}</div>
         </Link>
         <ReviewWriteContain
+          reviewId={Number(reviewId)}
           initialData={initialData ? initialData : null}
           itemCode={code}
         />

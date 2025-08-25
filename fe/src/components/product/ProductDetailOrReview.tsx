@@ -37,7 +37,7 @@ export default function ProductDetailOrReview({
       </div>
       {type === "detail" ? (
         <div
-          className="mt-1 break-words"
+          className="mt-1 break-words product-desc"
           dangerouslySetInnerHTML={{ __html: text }}
         />
       ) : (

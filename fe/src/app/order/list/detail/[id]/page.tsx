@@ -2,6 +2,7 @@
 
 import { getOrderDetail } from "@/api/Order";
 import CustomLayout from "@/components/common/CustomLayout";
+import LoadingOrderBox from "@/components/order/LoadingOrderBox";
 import UserStore from "@/store/user";
 import { dateFormat } from "@/utils/dateFormat";
 import Image from "next/image";
@@ -65,7 +66,7 @@ export default function OrderDetail({
     <CustomLayout>
       <h2>注文の詳細</h2>
       {loading ? (
-        <p>Loading...</p>
+        [1, 2, 3].map((_) => <LoadingOrderBox key={_} />)
       ) : (
         <>
           {orderInfo &&

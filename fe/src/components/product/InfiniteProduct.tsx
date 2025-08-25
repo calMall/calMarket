@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ProductItem from "./ProductItem";
+import SpinnerComponent from "../common/SpinnerComponent";
 
 interface props {
   keyword: string;
@@ -51,8 +52,8 @@ export default function InfiniteProduct({ keyword, hits, isNextPage }: props) {
         next={refreshData}
         hasMore={hasNextPage}
         loader={
-          <div className="flex jc mt-1 mb-1 wf">
-            <Image width={50} height={50} src="/spinner.gif" alt="loading" />
+          <div className="mt-1">
+            <SpinnerComponent />
           </div>
         }
         scrollableTarget="scrollableDiv"
