@@ -47,3 +47,46 @@ export const getOrderList = async (): Promise<OrderListResponseDto> => {
   }
   return data.json();
 };
+
+export const PostCancelOrder = async (
+  orderId: number
+): Promise<ResponseDTO> => {
+  const data = await fetch(`${url}/orders/cancel/${orderId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+
+  if (!data.ok) {
+    let errorMessage = data.statusText;
+    const errorBody = await data.json();
+    if (errorBody && errorBody.message) {
+      errorMessage = errorBody.message;
+    }
+    const error: any = new Error(errorMessage);
+    error.status = data.status;
+    throw error;
+  }
+  return data.json();
+};
+export const PostRefundOrder = async (
+  orderId: number
+): Promise<ResponseDTO> => {
+  const data = await fetch(`${url}/orders/refund/${orderId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+
+  if (!data.ok) {
+    let errorMessage = data.statusText;
+    const errorBody = await data.json();
+    if (errorBody && errorBody.message) {
+      errorMessage = errorBody.message;
+    }
+    const error: any = new Error(errorMessage);
+    error.status = data.status;
+    throw error;
+  }
+  return data.json();
+};

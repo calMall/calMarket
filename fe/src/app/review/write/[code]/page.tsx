@@ -22,9 +22,9 @@ export default async function ReviewWrite({
     if (reviewId !== undefined) {
       const data = await getReviewDetail(Number(reviewId));
       initialData = data;
-      console.log(data);
     }
-    const { product } = await getProductDetail(code);
+    const { product } = await getProductDetail(decodeURIComponent(code));
+
     return (
       <CustomLayout>
         <h2>商品はいかがでしたか？</h2>
@@ -48,6 +48,7 @@ export default async function ReviewWrite({
       </CustomLayout>
     );
   } catch (e) {
+    console.log(e);
     return <ErrorComponent />;
   }
 }

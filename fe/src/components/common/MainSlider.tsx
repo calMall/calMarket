@@ -83,7 +83,7 @@ export default function MainSlider() {
     ]
   );
   return (
-    <div className="rt">
+    <div className="rt main-slider-contain">
       <div ref={sliderRef} className="keen-slider">
         {eventList.map((event) => (
           <div key={event} className="keen-slider__slide">

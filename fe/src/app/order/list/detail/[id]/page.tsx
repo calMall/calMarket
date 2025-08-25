@@ -1,8 +1,9 @@
 "use client";
 
-import { getOrderDetail } from "@/api/Order";
+import { getOrderDetail, PostCancelOrder, PostRefundOrder } from "@/api/Order";
 import CustomLayout from "@/components/common/CustomLayout";
 import LoadingOrderBox from "@/components/order/LoadingOrderBox";
+import OrderStatus from "@/components/order/OrderStatus";
 import UserStore from "@/store/user";
 import { dateFormat } from "@/utils/dateFormat";
 import Image from "next/image";
@@ -31,6 +32,41 @@ export default function OrderDetail({
   const userStore = UserStore();
   const router = useRouter();
 
+  const onCancelOrder = async () => {
+    if (window.confirm("注文をキャンセルしますか？")) {
+      try {
+        const { id } = await params;
+        const res = await PostCancelOrder(Number(id));
+        console.log(res);
+      } catch (e: any) {
+        if (e.status === 401) {
+          alert("ログインが必要です。ログインページに移動します。");
+          userStore.logout();
+          return router.push("/login");
+        }
+        alert(e.message.split(":")[1].trim());
+        router.back();
+      }
+    }
+  };
+  const onRefundOrder = async () => {
+    if (window.confirm("注文を払い戻しますか？")) {
+      try {
+        const { id } = await params;
+        const res = await PostRefundOrder(Number(id));
+        console.log(res);
+      } catch (e: any) {
+        if (e.status === 401) {
+          alert("ログインが必要です。ログインページに移動します。");
+          userStore.logout();
+          return router.push("/login");
+        }
+        alert(e.message.split(":")[1].trim());
+        return router.back();
+      }
+    }
+  };
+
   const fetchData = async () => {
     try {
       const { id } = await params;
@@ -54,8 +90,8 @@ export default function OrderDetail({
         userStore.logout();
         return router.push("/login");
       }
-      alert("エラーが発生しました。");
-      router.back();
+      alert(e.message);
+      return router.back();
     }
   };
 
@@ -100,19 +136,46 @@ export default function OrderDetail({
                     <p>{item.itemName}</p>
                   </div>
                 </Link>
-                <Link
-                  className="review-write-btn"
-                  href={`/review/write/${item.itemCode}`}
-                >
-                  レビューを書く
-                </Link>
+                <div className="wf flex jb">
+                  {orderInfo && orderInfo.status === "DELIVERED" && (
+                    <Link
+                      className="review-write-btn"
+                      href={`/review/write/${item.itemCode}`}
+                    >
+                      レビューを書く
+                    </Link>
+                  )}
+                  {orderInfo.status === "PENDING" ? (
+                    <button className="red-hover" onClick={onCancelOrder}>
+                      注文キャンセル
+                    </button>
+                  ) : (
+                    orderInfo.status === "DELIVERED" && (
+                      <button className="red-hover" onClick={onRefundOrder}>
+                        払い戻し
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
             ))}
+          <button className="red-hover" onClick={onRefundOrder}>
+            払い戻し
+          </button>
 
           <div className="order-date" style={{ marginBottom: "1rem" }}>
             注文日：{orderInfo && dateFormat(orderInfo.orderDate)}
           </div>
-
+          {orderInfo && <OrderStatus status={orderInfo.status} />}
+          <div className="delivered-message bb">
+            {orderInfo && orderInfo.status === "DELIVERED"
+              ? "配達が完了しました。"
+              : orderInfo && orderInfo.status === "CANCELLED"
+              ? "キャンセルされた注文です。"
+              : orderInfo && orderInfo.status === "REFUNDED"
+              ? "払い戻しが完了しました。"
+              : ""}
+          </div>
           <h3
             style={{
               fontWeight: "bold",

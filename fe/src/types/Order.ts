@@ -42,9 +42,14 @@ interface OrderInfo {
   orderDate: string;
   orderId: number;
   orderItems: OrderedItem[];
-  status: status;
+  status: OrderStatus;
 }
-type status = "DELIVERED" | "SHIPPED" | "PENDING";
+type OrderStatus =
+  | "DELIVERED"
+  | "SHIPPED"
+  | "PENDING"
+  | "CANCELLED"
+  | "REFUNDED";
 
 interface OrderListResponseDto extends ResponseDTO {
   orders: OrderInfoOnList[];
