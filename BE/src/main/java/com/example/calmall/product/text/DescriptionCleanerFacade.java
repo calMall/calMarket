@@ -29,12 +29,16 @@ public class DescriptionCleanerFacade {
         log.debug("[Groq LLM] inputHtml={} inputPlain={} itemCaption={} itemName={}",
                 preview(descriptionHtml), preview(descriptionPlain), preview(itemCaption), preview(itemName));
 
+        // Formatter 側で一次整形
         final String llm = llmFormatter.cleanToHtml(descriptionHtml, descriptionPlain, itemCaption, itemName);
 
-        log.debug("[Groq LLM] raw response length={} preview={}",
-                (llm != null ? llm.length() : 0), preview(llm));
+        // Facade 側でも二重防御としてフィルタリング
+        final String cleaned = filterPlaceholder(llm);
 
-        return llm;
+        log.debug("[Groq LLM] raw response length={} preview={}",
+                (cleaned != null ? cleaned.length() : 0), preview(cleaned));
+
+        return cleaned;
     }
 
     /** 互換性維持（旧シグネチャ用） */
@@ -52,5 +56,15 @@ public class DescriptionCleanerFacade {
         if (s == null) return "null";
         final String t = s.replaceAll("\\s+", " ").trim();
         return t.length() > 120 ? (t.substring(0, 110) + "...") : t;
+    }
+
+    /** プレースホルダー除去ユーティリティ（二重防御用） */
+    private static String filterPlaceholder(String text) {
+        if (text == null) return null;
+        String trimmed = text.trim();
+        if (trimmed.startsWith("商品の詳細情報はありません。")) {
+            return trimmed.replaceFirst("商品の詳細情報はありません。", "").trim();
+        }
+        return text;
     }
 }

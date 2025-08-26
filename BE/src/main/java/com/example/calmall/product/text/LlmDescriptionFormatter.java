@@ -12,9 +12,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.*;
 
-
 /**
- * LLMで商品説明の整形
+ * LLMで商品説明の整形を行うクラス
  */
 @Slf4j
 public class LlmDescriptionFormatter {
@@ -26,6 +25,9 @@ public class LlmDescriptionFormatter {
 
     // 最大入力長（文字数ベース）
     private static final int MAX_INPUT_LENGTH = 3800;
+
+    // 楽天APIが返すプレースホルダー文言
+    private static final String PLACEHOLDER = "商品の詳細情報はありません。";
 
     public LlmDescriptionFormatter(GroqClient groq, String model, int maxTokens, int parallelism) {
         this.groq = groq;
@@ -42,17 +44,21 @@ public class LlmDescriptionFormatter {
      * @param itemName    商品名（fallback用）
      */
     public String cleanToHtml(String rawHtml, String rawPlain, String itemCaption, String itemName) {
+        // 入力の優先順位（HTML > Plain > キャッチコピー）
         final String base = chooseBasePreferHtml(rawHtml, rawPlain, itemCaption);
         if (!StringUtils.hasText(base)) {
-            // 入力ゼロなら商品名でフォールバック
+            // 入力が空なら商品名でフォールバック
             return quotaExceededFallbackHtml(itemName);
         }
 
-        // 入力正規化
+        // HTMLエスケープ解除 + 改行正規化
         final String normalized = normalize(base);
 
+        // --- プレースホルダー除去 ---
+        final String filtered = filterPlaceholder(normalized);
+
         // 入力を安全に切り詰める
-        final String truncated = truncateSafe(normalized, MAX_INPUT_LENGTH);
+        final String truncated = truncateSafe(filtered, MAX_INPUT_LENGTH);
 
         // --- チャンク分割（800文字単位） ---
         final List<String> chunks = chunkSmart(truncated, 800);
@@ -91,14 +97,14 @@ public class LlmDescriptionFormatter {
             return quotaExceededFallbackHtml(itemName);
         }
 
-        // 連結 → サニタイズ → 簡易検証
+        // 連結 → サニタイズ → バリデーション
         final String merged = String.join("", parts);
         final String sanitized = sanitizeMerged(merged);
         assertNoLeadingBulletMarks(sanitized);
         return sanitized;
     }
 
-    // --- Groq 呼び出し (指数バックオフ) ---
+    // --- Groq 呼び出し (指数バックオフあり) ---
     private String callGroqOnceWithRetry(int chunkIndex, String chunk) throws IOException, InterruptedException {
         int attempt = 0;
         long backoff = 800;
@@ -164,24 +170,38 @@ public class LlmDescriptionFormatter {
 
     // --- Utility ---
 
+    /** HTML > Plain > Caption の順で基底テキストを選択 */
     private static String chooseBasePreferHtml(String html, String plain, String caption) {
         if (StringUtils.hasText(html)) return html;
         if (StringUtils.hasText(plain)) return plain;
         return caption != null ? caption : "";
     }
 
+    /** HTMLエスケープ解除 + 改行正規化 */
     private static String normalize(String s) {
         String t = (s == null) ? "" : HtmlUtils.htmlUnescape(s);
         t = t.replace("\r\n", "\n").replace("\r", "\n");
         return t.trim();
     }
 
+    /** プレースホルダー文言を削除 */
+    private static String filterPlaceholder(String text) {
+        if (text == null) return "";
+        String trimmed = text.trim();
+        if (trimmed.startsWith(PLACEHOLDER)) {
+            return trimmed.replaceFirst(Pattern.quote(PLACEHOLDER), "").trim();
+        }
+        return text;
+    }
+
+    /** 最大長を超える場合は切り捨て */
     private static String truncateSafe(String text, int maxLen) {
         if (text == null) return "";
         if (text.length() <= maxLen) return text;
         return text.substring(0, maxLen) + "\n\n※以下省略しました";
     }
 
+    /** テキストをチャンク分割 */
     private static List<String> chunkSmart(String text, int targetLen) {
         final List<String> lines = Arrays.stream(text.split("\n"))
                 .map(String::trim).filter(l -> !l.isEmpty()).toList();
@@ -215,7 +235,8 @@ public class LlmDescriptionFormatter {
                 "no input provided",
                 "placeholder",
                 "これはテストです",
-                "入力された情報はありません"
+                "入力された情報はありません",
+                "商品の詳細情報はありません。"   // ← 楽天固有プレースホルダーも削除
         };
         for (String bad : banPhrases) {
             s = s.replace(bad, "");
@@ -227,7 +248,7 @@ public class LlmDescriptionFormatter {
         return s.trim();
     }
 
-    /** <li>先頭に装飾記号が無いか確認 */
+    /** <li> の先頭に装飾記号が無いか検証 */
     private static void assertNoLeadingBulletMarks(String html) {
         var m = java.util.regex.Pattern
                 .compile("<li>\\s*([・●•\\-*])", java.util.regex.Pattern.DOTALL)
@@ -237,7 +258,7 @@ public class LlmDescriptionFormatter {
         }
     }
 
-    /** TPD超過などでLLMが使えないときのフォールバックHTML */
+    /** LLMが使えない場合の商品説明フォールバック */
     private static String quotaExceededFallbackHtml(String itemName) {
         String safeName = (itemName != null && !itemName.isBlank()) ? itemName : "この商品";
         return "<section class=\"desc-section body\">\n" +
