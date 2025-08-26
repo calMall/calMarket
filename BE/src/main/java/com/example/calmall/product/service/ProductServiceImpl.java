@@ -36,6 +36,29 @@ public class ProductServiceImpl implements ProductService {
             "^(素材・成分|成分|素材|仕様|スペック|サイズ|内容|セット内容|特徴|使い方|注意事項|ご注意|JAN|JANコード)\\s*$"
     );
 
+    // ---- Groq fallback 檢測常數 ----
+    private static final String GROQ_FALLBACK_MARKER = "<!--__GROQ_FALLBACK__-->";
+    private static final String GROQ_FALLBACK_PHRASE = "Groq の1日あたりのトークン上限を超過しました";
+
+    private static boolean containsFallback(String s) {
+        return s != null && (s.contains(GROQ_FALLBACK_MARKER) || s.contains(GROQ_FALLBACK_PHRASE));
+    }
+
+    private static boolean isGroqFallback(String html, String plain, String caption) {
+        return containsFallback(html) || containsFallback(plain) || containsFallback(caption);
+    }
+
+    private static String stripFallbackAll(String s) {
+        if (s == null) return null;
+        String t = s.replace(GROQ_FALLBACK_MARKER, "")
+                .replace("（" + GROQ_FALLBACK_PHRASE + "）", "")
+                .replace("の（" + GROQ_FALLBACK_PHRASE + "）", "")
+                .replace(GROQ_FALLBACK_PHRASE, "")
+                .trim();
+        // 可能殘留的空 <section> 或連續 section，交給前端渲染沒事；這裡不做重排。
+        return t;
+    }
+
     @Override
     public ResponseEntity<ProductDetailResponseDto> getProductDetail(String itemCode) {
         // 1) DB を参照
@@ -62,7 +85,7 @@ public class ProductServiceImpl implements ProductService {
                 log.debug("[normalize] 入力テキスト無し → 簡易説明を生成 itemCode={}", itemCode);
 
             } else if (needsClean(product)) {
-                // LLM 整形開始
+                // LLM 整形開始（有 fallback 訊號時會在 Facade 內短路）
                 log.debug("[normalize] 新規取得 → LLM 整形開始 itemCode={}", itemCode);
                 final String cleanHtml = descriptionCleanerFacade.buildCleanHtml(
                         product.getDescriptionHtml(),
@@ -70,21 +93,25 @@ public class ProductServiceImpl implements ProductService {
                         product.getItemCaption(),
                         product.getItemName()
                 );
+                final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
 
-                // === Groq fallback 檢查 ===
-                if (isGroqFallback(cleanHtml)) {
+                // === Groq fallback：只回不存 ===
+                if (isGroqFallback(cleanHtml, cleanPlain, product.getItemCaption())) {
                     log.warn("[normalize] Groq quota exceeded → skip saving fallback to DB itemCode={}", itemCode);
-                    return ResponseEntity.ok(buildSuccessResponse(
-                            product.toBuilder()
-                                    .descriptionHtml(cleanHtml)
-                                    .descriptionPlain(DescriptionHtmlToPlain.toPlain(cleanHtml))
-                                    .build()
-                    ));
+                    return ResponseEntity.ok(
+                            buildSuccessResponse(
+                                    product.toBuilder()
+                                            .itemCaption(stripFallbackAll(product.getItemCaption()))
+                                            .descriptionHtml(stripFallbackAll(cleanHtml))
+                                            .descriptionPlain(stripFallbackAll(cleanPlain))
+                                            .build()
+                            )
+                    );
                 }
 
-                final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
                 product.setDescriptionHtml(cleanHtml);
                 product.setDescriptionPlain(cleanPlain);
+
             } else {
                 log.debug("[normalize] 新規取得だが整形不要 itemCode={}", itemCode);
             }
@@ -108,18 +135,18 @@ public class ProductServiceImpl implements ProductService {
 
             // 5) 説明空 → 簡易説明
             if (isAllBlank(product.getDescriptionHtml(), product.getDescriptionPlain(), product.getItemCaption())) {
-                String fallback = DescriptionFallbackBuilder.buildFromMeta(
+                String fb = DescriptionFallbackBuilder.buildFromMeta(
                         product.getItemName(),
                         product.getImages() == null ? 0 : product.getImages().size()
                 );
-                String fallbackPlain = DescriptionHtmlToPlain.toPlain(fallback);
+                String fbPlain = DescriptionHtmlToPlain.toPlain(fb);
 
-                if (!equalsSafe(fallback, product.getDescriptionHtml())) {
-                    product.setDescriptionHtml(fallback);
+                if (!equalsSafe(fb, product.getDescriptionHtml())) {
+                    product.setDescriptionHtml(fb);
                     dirty = true;
                 }
-                if (!equalsSafe(fallbackPlain, product.getDescriptionPlain())) {
-                    product.setDescriptionPlain(fallbackPlain);
+                if (!equalsSafe(fbPlain, product.getDescriptionPlain())) {
+                    product.setDescriptionPlain(fbPlain);
                     dirty = true;
                 }
                 log.debug("[normalize] DB商品説明なし → 簡易説明保存予定 itemCode={}", product.getItemCode());
@@ -133,19 +160,21 @@ public class ProductServiceImpl implements ProductService {
                         product.getItemCaption(),
                         product.getItemName()
                 );
-
-                // === Groq fallback 檢查 ===
-                if (isGroqFallback(cleanHtml)) {
-                    log.warn("[normalize] Groq quota exceeded → skip saving fallback to DB itemCode={}", itemCode);
-                    return ResponseEntity.ok(buildSuccessResponse(
-                            product.toBuilder()
-                                    .descriptionHtml(cleanHtml)
-                                    .descriptionPlain(DescriptionHtmlToPlain.toPlain(cleanHtml))
-                                    .build()
-                    ));
-                }
-
                 final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
+
+                // === Groq fallback：只回不存 ===
+                if (isGroqFallback(cleanHtml, cleanPlain, product.getItemCaption())) {
+                    log.warn("[normalize] Groq quota exceeded → skip saving fallback to DB itemCode={}", itemCode);
+                    return ResponseEntity.ok(
+                            buildSuccessResponse(
+                                    product.toBuilder()
+                                            .itemCaption(stripFallbackAll(product.getItemCaption()))
+                                            .descriptionHtml(stripFallbackAll(cleanHtml))
+                                            .descriptionPlain(stripFallbackAll(cleanPlain))
+                                            .build()
+                            )
+                    );
+                }
 
                 if (!equalsSafe(cleanHtml, product.getDescriptionHtml())) {
                     product.setDescriptionHtml(cleanHtml);
@@ -155,6 +184,7 @@ public class ProductServiceImpl implements ProductService {
                     product.setDescriptionPlain(cleanPlain);
                     dirty = true;
                 }
+
             } else {
                 log.debug("[normalize] DB命中かつ整形済み → スキップ itemCode={}", product.getItemCode());
             }
@@ -192,6 +222,9 @@ public class ProductServiceImpl implements ProductService {
 
         if (isAllBlank(html, plain, caption)) return false;
 
+        // fallback 文字混入 → 需要清理（但會在 Facade 內短路，不再丟給 LLM）
+        if (containsFallback(html) || containsFallback(plain) || containsFallback(caption)) return true;
+
         final String[] banned = {
                 "入力が必要", "please provide input", "no input provided", "placeholder", "これはテストです"
         };
@@ -218,14 +251,9 @@ public class ProductServiceImpl implements ProductService {
                 !StringUtils.hasText(caption);
     }
 
-    /** 判斷是不是 Groq fallback */
-    private static boolean isGroqFallback(String html) {
-        return html != null && html.contains("Groq の1日あたりのトークン上限を超過しました");
-    }
-
     // === caption 処理 ===
     private String fixCaptionIfNeeded(String current, String html, String plain) {
-        if (!isBadCaption(current)) return current;
+        if (!isBadCaption(current)) return stripFallbackAll(current);
 
         String picked = pickCaptionFromHtml(html);
         if (!StringUtils.hasText(picked)) picked = pickCaptionFromPlain(plain);
@@ -233,7 +261,7 @@ public class ProductServiceImpl implements ProductService {
 
         picked = picked.trim();
         if (picked.length() > 120) picked = picked.substring(0, 120).trim();
-        return picked;
+        return stripFallbackAll(picked);
     }
 
     private static String pickCaptionFromHtml(String html) {
@@ -265,7 +293,8 @@ public class ProductServiceImpl implements ProductService {
         if (t.length() <= 2) return true;
         if (HEADING_ONLY.matcher(t).matches()) return true;
         String low = t.toLowerCase();
-        return low.contains("入力が必要") || low.contains("provide input") || low.contains("placeholder");
+        return low.contains("入力が必要") || low.contains("provide input") || low.contains("placeholder")
+                || containsFallback(t);
     }
 
     private static String findFirstTagText(String html, String sectionRegex, String tag) {
@@ -307,17 +336,22 @@ public class ProductServiceImpl implements ProductService {
         Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode());
         int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(product.getItemCode());
 
+        // 回應前淨化，避免 marker/提示句外洩
+        String safeCaption = stripFallbackAll(product.getItemCaption());
+        String safeHtml    = stripFallbackAll(product.getDescriptionHtml());
+        String safePlain   = stripFallbackAll(product.getDescriptionPlain());
+
         ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
                 .itemCode(product.getItemCode())
                 .itemName(product.getItemName())
-                .itemCaption(product.getItemCaption())
+                .itemCaption(safeCaption)
                 .catchcopy(product.getCatchcopy())
                 .score(score != null ? Math.round(score * 10.0) / 10.0 : 0.0)
                 .reviewCount(reviewCount)
                 .price(product.getPrice())
                 .imageUrls(product.getImages() != null ? product.getImages() : List.of())
-                .descriptionPlain(product.getDescriptionPlain())
-                .descriptionHtml(product.getDescriptionHtml())
+                .descriptionPlain(safePlain)
+                .descriptionHtml(safeHtml)
                 .build();
 
         return ProductDetailResponseDto.builder()
