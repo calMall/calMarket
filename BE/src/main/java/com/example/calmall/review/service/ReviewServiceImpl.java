@@ -286,14 +286,14 @@ public class ReviewServiceImpl implements ReviewService {
         List<String> currentImages = reviewImageRepository.findAllByReview(review).stream()
                 .map(ReviewImage::getImageUrl)
                 .collect(Collectors.toList());
-        int currentCount = currentImages.size();
-        log.debug("==== [DEBUG] currentImages count={}", currentCount);
+//        int currentCount = currentImages.size();
+        log.debug("==== [DEBUG] currentImages count={}");
 
         List<String> addUrls = requestDto.getImageList() != null
                 ? new ArrayList<>(new LinkedHashSet<>(requestDto.getImageList()))
                 : new ArrayList<>();
 
-        if (currentCount + addUrls.size() > 3) {
+        if (addUrls.size() > 3) {
             throw new IllegalArgumentException("画像は最大3枚まで追加できます）");
         }
 
