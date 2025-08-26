@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * LLMで商品説明の整形
@@ -28,6 +29,11 @@ public class LlmDescriptionFormatter {
 
     // 同時請求數上限（固定 2）
     private static final int MAX_CONCURRENT_REQUESTS = 2;
+
+    // RateLimiter: 每次呼叫 Groq 至少間隔 (ms)
+    private static final long MIN_CALL_INTERVAL_MS = 1200;
+    private static final Semaphore RATE_LIMITER = new Semaphore(1, true);
+    private static final AtomicLong LAST_CALL_TIME = new AtomicLong(0);
 
     public LlmDescriptionFormatter(GroqClient groq, String model, int maxTokens, int parallelism) {
         this.groq = groq;
@@ -84,7 +90,8 @@ public class LlmDescriptionFormatter {
         }
         log.debug("[Groq LLM] finished: success={} failures={}", ok, ng);
 
-        if (parts.isEmpty()) {
+        // === 新規ルール: 部分成功は禁止 ===
+        if (ng > 0 || parts.isEmpty()) {
             return quotaExceededFallbackHtml(itemCaption);
         }
 
@@ -106,12 +113,14 @@ public class LlmDescriptionFormatter {
                 String msg = e.getMessage() != null ? e.getMessage() : "";
                 if (msg.contains("rate_limit_exceeded")) {
                     long wait = (long) Math.pow(2, attempt) * 2000; // 2s → 4s → 8s
-                    log.warn("[Groq LLM] 429 rate_limit_exceeded (chunk#{}) attempt#{} → sleep {}ms", chunkIndex + 1, attempt + 1, wait);
+                    log.warn("[Groq LLM] 429 rate_limit_exceeded (chunk#{}) attempt#{} → sleep {}ms",
+                            chunkIndex + 1, attempt + 1, wait);
                     Thread.sleep(wait);
                     last = e;
                 } else {
                     long wait = (long) Math.pow(2, attempt) * 800; // 0.8s → 1.6s → 3.2s
-                    log.warn("[Groq LLM] chunk#{} attempt#{} failed: {} → sleep {}ms", chunkIndex + 1, attempt + 1, e.toString(), wait);
+                    log.warn("[Groq LLM] chunk#{} attempt#{} failed: {} → sleep {}ms",
+                            chunkIndex + 1, attempt + 1, e.toString(), wait);
                     Thread.sleep(wait);
                     last = e;
                 }
@@ -122,7 +131,9 @@ public class LlmDescriptionFormatter {
     }
 
     // === system / user prompt ===
-    private String callGroq(int chunkIndex, String chunk) throws IOException {
+    private String callGroq(int chunkIndex, String chunk) throws IOException, InterruptedException {
+        enforceRateLimit(); // <== 加入限速控制
+
         final String system = """
 あなたはECサイト向けの「商品説明テキストの構造化クリーナー」です。
 入力は雑多・重複・順序崩れを含む可能性があります。
@@ -159,6 +170,26 @@ public class LlmDescriptionFormatter {
                 List.of(Message.sys(system), Message.user(user)),
                 maxTokens
         );
+    }
+
+    // === RateLimiter ===
+    private static void enforceRateLimit() throws InterruptedException {
+        RATE_LIMITER.acquire();
+        try {
+            long now = System.currentTimeMillis();
+            long last = LAST_CALL_TIME.get();
+            long elapsed = now - last;
+
+            if (elapsed < MIN_CALL_INTERVAL_MS) {
+                long wait = MIN_CALL_INTERVAL_MS - elapsed;
+                log.debug("[Groq LLM] RateLimiter sleep {}ms", wait);
+                Thread.sleep(wait);
+            }
+
+            LAST_CALL_TIME.set(System.currentTimeMillis());
+        } finally {
+            RATE_LIMITER.release();
+        }
     }
 
     // === Utility ===
