@@ -29,12 +29,16 @@ public class DescriptionCleanerFacade {
         log.debug("[Groq LLM] inputHtml={} inputPlain={} itemCaption={} itemName={}",
                 preview(descriptionHtml), preview(descriptionPlain), preview(itemCaption), preview(itemName));
 
+        // Formatter 側で一次整形
         final String llm = llmFormatter.cleanToHtml(descriptionHtml, descriptionPlain, itemCaption, itemName);
 
-        log.debug("[Groq LLM] raw response length={} preview={}",
-                (llm != null ? llm.length() : 0), preview(llm));
+        // Facade 側でも二重防御としてフィルタリング
+        final String cleaned = filterPlaceholder(llm);
 
-        return llm;
+        log.debug("[Groq LLM] raw response length={} preview={}",
+                (cleaned != null ? cleaned.length() : 0), preview(cleaned));
+
+        return cleaned;
     }
 
     /** 互換性維持（旧シグネチャ用） */
@@ -52,5 +56,27 @@ public class DescriptionCleanerFacade {
         if (s == null) return "null";
         final String t = s.replaceAll("\\s+", " ").trim();
         return t.length() > 120 ? (t.substring(0, 110) + "...") : t;
+    }
+
+    /**
+     * プレースホルダー除去ユーティリティ（二重防御用）
+     * - 「商品の詳細情報はありません。」除去
+     * - 「商品説明は表示できません。」除去
+     * - 単独行の「商品の」除去
+     */
+    private static String filterPlaceholder(String text) {
+        if (text == null) return null;
+        String cleaned = text;
+
+        // 「商品の詳細情報はありません。」の除去
+        cleaned = cleaned.replaceAll("(<p>\\s*)?商品の詳細情報はありません。(<\\/p>)?", "");
+
+        // 「商品説明は表示できません。」の除去
+        cleaned = cleaned.replaceAll("(<p>\\s*)?商品説明は表示できません。.*?(<\\/p>)?", "");
+
+        // 単独の「商品の」を除去（前後換行あり/なし両方対応）
+        cleaned = cleaned.replaceAll("(?m)^\\s*商品の?\\s*$", "");
+
+        return cleaned.trim();
     }
 }
