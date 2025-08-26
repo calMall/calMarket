@@ -145,9 +145,9 @@ export default function ReviewWriteContain({
         return router.push("/login");
       } else {
         if (method === "POST") {
-          return alert("レビューの投稿に失敗しました。");
+          alert("レビューの投稿に失敗しました。");
         } else if (method === "PATCH") {
-          return alert("レビューの編集に失敗しました。");
+          alert("レビューの編集に失敗しました。");
         }
         alert(e.message);
       }
