@@ -145,11 +145,12 @@ export default function ReviewWriteContain({
         return router.push("/login");
       } else {
         if (method === "POST") {
-          alert("レビューの投稿に失敗しました。");
+          alert(e.message);
         } else if (method === "PATCH") {
           alert("レビューの編集に失敗しました。");
+        } else {
+          alert(e.message);
         }
-        alert(e.message);
       }
       setIsImageUploading(false);
       setIsReviewUploading(false);

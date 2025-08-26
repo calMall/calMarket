@@ -70,6 +70,9 @@ body {
     padding-bottom: 10vh;
   }
 }
+body {
+  padding-top: 4rem;
+}
 
 .rt {
   position: relative;
@@ -156,6 +159,11 @@ body {
   background-color: $main-light-color;
   height: 4rem;
   padding-right: 0.5rem;
+  position: fixed;
+  width: 100%;
+  z-index: 99;
+  top: 0;
+
   @include shadow-box();
 }
 
