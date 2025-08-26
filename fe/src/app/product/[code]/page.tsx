@@ -1,6 +1,7 @@
 import { getProductDetail } from "@/api/Product";
 import CustomLayout from "@/components/common/CustomLayout";
 import ErrorComponent from "@/components/common/ErrorComponent";
+import NoProduct from "@/components/common/NoProduct";
 import ProductDetailImage from "@/components/product/ProductDetailImage";
 import ProductDetailOrReview from "@/components/product/ProductDetailOrReview";
 import ProductDetailTitle from "@/components/product/ProductDetailTitle";
@@ -44,6 +45,6 @@ export default async function ProductDetail({
     );
   } catch (e) {
     console.log(e);
-    return <ErrorComponent />;
+    return <NoProduct />;
   }
 }

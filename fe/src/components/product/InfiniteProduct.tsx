@@ -39,7 +39,7 @@ export default function InfiniteProduct({ keyword, hits, isNextPage }: props) {
   }, [keyword]);
   return (
     <>
-      <div className="search-list-contain">
+      <div className="search-list-contain mt-1">
         {products.map((product, idx) => (
           <ProductItem
             product={product}

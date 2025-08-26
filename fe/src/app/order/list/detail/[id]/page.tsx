@@ -44,7 +44,11 @@ export default function OrderDetail({
           userStore.logout();
           return router.push("/login");
         }
-        if (e.message.split(":")[1].trim()) {
+        if (
+          e.message &&
+          e.message.split(":").length > 1 &&
+          e.message.split(":")[1].trim()
+        ) {
           alert(e.message.split(":")[1].trim());
         } else {
           alert("注文のキャンセルに失敗しました。");
@@ -65,7 +69,11 @@ export default function OrderDetail({
           userStore.logout();
           return router.push("/login");
         }
-        if (e.message.split(":")[1].trim()) {
+        if (
+          e.message &&
+          e.message.split(":").length > 1 &&
+          e.message.split(":")[1].trim()
+        ) {
           alert(e.message.split(":")[1].trim());
         } else {
           alert("注文の払い戻しに失敗しました。");
@@ -99,7 +107,11 @@ export default function OrderDetail({
         userStore.logout();
         return router.push("/login");
       }
-      if (e.message.split(":")[1].trim()) {
+      if (
+        e.message &&
+        e.message.split(":").length > 1 &&
+        e.message.split(":")[1].trim()
+      ) {
         alert(e.message.split(":")[1].trim());
       } else {
         alert("エラーが発生しました。");
