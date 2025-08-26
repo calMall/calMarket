@@ -12,7 +12,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.*;
 
-
 /**
  * LLMで商品説明の整形
  */
@@ -35,7 +34,7 @@ public class LlmDescriptionFormatter {
     }
 
     /**
-     * 原文（HTML/プレーン/キャプション）を LLM で整形
+     * 原文（HTML/プレーン/キャプション）を LLM で整形（三參數版）
      */
     public String cleanToHtml(String rawHtml, String rawPlain, String itemCaption) {
         final String base = chooseBasePreferHtml(rawHtml, rawPlain, itemCaption);
@@ -79,7 +78,7 @@ public class LlmDescriptionFormatter {
         log.debug("[Groq LLM] finished: success={} failures={}", ok, ng);
 
         if (parts.isEmpty()) {
-            // すべて失敗 → quota exceeded fallback
+            // すべて失敗 → fallback
             return quotaExceededFallbackHtml(itemCaption);
         }
 
@@ -88,6 +87,19 @@ public class LlmDescriptionFormatter {
         final String sanitized = sanitizeMerged(merged, itemCaption);
         assertNoLeadingBulletMarks(sanitized);
         return sanitized;
+    }
+
+    /**
+     * 原文（HTML/プレーン/キャプション/商品名）を LLM で整形（四參數版）
+     * → itemName が fallback 時に利用される
+     */
+    public String cleanToHtml(String rawHtml, String rawPlain, String itemCaption, String itemName) {
+        // もし三つ都空 → 商品名でフォールバック
+        if (!StringUtils.hasText(rawHtml) && !StringUtils.hasText(rawPlain) && !StringUtils.hasText(itemCaption)) {
+            return quotaExceededFallbackHtml(itemName);
+        }
+        // それ以外 → 三參數版を呼ぶ
+        return cleanToHtml(rawHtml, rawPlain, itemCaption);
     }
 
     // --- Groq 呼び出し (指数バックオフ) ---
@@ -100,7 +112,6 @@ public class LlmDescriptionFormatter {
             try {
                 return callGroq(chunkIndex, chunk);
             } catch (IOException e) {
-                // Groq 配額切れ (429) をキャッチしたら即 fallback
                 if (e.getMessage() != null && e.getMessage().contains("rate_limit_exceeded")) {
                     log.warn("[Groq LLM] Token quota exceeded. Returning fallback.");
                     return quotaExceededFallbackHtml(null);
@@ -204,17 +215,16 @@ public class LlmDescriptionFormatter {
         // 禁止フレーズ削除
         String[] banPhrases = {
                 "入力が必要です", "please provide input", "no input provided",
-                "placeholder", "これはテストです"
+                "placeholder", "これはテストです", "商品の詳細情報はありません。"
         };
         for (String bad : banPhrases) {
             s = s.replace(bad, "");
         }
 
         // === 永久説明なしフィルタ ===
-        s = s.replaceAll("(?i)(入力.*ありません。?|説明.*ありません。?|no description.*|not provided.*)", "");
+        s = s.replaceAll("(?i)(説明.*ありません。?|no description.*|not provided.*)", "");
 
         if (!s.trim().startsWith("<section")) {
-            // 全部削れたら fallback
             return "<section class=\"desc-section body\"><p>" +
                     (itemName != null ? itemName + " の商品説明は登録されていません。" : "商品説明は登録されていません。") +
                     "</p></section>";
