@@ -29,6 +29,7 @@ export default function OrderDetail({
   const [totalPrice, setTotalPrice] = useState(0);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [canceling, setCanceling] = useState(false);
   const userStore = UserStore();
   const router = useRouter();
 
@@ -36,12 +37,15 @@ export default function OrderDetail({
     if (window.confirm("注文をキャンセルしますか？")) {
       try {
         const { id } = await params;
+        setCanceling(true);
         const res = await PostCancelOrder(Number(id));
+        setCanceling(false);
         if (res.message === "success") {
           alert("注文がキャンセルされました。");
           fetchData();
         }
       } catch (e: any) {
+        setCanceling(false);
         if (e.status === 401) {
           alert("ログインが必要です。ログインページに移動します。");
           userStore.logout();
@@ -64,8 +68,15 @@ export default function OrderDetail({
     if (window.confirm("注文を払い戻しますか？")) {
       try {
         const { id } = await params;
+        setCanceling(true);
         const res = await PostRefundOrder(Number(id));
+        if (res.message === "success") {
+          alert("注文が払い戻されました。");
+          fetchData();
+        }
+        setCanceling(false);
       } catch (e: any) {
+        setCanceling(false);
         if (e.status === 401) {
           alert("ログインが必要です。ログインページに移動します。");
           userStore.logout();
@@ -171,12 +182,20 @@ export default function OrderDetail({
                     </Link>
                   )}
                   {orderInfo.status === "PENDING" ? (
-                    <button className="red-hover" onClick={onCancelOrder}>
+                    <button
+                      disabled={canceling}
+                      className="red-hover"
+                      onClick={onCancelOrder}
+                    >
                       注文キャンセル
                     </button>
                   ) : (
                     orderInfo.status === "DELIVERED" && (
-                      <button className="red-hover" onClick={onRefundOrder}>
+                      <button
+                        disabled={canceling}
+                        className="red-hover"
+                        onClick={onRefundOrder}
+                      >
                         払い戻し
                       </button>
                     )
