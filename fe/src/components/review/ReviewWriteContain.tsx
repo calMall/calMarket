@@ -268,6 +268,7 @@ export default function ReviewWriteContain({
       </div>
       <div className="wf flex je mt-1">
         <CustomButton
+          disable={isImageUploading || isReviewloading}
           func={onPostReview}
           text={initialData ? "編集" : "投稿"}
           classname="review-post-btn"
