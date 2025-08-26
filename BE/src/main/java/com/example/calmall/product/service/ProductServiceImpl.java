@@ -71,15 +71,11 @@ public class ProductServiceImpl implements ProductService {
                         product.getItemName()
                 );
 
-                // === Groq fallback 檢查 ===
+                // === Groq fallback 検査（DB には保存しない） ===
                 if (isGroqFallback(cleanHtml)) {
                     log.warn("[normalize] Groq quota exceeded → skip saving fallback to DB itemCode={}", itemCode);
-                    return ResponseEntity.ok(buildSuccessResponse(
-                            product.toBuilder()
-                                    .descriptionHtml(cleanHtml)
-                                    .descriptionPlain(DescriptionHtmlToPlain.toPlain(cleanHtml))
-                                    .build()
-                    ));
+                    final String viewPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
+                    return ResponseEntity.ok(buildSuccessResponseView(product, cleanHtml, viewPlain));
                 }
 
                 final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
@@ -134,15 +130,11 @@ public class ProductServiceImpl implements ProductService {
                         product.getItemName()
                 );
 
-                // === Groq fallback 檢查 ===
+                // === Groq fallback 検査（DB には保存しない） ===
                 if (isGroqFallback(cleanHtml)) {
                     log.warn("[normalize] Groq quota exceeded → skip saving fallback to DB itemCode={}", itemCode);
-                    return ResponseEntity.ok(buildSuccessResponse(
-                            product.toBuilder()
-                                    .descriptionHtml(cleanHtml)
-                                    .descriptionPlain(DescriptionHtmlToPlain.toPlain(cleanHtml))
-                                    .build()
-                    ));
+                    final String viewPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
+                    return ResponseEntity.ok(buildSuccessResponseView(product, cleanHtml, viewPlain));
                 }
 
                 final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
@@ -218,7 +210,7 @@ public class ProductServiceImpl implements ProductService {
                 !StringUtils.hasText(caption);
     }
 
-    /** 判斷是不是 Groq fallback */
+    /** 判定: Groq の一時的なフォールバック文言なら DB には保存しない */
     private static boolean isGroqFallback(String html) {
         return html != null && html.contains("Groq の1日あたりのトークン上限を超過しました");
     }
@@ -303,6 +295,8 @@ public class ProductServiceImpl implements ProductService {
     }
 
     // === Response Builder ===
+
+    /** 通常の成功レスポンス（DB上の内容をそのまま返却） */
     private ProductDetailResponseDto buildSuccessResponse(Product product) {
         Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode());
         int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(product.getItemCode());
@@ -318,6 +312,32 @@ public class ProductServiceImpl implements ProductService {
                 .imageUrls(product.getImages() != null ? product.getImages() : List.of())
                 .descriptionPlain(product.getDescriptionPlain())
                 .descriptionHtml(product.getDescriptionHtml())
+                .build();
+
+        return ProductDetailResponseDto.builder()
+                .message("success")
+                .product(dto)
+                .build();
+    }
+
+    /**
+     * Groq フォールバック時など、DBに保存せずに「表示用だけ上書き」して返すレスポンス
+     */
+    private ProductDetailResponseDto buildSuccessResponseView(Product base, String htmlForView, String plainForView) {
+        Double score = reviewRepository.findAverageRatingByItemCode(base.getItemCode());
+        int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(base.getItemCode());
+
+        ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
+                .itemCode(base.getItemCode())
+                .itemName(base.getItemName())
+                .itemCaption(base.getItemCaption())
+                .catchcopy(base.getCatchcopy())
+                .score(score != null ? Math.round(score * 10.0) / 10.0 : 0.0)
+                .reviewCount(reviewCount)
+                .price(base.getPrice())
+                .imageUrls(base.getImages() != null ? base.getImages() : List.of())
+                .descriptionPlain(plainForView)
+                .descriptionHtml(htmlForView)
                 .build();
 
         return ProductDetailResponseDto.builder()
