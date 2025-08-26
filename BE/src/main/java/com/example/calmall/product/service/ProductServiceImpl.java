@@ -52,7 +52,7 @@ public class ProductServiceImpl implements ProductService {
 
             // 3) 初回保存前に説明文を決定
             if (isAllBlank(product.getDescriptionHtml(), product.getDescriptionPlain(), product.getItemCaption())) {
-                // テキストが完全に無い → LLMは使わず簡易説明を生成
+                // 入力なし → 簡易説明
                 String fallback = DescriptionFallbackBuilder.buildFromMeta(
                         product.getItemName(),
                         product.getImages() == null ? 0 : product.getImages().size()
@@ -62,7 +62,7 @@ public class ProductServiceImpl implements ProductService {
                 log.debug("[normalize] 入力テキスト無し → 簡易説明を生成 itemCode={}", itemCode);
 
             } else if (needsClean(product)) {
-                // テキストはあるが未整形 → LLM
+                // LLM 整形開始
                 log.debug("[normalize] 新規取得 → LLM 整形開始 itemCode={}", itemCode);
                 final String cleanHtml = descriptionCleanerFacade.buildCleanHtml(
                         product.getDescriptionHtml(),
@@ -70,27 +70,35 @@ public class ProductServiceImpl implements ProductService {
                         product.getItemCaption(),
                         product.getItemName()
                 );
+
+                // === Groq fallback 檢查 ===
+                if (isGroqFallback(cleanHtml)) {
+                    log.warn("[normalize] Groq quota exceeded → skip saving fallback to DB itemCode={}", itemCode);
+                    return ResponseEntity.ok(buildSuccessResponse(
+                            product.toBuilder()
+                                    .descriptionHtml(cleanHtml)
+                                    .descriptionPlain(DescriptionHtmlToPlain.toPlain(cleanHtml))
+                                    .build()
+                    ));
+                }
+
+                final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
                 product.setDescriptionHtml(cleanHtml);
-                // Plain は後で強制再生成するのでここではセット不要
+                product.setDescriptionPlain(cleanPlain);
             } else {
-                log.debug("[normalize] 新規取得だが整形不要と判定 itemCode={}", itemCode);
+                log.debug("[normalize] 新規取得だが整形不要 itemCode={}", itemCode);
             }
 
-            // caption 補正（本文/プレーンから拾う）
+            // caption 補正
             final String fixedCaption = fixCaptionIfNeeded(product.getItemCaption(),
                     product.getDescriptionHtml(), product.getDescriptionPlain());
             if (!equalsSafe(fixedCaption, product.getItemCaption())) {
                 product.setItemCaption(fixedCaption);
-                log.info("[normalize] caption を補正して保存 itemCode={}", itemCode);
+                log.info("[normalize] caption を補正 itemCode={}", itemCode);
             }
 
-            // ---- 最終防御：Plain を必ず LLM 出力から生成 ----
-            String safePlain = DescriptionHtmlToPlain.toPlain(product.getDescriptionHtml());
-            product.setDescriptionPlain(safePlain);
-            log.debug("[normalize] 強制上書き → descriptionPlain を LLM 整理後に統一 itemCode={}", product.getItemCode());
-
             product = productRepository.save(product);
-            log.info("[persist] 楽天APIから取得した商品を保存 itemCode={}", product.getItemCode());
+            log.info("[persist] 楽天APIからの商品を保存 itemCode={}", product.getItemCode());
 
         } else {
             // 既存レコード
@@ -98,7 +106,7 @@ public class ProductServiceImpl implements ProductService {
 
             boolean dirty = false;
 
-            // 5) 説明が全て空なら簡易説明を生成して保存
+            // 5) 説明空 → 簡易説明
             if (isAllBlank(product.getDescriptionHtml(), product.getDescriptionPlain(), product.getItemCaption())) {
                 String fallback = DescriptionFallbackBuilder.buildFromMeta(
                         product.getItemName(),
@@ -114,11 +122,11 @@ public class ProductServiceImpl implements ProductService {
                     product.setDescriptionPlain(fallbackPlain);
                     dirty = true;
                 }
-                log.debug("[normalize] 入力テキスト無し → 簡易説明を保存予定 itemCode={}", product.getItemCode());
+                log.debug("[normalize] DB商品説明なし → 簡易説明保存予定 itemCode={}", product.getItemCode());
 
             } else if (needsClean(product)) {
-                // 6) 必要なら LLM で再整形
-                log.debug("[normalize] DB命中だが未整形/不正規 → LLM 整形開始 itemCode={}", product.getItemCode());
+                // 再整形
+                log.debug("[normalize] DB命中だが未整形 → LLM 整形開始 itemCode={}", product.getItemCode());
                 final String cleanHtml = descriptionCleanerFacade.buildCleanHtml(
                         product.getDescriptionHtml(),
                         product.getDescriptionPlain(),
@@ -126,34 +134,42 @@ public class ProductServiceImpl implements ProductService {
                         product.getItemName()
                 );
 
+                // === Groq fallback 檢查 ===
+                if (isGroqFallback(cleanHtml)) {
+                    log.warn("[normalize] Groq quota exceeded → skip saving fallback to DB itemCode={}", itemCode);
+                    return ResponseEntity.ok(buildSuccessResponse(
+                            product.toBuilder()
+                                    .descriptionHtml(cleanHtml)
+                                    .descriptionPlain(DescriptionHtmlToPlain.toPlain(cleanHtml))
+                                    .build()
+                    ));
+                }
+
+                final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
+
                 if (!equalsSafe(cleanHtml, product.getDescriptionHtml())) {
                     product.setDescriptionHtml(cleanHtml);
                     dirty = true;
                 }
+                if (!equalsSafe(cleanPlain, product.getDescriptionPlain())) {
+                    product.setDescriptionPlain(cleanPlain);
+                    dirty = true;
+                }
             } else {
-                log.debug("[normalize] DB命中かつ整形済み → LLM スキップ itemCode={}", product.getItemCode());
+                log.debug("[normalize] DB命中かつ整形済み → スキップ itemCode={}", product.getItemCode());
             }
 
-            // 7) caption 補正（見出し語や空なら本文から再生成）
+            // caption 補正
             final String fixedCaption = fixCaptionIfNeeded(product.getItemCaption(),
                     product.getDescriptionHtml(), product.getDescriptionPlain());
             if (!equalsSafe(fixedCaption, product.getItemCaption())) {
                 product.setItemCaption(fixedCaption);
                 dirty = true;
-                log.info("[normalize] caption を補正して保存 itemCode={}", product.getItemCode());
-            }
-
-            // ---- 最終防御：Plain を必ず LLM 出力から生成 ----
-            String safePlain = DescriptionHtmlToPlain.toPlain(product.getDescriptionHtml());
-            if (!equalsSafe(safePlain, product.getDescriptionPlain())) {
-                product.setDescriptionPlain(safePlain);
-                dirty = true;
-                log.debug("[normalize] 強制上書き → descriptionPlain を LLM 整理後に統一 itemCode={}", product.getItemCode());
             }
 
             if (dirty) {
                 product = productRepository.save(product);
-                log.info("[normalize] 説明文をクリーン化して保存 itemCode={}", product.getItemCode());
+                log.info("[persist] DB更新保存 itemCode={}", product.getItemCode());
             }
         }
 
@@ -167,7 +183,8 @@ public class ProductServiceImpl implements ProductService {
                 .orElseGet(() -> new ResponseEntity<>(false, HttpStatus.BAD_REQUEST));
     }
 
-    /** LLM 整形が必要かを判定 */
+    // === Helper ===
+
     private static boolean needsClean(Product p) {
         final String html = p.getDescriptionHtml();
         final String plain = p.getDescriptionPlain();
@@ -176,13 +193,11 @@ public class ProductServiceImpl implements ProductService {
         if (isAllBlank(html, plain, caption)) return false;
 
         final String[] banned = {
-                "入力が必要です。原文を入力してください。",
-                "please provide input",
-                "no input provided",
-                "placeholder",
-                "これはテストです"
+                "入力が必要", "please provide input", "no input provided", "placeholder", "これはテストです"
         };
-        String all = (html == null ? "" : html) + "\n" + (plain == null ? "" : plain) + "\n" + (caption == null ? "" : caption);
+        String all = (html == null ? "" : html) + "\n" +
+                (plain == null ? "" : plain) + "\n" +
+                (caption == null ? "" : caption);
         for (String b : banned) {
             if (all.toLowerCase().contains(b.toLowerCase())) return true;
         }
@@ -198,11 +213,17 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private static boolean isAllBlank(String html, String plain, String caption) {
-        return !StringUtils.hasText(html)
-                && !StringUtils.hasText(plain)
-                && !StringUtils.hasText(caption);
+        return !StringUtils.hasText(html) &&
+                !StringUtils.hasText(plain) &&
+                !StringUtils.hasText(caption);
     }
 
+    /** 判斷是不是 Groq fallback */
+    private static boolean isGroqFallback(String html) {
+        return html != null && html.contains("Groq の1日あたりのトークン上限を超過しました");
+    }
+
+    // === caption 処理 ===
     private String fixCaptionIfNeeded(String current, String html, String plain) {
         if (!isBadCaption(current)) return current;
 
@@ -231,7 +252,9 @@ public class ProductServiceImpl implements ProductService {
         String[] lines = plain.replace("\r", "").split("\n");
         for (String ln : lines) {
             String t = normalizeOneLine(ln);
-            if (StringUtils.hasText(t) && !isBadCaption(t)) return t;
+            if (StringUtils.hasText(t) && !isBadCaption(t)) {
+                return t;
+            }
         }
         return "";
     }
@@ -242,8 +265,7 @@ public class ProductServiceImpl implements ProductService {
         if (t.length() <= 2) return true;
         if (HEADING_ONLY.matcher(t).matches()) return true;
         String low = t.toLowerCase();
-        if (low.contains("入力が必要") || low.contains("provide input") || low.contains("placeholder")) return true;
-        return false;
+        return low.contains("入力が必要") || low.contains("provide input") || low.contains("placeholder");
     }
 
     private static String findFirstTagText(String html, String sectionRegex, String tag) {
@@ -280,6 +302,7 @@ public class ProductServiceImpl implements ProductService {
         return (a == b) || (a != null && a.equals(b));
     }
 
+    // === Response Builder ===
     private ProductDetailResponseDto buildSuccessResponse(Product product) {
         Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode());
         int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(product.getItemCode());
