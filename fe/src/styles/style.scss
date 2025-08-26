@@ -1300,6 +1300,7 @@ textarea {
   top: 10%;
   left: 50%;
   transform: translate(-50%, -50%);
+  z-index: 100;
   animation: fall-animation 0.2s ease-in;
   img {
     width: 3rem;
