@@ -58,13 +58,25 @@ public class DescriptionCleanerFacade {
         return t.length() > 120 ? (t.substring(0, 110) + "...") : t;
     }
 
-    /** プレースホルダー除去ユーティリティ（二重防御用） */
+    /**
+     * プレースホルダー除去ユーティリティ（二重防御用）
+     * - 「商品の詳細情報はありません。」除去
+     * - 「商品説明は表示できません。」除去
+     * - 単独行の「商品の」除去
+     */
     private static String filterPlaceholder(String text) {
         if (text == null) return null;
-        String trimmed = text.trim();
-        if (trimmed.startsWith("商品の詳細情報はありません。")) {
-            return trimmed.replaceFirst("商品の詳細情報はありません。", "").trim();
-        }
-        return text;
+        String cleaned = text;
+
+        // 「商品の詳細情報はありません。」の除去
+        cleaned = cleaned.replaceAll("(<p>\\s*)?商品の詳細情報はありません。(<\\/p>)?", "");
+
+        // 「商品説明は表示できません。」の除去
+        cleaned = cleaned.replaceAll("(<p>\\s*)?商品説明は表示できません。.*?(<\\/p>)?", "");
+
+        // 単独の「商品の」を除去（前後換行あり/なし両方対応）
+        cleaned = cleaned.replaceAll("(?m)^\\s*商品の?\\s*$", "");
+
+        return cleaned.trim();
     }
 }
