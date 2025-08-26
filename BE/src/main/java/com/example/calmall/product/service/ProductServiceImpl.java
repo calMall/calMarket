@@ -71,11 +71,15 @@ public class ProductServiceImpl implements ProductService {
                         product.getItemName()
                 );
 
-                // === Groq fallback 検査（DB には保存しない） ===
+                // Groq fallback を検知したら DB 保存はスキップ（画面表示のみ）
                 if (isGroqFallback(cleanHtml)) {
                     log.warn("[normalize] Groq quota exceeded → skip saving fallback to DB itemCode={}", itemCode);
-                    final String viewPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
-                    return ResponseEntity.ok(buildSuccessResponseView(product, cleanHtml, viewPlain));
+                    return ResponseEntity.ok(buildSuccessResponse(
+                            product.toBuilder()
+                                    .descriptionHtml(cleanHtml)
+                                    .descriptionPlain(DescriptionHtmlToPlain.toPlain(cleanHtml))
+                                    .build()
+                    ));
                 }
 
                 final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
@@ -102,7 +106,7 @@ public class ProductServiceImpl implements ProductService {
 
             boolean dirty = false;
 
-            // 5) 説明空 → 簡易説明
+            // 説明空 → 簡易説明
             if (isAllBlank(product.getDescriptionHtml(), product.getDescriptionPlain(), product.getItemCaption())) {
                 String fallback = DescriptionFallbackBuilder.buildFromMeta(
                         product.getItemName(),
@@ -130,11 +134,15 @@ public class ProductServiceImpl implements ProductService {
                         product.getItemName()
                 );
 
-                // === Groq fallback 検査（DB には保存しない） ===
+                // Groq fallback を検知したら DB 保存はスキップ（画面表示のみ）
                 if (isGroqFallback(cleanHtml)) {
                     log.warn("[normalize] Groq quota exceeded → skip saving fallback to DB itemCode={}", itemCode);
-                    final String viewPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
-                    return ResponseEntity.ok(buildSuccessResponseView(product, cleanHtml, viewPlain));
+                    return ResponseEntity.ok(buildSuccessResponse(
+                            product.toBuilder()
+                                    .descriptionHtml(cleanHtml)
+                                    .descriptionPlain(DescriptionHtmlToPlain.toPlain(cleanHtml))
+                                    .build()
+                    ));
                 }
 
                 final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
@@ -175,7 +183,7 @@ public class ProductServiceImpl implements ProductService {
                 .orElseGet(() -> new ResponseEntity<>(false, HttpStatus.BAD_REQUEST));
     }
 
-    // === Helper ===
+    // ===== Helper =====
 
     private static boolean needsClean(Product p) {
         final String html = p.getDescriptionHtml();
@@ -184,21 +192,29 @@ public class ProductServiceImpl implements ProductService {
 
         if (isAllBlank(html, plain, caption)) return false;
 
-        final String[] banned = {
-                "入力が必要", "please provide input", "no input provided", "placeholder", "これはテストです"
-        };
-        String all = (html == null ? "" : html) + "\n" +
+        // Fallback/エラーメッセージ/空殻セクション検知 → 再整形
+        final String all = ((html == null ? "" : html) + "\n" +
                 (plain == null ? "" : plain) + "\n" +
-                (caption == null ? "" : caption);
-        for (String b : banned) {
-            if (all.toLowerCase().contains(b.toLowerCase())) return true;
+                (caption == null ? "" : caption)).toLowerCase();
+
+        final String[] badFlags = new String[] {
+                "__groq_fallback__",
+                "groq の1日あたりのトークン上限を超過しました",
+                "llm のトークン上限に達しました",
+                "please provide input",
+                "no input provided",
+                "placeholder",
+                "これはテストです"
+        };
+        for (String f : badFlags) {
+            if (all.contains(f)) return true;
         }
 
         if (StringUtils.hasText(html)
                 && html.contains("desc-section")
                 && (html.contains("<p>") || html.contains("<ul") || html.contains("<table"))) {
-            if (Pattern.compile("<li>\\s*[・●•\\-*]").matcher(html).find()) return true;
             if (!html.trim().startsWith("<section")) return true;
+            if (Pattern.compile("<li>\\s*[・●•\\-*]").matcher(html).find()) return true;
             return false;
         }
         return true;
@@ -210,12 +226,17 @@ public class ProductServiceImpl implements ProductService {
                 !StringUtils.hasText(caption);
     }
 
-    /** 判定: Groq の一時的なフォールバック文言なら DB には保存しない */
+    /** Groq Fallback 判定（DB保存回避） */
     private static boolean isGroqFallback(String html) {
-        return html != null && html.contains("Groq の1日あたりのトークン上限を超過しました");
+        if (html == null) return false;
+        final String s = html.toLowerCase();
+        return s.contains("__groq_fallback__")
+                || s.contains("groq の1日あたりのトークン上限を超過しました")
+                || s.contains("llm のトークン上限に達しました");
     }
 
-    // === caption 処理 ===
+    // ===== caption 処理 =====
+
     private String fixCaptionIfNeeded(String current, String html, String plain) {
         if (!isBadCaption(current)) return current;
 
@@ -294,9 +315,8 @@ public class ProductServiceImpl implements ProductService {
         return (a == b) || (a != null && a.equals(b));
     }
 
-    // === Response Builder ===
+    // ===== Response Builder =====
 
-    /** 通常の成功レスポンス（DB上の内容をそのまま返却） */
     private ProductDetailResponseDto buildSuccessResponse(Product product) {
         Double score = reviewRepository.findAverageRatingByItemCode(product.getItemCode());
         int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(product.getItemCode());
@@ -312,32 +332,6 @@ public class ProductServiceImpl implements ProductService {
                 .imageUrls(product.getImages() != null ? product.getImages() : List.of())
                 .descriptionPlain(product.getDescriptionPlain())
                 .descriptionHtml(product.getDescriptionHtml())
-                .build();
-
-        return ProductDetailResponseDto.builder()
-                .message("success")
-                .product(dto)
-                .build();
-    }
-
-    /**
-     * Groq フォールバック時など、DBに保存せずに「表示用だけ上書き」して返すレスポンス
-     */
-    private ProductDetailResponseDto buildSuccessResponseView(Product base, String htmlForView, String plainForView) {
-        Double score = reviewRepository.findAverageRatingByItemCode(base.getItemCode());
-        int reviewCount = reviewRepository.countByProductItemCodeAndDeletedFalse(base.getItemCode());
-
-        ProductDetailResponseDto.ProductDto dto = ProductDetailResponseDto.ProductDto.builder()
-                .itemCode(base.getItemCode())
-                .itemName(base.getItemName())
-                .itemCaption(base.getItemCaption())
-                .catchcopy(base.getCatchcopy())
-                .score(score != null ? Math.round(score * 10.0) / 10.0 : 0.0)
-                .reviewCount(reviewCount)
-                .price(base.getPrice())
-                .imageUrls(base.getImages() != null ? base.getImages() : List.of())
-                .descriptionPlain(plainForView)
-                .descriptionHtml(htmlForView)
                 .build();
 
         return ProductDetailResponseDto.builder()

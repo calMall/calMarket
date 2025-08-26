@@ -24,34 +24,31 @@ public class LlmDescriptionFormatter {
     private final int maxTokens;
     private final int parallelism;
 
-    // 文字数上限（≈2000 tokens 相当）
+    // 入力文字数上限（≒2000 tokens）
     private static final int MAX_INPUT_LENGTH = 3800;
 
-    // 同時請求數上限（固定 2）
+    // 同時実行上限（固定 2）
     private static final int MAX_CONCURRENT_REQUESTS = 2;
 
-    // RateLimiter: 每次呼叫 Groq 至少間隔 (ms)
+    // RateLimiter: 呼び出し最小間隔(ms)
     private static final long MIN_CALL_INTERVAL_MS = 1200;
     private static final Semaphore RATE_LIMITER = new Semaphore(1, true);
     private static final AtomicLong LAST_CALL_TIME = new AtomicLong(0);
 
-    // デフォルト並行数
-    private static final int DEFAULT_PARALLELISM = 2;
+    // 既存の 3 引数コンストラクタ（後方互換）
+    public LlmDescriptionFormatter(GroqClient groq, String model, int maxTokens) {
+        this(groq, model, maxTokens, 1);
+    }
 
-    // === 新增：4參數建構子 ===
+    // 新規 4 引数コンストラクタ（並列度指定）
     public LlmDescriptionFormatter(GroqClient groq, String model, int maxTokens, int parallelism) {
         this.groq = groq;
         this.model = model;
         this.maxTokens = maxTokens;
-        this.parallelism = parallelism <= 0 ? DEFAULT_PARALLELISM : parallelism;
+        this.parallelism = parallelism;
     }
 
-    // === 保留：3參數建構子（舊程式相容用） ===
-    public LlmDescriptionFormatter(GroqClient groq, String model, int maxTokens) {
-        this(groq, model, maxTokens, DEFAULT_PARALLELISM);
-    }
-
-    /** 原文（HTML/プレーン/キャプション/商品名）を LLM で整形 */
+    /** 4引数版（itemName まで渡す） */
     public String cleanToHtml(String rawHtml, String rawPlain, String itemCaption, String itemName) {
         if (!StringUtils.hasText(rawHtml) && !StringUtils.hasText(rawPlain) && !StringUtils.hasText(itemCaption)) {
             return quotaExceededFallbackHtml(itemName);
@@ -59,7 +56,7 @@ public class LlmDescriptionFormatter {
         return cleanToHtml(rawHtml, rawPlain, itemCaption);
     }
 
-    /** 三參數版（既存互換用） */
+    /** 3引数版（既存互換） */
     public String cleanToHtml(String rawHtml, String rawPlain, String itemCaption) {
         final String base = chooseBasePreferHtml(rawHtml, rawPlain, itemCaption);
         if (!StringUtils.hasText(base)) {
@@ -67,9 +64,13 @@ public class LlmDescriptionFormatter {
         }
 
         final String normalized = truncateSafe(normalize(base), MAX_INPUT_LENGTH);
-        final List<String> chunks = chunkSmart(normalized, 1800); // ← 適度に大きめに
-        log.debug("[Groq LLM] chunk count={} (targetLen={})", chunks.size(), normalized.length());
 
+        // チャンクは大きめにしてリクエスト数を減らす（429対策）
+        final int targetLen = 1200;
+        final List<String> chunks = chunkSmart(normalized, targetLen);
+        log.debug("[Groq LLM] chunk count={} (targetLen={})", chunks.size(), targetLen);
+
+        // 固定最大同時 2
         final int threads = Math.min(MAX_CONCURRENT_REQUESTS, Math.max(1, parallelism));
         final ExecutorService ex = Executors.newFixedThreadPool(threads);
 
@@ -98,6 +99,7 @@ public class LlmDescriptionFormatter {
         }
         log.debug("[Groq LLM] finished: success={} failures={}", ok, ng);
 
+        // 部分成功は不採用 → Fallback
         if (ng > 0 || parts.isEmpty()) {
             return quotaExceededFallbackHtml(itemCaption);
         }
@@ -108,6 +110,7 @@ public class LlmDescriptionFormatter {
         return sanitized;
     }
 
+    /** Retry/Backoff */
     private String callGroqOnceWithRetry(int chunkIndex, String chunk) throws IOException, InterruptedException {
         int attempt = 0;
         IOException last = null;
@@ -116,14 +119,21 @@ public class LlmDescriptionFormatter {
             try {
                 return callGroq(chunkIndex, chunk);
             } catch (IOException e) {
-                String msg = e.getMessage() != null ? e.getMessage() : "";
+                final String msg = e.getMessage() != null ? e.getMessage() : "";
+
+                // 日次トークン上限に当たったら即座に失敗扱い（再試行しない）
+                if (msg.contains("tokens per day")) {
+                    log.warn("[Groq LLM] daily token quota exceeded → no retry (chunk#{})", chunkIndex + 1);
+                    throw new IOException("GROQ_TPD_EXCEEDED");
+                }
+
                 if (msg.contains("rate_limit_exceeded")) {
-                    long wait = (long) Math.pow(2, attempt) * 2000;
+                    long wait = (long) Math.pow(2, attempt) * 2000; // 2s → 4s → 8s
                     log.warn("[Groq LLM] 429（chunk#{} attempt#{}）→ sleep {}ms", chunkIndex + 1, attempt + 1, wait);
                     Thread.sleep(wait);
                     last = e;
                 } else {
-                    long wait = (long) Math.pow(2, attempt) * 800;
+                    long wait = (long) Math.pow(2, attempt) * 800; // 0.8s → 1.6s → 3.2s
                     log.warn("[Groq LLM] chunk#{} attempt#{} failed: {} → sleep {}ms",
                             chunkIndex + 1, attempt + 1, e.toString(), wait);
                     Thread.sleep(wait);
@@ -135,37 +145,23 @@ public class LlmDescriptionFormatter {
         throw last != null ? last : new IOException("Groq call failed");
     }
 
+    /** Groq 呼び出し */
     private String callGroq(int chunkIndex, String chunk) throws IOException, InterruptedException {
         enforceRateLimit();
 
         final String system = """
 あなたはECサイト向けの「商品説明テキストの構造化クリーナー」です。
-入力は雑多・重複・順序崩れを含む可能性があります。
-以下のルールに従い、**安全な HTML 本文断片のみ**を出力してください。
-
-【許可される要素】
-<section class="desc-section table|bullets|body">、<table><tr><th|td>、<ul><li>、<p>
-
-【変換ルール】
-- 広告/クーポン/ショップ案内/FAQ/返品・交換/営業時間/連絡先/外部URL/JAN羅列は削除
-- 「規格/サイズ/容量/素材・成分/内容量/セット内容」などは<table>に整理
-- 箇条書きは<ul><li>
-- それ以外は<p>に要約
-- 重複や同義語は圧縮
-- 架空の情報や外部リンクは禁止
-- 出力は **<section> から始まるHTML断片のみ**
-- <li> の先頭に装飾記号は入れない
-- システム/ユーザー指示文やプレースホルダー文は出力禁止
+以下のルールに従い、安全な HTML 本文断片のみを出力してください。
+【許可要素】<section class="desc-section ...">, <table><tr><th|td>, <ul><li>, <p>
+【禁止】外部リンク, 架空情報, プレースホルダー
 """;
 
         final String user = """
 [チャンク #%d]
 原文:
 %s
-
 出力要件:
 - <section> で始まる本文断片のみ
-- 表にできない場合は<table>省略可
 - 冗長/重複を整理し自然な日本語に
 """.formatted(chunkIndex + 1, chunk);
 
@@ -176,6 +172,7 @@ public class LlmDescriptionFormatter {
         );
     }
 
+    /** RateLimiter */
     private static void enforceRateLimit() throws InterruptedException {
         RATE_LIMITER.acquire();
         try {
@@ -188,12 +185,13 @@ public class LlmDescriptionFormatter {
                 log.debug("[Groq LLM] RateLimiter sleep {}ms", wait);
                 Thread.sleep(wait);
             }
-
             LAST_CALL_TIME.set(System.currentTimeMillis());
         } finally {
             RATE_LIMITER.release();
         }
     }
+
+    // ===== Utility =====
 
     private static String chooseBasePreferHtml(String html, String plain, String caption) {
         if (StringUtils.hasText(html)) return html;
@@ -231,36 +229,30 @@ public class LlmDescriptionFormatter {
         return out;
     }
 
+    /** マージ後の妥当性チェック */
     private static String sanitizeMerged(String html, String itemName) {
         if (html == null) return "";
-        String s = html;
-        s = s.replaceFirst("(?s)^\\s*[^<]*?(?=<section\\b)", "");
-        String[] banPhrases = {
-                "入力が必要です", "please provide input", "no input provided",
-                "placeholder", "これはテストです", "商品の詳細情報はありません。"
-        };
-        for (String bad : banPhrases) {
-            s = s.replace(bad, "");
-        }
+        String s = html.replaceFirst("(?s)^\\s*[^<]*?(?=<section\\b)", "");
         if (!s.trim().startsWith("<section")) {
-            return "<section class=\"desc-section body\"><p>" +
-                    (itemName != null ? itemName + " の商品説明は登録されていません。" : "商品説明は登録されていません。") +
-                    "</p></section>";
+            return quotaExceededFallbackHtml(itemName);
         }
         return s.trim();
     }
 
+    /** <li>の直下に装飾記号を禁止 */
     private static void assertNoLeadingBulletMarks(String html) {
         var m = java.util.regex.Pattern
                 .compile("<li>\\s*([・●•\\-*])", java.util.regex.Pattern.DOTALL)
                 .matcher(html);
         if (m.find()) {
-            throw new IllegalStateException("LLM bullet formatting violated: found leading bullet marks inside <li>.");
+            throw new IllegalStateException("LLM bullet formatting violated.");
         }
     }
 
+    /** Fallback（DB 保存回避用マーカー付き） */
     private static String quotaExceededFallbackHtml(String itemName) {
-        return "<section class=\"desc-section body\"><p>" +
+        return "<!--__GROQ_FALLBACK__-->" +
+                "<section class=\"desc-section body\"><p>" +
                 (itemName != null ? itemName + " の商品説明は表示できません。" : "商品説明は表示できません。") +
                 "（Groq の1日あたりのトークン上限を超過しました）</p></section>";
     }
