@@ -68,7 +68,8 @@ public class ProductServiceImpl implements ProductService {
                 final String cleanHtml = descriptionCleanerFacade.buildCleanHtml(
                         product.getDescriptionHtml(),
                         product.getDescriptionPlain(),
-                        product.getItemCaption()
+                        product.getItemCaption(),
+                        product.getItemName()
                 );
                 final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
                 product.setDescriptionHtml(cleanHtml);
@@ -118,7 +119,8 @@ public class ProductServiceImpl implements ProductService {
                 final String cleanHtml = descriptionCleanerFacade.buildCleanHtml(
                         product.getDescriptionHtml(),
                         product.getDescriptionPlain(),
-                        product.getItemCaption()
+                        product.getItemCaption(),
+                        product.getItemName()
                 );
                 final String cleanPlain = DescriptionHtmlToPlain.toPlain(cleanHtml);
 
