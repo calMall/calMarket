@@ -62,7 +62,6 @@ export default function DeliveryAddressModal({
           : setSelectedAddress(null);
       }
     } catch (e: any) {
-      console.log(e);
       if (e.status === 401) {
         alert("ログインが必要です。ログインページに移動します。");
         userStore.logout();

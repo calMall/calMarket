@@ -16,12 +16,10 @@ export default function InfiniteReview() {
   const refreshData = async () => {
     try {
       const data = await getReviewByUser(page, 10);
-      console.log(data);
       setPage((prev) => prev + 1);
       setReviews(data.reviews);
       setHasNextPage(data.hasNext);
       setReviewCount(data.totalElements);
-      console.log(data.reviews);
     } catch (e) {
       setHasNextPage(false);
       alert("エラーが発生しました。");

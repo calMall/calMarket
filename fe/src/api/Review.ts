@@ -77,7 +77,6 @@ export const getReviewDetail = async (id: number): Promise<reviewDetail> => {
     method: "POST",
     credentials: "include",
   });
-  console.log(data.statusText);
 
   if (!data.ok) {
     let errorMessage = data.statusText;

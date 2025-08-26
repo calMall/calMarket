@@ -27,7 +27,6 @@ export default function Mypage() {
       setReviews(data.reviews ? data.reviews : []);
       setIsLoading(false);
     } catch (e: any) {
-      console.log(e);
       if (e.status === 401) {
         alert("ログインが必要です。ログインページに移動します。");
         userStore.logout();

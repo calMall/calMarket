@@ -37,7 +37,6 @@ export default function OrderDetail({
       try {
         const { id } = await params;
         const res = await PostCancelOrder(Number(id));
-        console.log(res);
       } catch (e: any) {
         if (e.status === 401) {
           alert("ログインが必要です。ログインページに移動します。");
@@ -62,7 +61,6 @@ export default function OrderDetail({
       try {
         const { id } = await params;
         const res = await PostRefundOrder(Number(id));
-        console.log(res);
       } catch (e: any) {
         if (e.status === 401) {
           alert("ログインが必要です。ログインページに移動します。");
@@ -99,9 +97,7 @@ export default function OrderDetail({
         setTotalCount(cnt);
         setLoading(false);
       }
-      console.log(data);
     } catch (e: any) {
-      console.log(e.status);
       if (e.status === 401) {
         alert("ログインが必要です。ログインページに移動します。");
         userStore.logout();

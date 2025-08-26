@@ -57,7 +57,6 @@ export default function ReviewContain({ itemCode, rating }: props) {
         setReviewCount(res.totalElements);
         setRatingStats(res.ratingStats);
         setLoading(false);
-        console.log(res);
       } catch (e: any) {}
     };
     fetchReviews();

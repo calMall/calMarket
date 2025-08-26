@@ -44,7 +44,6 @@ export default async function ProductDetail({
       </CustomLayout>
     );
   } catch (e) {
-    console.log(e);
     return <NoProduct />;
   }
 }

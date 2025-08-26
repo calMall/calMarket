@@ -18,7 +18,6 @@ export default function OrderList() {
       const data = await getOrderList();
       setOrders(data.orders);
       setIsLoading(false);
-      console.log(data);
     } catch (e: any) {
       if (e.status === 401) {
         alert("ログインが必要です。ログインページに移動します。");

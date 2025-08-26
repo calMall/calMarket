@@ -47,7 +47,6 @@ export default function CheckoutOrderImmediately({
   const fetchData = async () => {
     try {
       const data = await getProductDetail(itemCode);
-      console.log(data);
       if (data.message === "success") {
         const productWithQuantity = toCheckoutItem(data.product, quantity);
         setCheckoutItem(productWithQuantity);
@@ -70,7 +69,6 @@ export default function CheckoutOrderImmediately({
     try {
       const data = await getMyInfo();
       if (data.message === "success") {
-        console.log(data);
         setMyInfo(data);
         if (data.deliveryAddressDetails.length > 0) {
           setSelectedAddress(data.deliveryAddressDetails[0]);

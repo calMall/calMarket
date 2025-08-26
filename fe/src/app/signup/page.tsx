@@ -59,7 +59,6 @@ export default function Signup() {
       }
       return alert("登録に失敗しました。");
     } catch (e) {
-      console.log(e);
       return alert("登録に失敗しました。");
     }
   };

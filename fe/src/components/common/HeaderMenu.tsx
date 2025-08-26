@@ -25,7 +25,6 @@ export default function HeaderMenu({ nickname }: props) {
     try {
       setViewMenu(false);
       const data = await logout();
-      console.log(data);
       if (data.message === "success") {
         userStore.logout();
         router.replace("/");

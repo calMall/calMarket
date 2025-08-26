@@ -29,7 +29,6 @@ export default function CartItem({
           setIsLoading(true);
           const res = await increaseProduct(item.id);
           setIsLoading(false);
-          console.log(res);
           if (res.message === "success") {
             refetchData("change", { ...item, quantity: item.quantity + 1 });
             setCheckList((prev) => {
@@ -55,7 +54,6 @@ export default function CartItem({
           setIsLoading(true);
           const res = await decreaseProduct(item.id);
           setIsLoading(false);
-          console.log(res);
           if (res.message === "success") {
             refetchData("change", { ...item, quantity: item.quantity - 1 });
             setCheckList((prev) => {

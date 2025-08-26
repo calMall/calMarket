@@ -36,7 +36,6 @@ export default function CheckoutOrder({ ids }: props) {
       const data = await getCheckout(ids.split(",").map((id) => Number(id)));
       if (data.message === "success") {
         setCheckoutList(data.cartList);
-        console.log(data);
 
         setAllPrice(
           data.cartList.reduce(
@@ -53,8 +52,6 @@ export default function CheckoutOrder({ ids }: props) {
         return router.push("/login");
       }
       alert("カートの情報を取得できませんでした。");
-      console.log(e);
-      console.log(e.message);
       router.replace("/cart");
     }
   };
@@ -63,7 +60,6 @@ export default function CheckoutOrder({ ids }: props) {
   const onMyInfoChange = async () => {
     const data = await getMyInfo();
     if (data.message === "success") {
-      console.log(data);
       setMyInfo(data);
       if (data.deliveryAddressDetails.length > 0) {
         setSelectedAddress(data.deliveryAddressDetails[0]);

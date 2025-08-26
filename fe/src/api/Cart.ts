@@ -45,7 +45,6 @@ export const deleteCart = async (
 
   if (!data.ok) {
     const error: any = new Error(data.statusText);
-    console.log(error);
     error.status = data.status;
     throw error;
   }
@@ -55,7 +54,6 @@ export const deleteCart = async (
 export const getCheckout = async (
   cartItemIds: number[]
 ): Promise<OrderCheckout> => {
-  console.log(cartItemIds);
   const data = await fetch(`${url}/cart/list-for-order`, {
     method: "POST",
     credentials: "include",

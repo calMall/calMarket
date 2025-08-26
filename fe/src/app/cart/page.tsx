@@ -15,7 +15,6 @@ export default function Cart() {
     try {
       const data = await getCart();
       setCarts(data.cartItems);
-      console.log(data);
     } catch (e: any) {
       if (e.status === 401) {
         alert("ログインが必要です。ログインページに移動します。");

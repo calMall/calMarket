@@ -86,7 +86,6 @@ export default function ReviewWriteContain({
       const newImages = Array.from(files);
       setImageList((prev) => [...prev, ...newImages]);
     }
-    console.log(imageList);
   };
 
   const changeContent = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -129,7 +128,6 @@ export default function ReviewWriteContain({
         review,
         reviewId && initialData ? reviewId : null
       );
-      console.log(res);
       setIsReviewUploading(false);
 
       if (method === "POST") {
