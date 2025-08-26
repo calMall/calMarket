@@ -17,13 +17,16 @@ export default function CartContain({ initCartList }: props) {
     return checkList.reduce((acc, item) => acc + item.price * item.quantity, 0);
   };
   const [allPrice, setAllPrice] = useState(reducePrice());
-  const refetchCart = async (type: "delete" | "change") => {
-    try {
-      const data = await getCart();
-      setCartList(data.cartItems);
-      if (type === "delete") setCheckList([]);
-    } catch (e) {
-      console.error("カートの再取得に失敗しました。", e);
+  const [isLoading, setIsLoading] = useState(false);
+  const refetchCart = async (type: "delete" | "change", item?: cartItem) => {
+    if (type === "change" && item) {
+      setCartList((prev) => {
+        return prev.map((el) => (el.id === item.id ? item : el));
+      });
+    }
+    if (type === "delete") {
+      setCartList((prev) => prev.filter((el) => !checkList.includes(el)));
+      setCheckList([]);
     }
   };
   const onDelete = async () => {
@@ -33,13 +36,17 @@ export default function CartContain({ initCartList }: props) {
     }
     if (window.confirm("選択した商品を削除しますか？")) {
       try {
+        setIsLoading(true);
         const data = await deleteCart(checkList.map((item) => item.id));
+        setIsLoading(false);
         if (data.message === "success") {
           refetchCart("delete");
           alert("選択した商品を削除しました。");
         }
         // 削除処理をここに追加
-      } catch (e) {}
+      } catch (e) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -83,7 +90,11 @@ export default function CartContain({ initCartList }: props) {
           />
           すべて選択
         </div>
-        <button className="cart-del-btn" onClick={onDelete}>
+        <button
+          disabled={isLoading}
+          className="cart-del-btn"
+          onClick={onDelete}
+        >
           選択した商品を削除
         </button>
       </div>

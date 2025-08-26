@@ -94,9 +94,15 @@ export default function CheckoutOrder({ ids }: props) {
         userStore.logout();
         return router.push("/login");
       }
-      alert("カートの情報を取得できませんでした。");
-      console.log(e);
-      console.log(e.message);
+      if (
+        e.message &&
+        e.message.split("fail:").length > 1 &&
+        e.message.split("fail:")[1].trim()
+      ) {
+        alert(e.message.split("fail:")[1].trim());
+      } else {
+        alert("注文に失敗しました。");
+      }
       router.replace("/cart");
     }
   };

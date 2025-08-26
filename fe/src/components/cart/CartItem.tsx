@@ -9,7 +9,7 @@ import { MdDeleteOutline } from "react-icons/md";
 
 interface props {
   initItem: cartItem;
-  refetchData: Function;
+  refetchData: (type: "delete" | "change", item?: cartItem) => void;
   setCheckList: React.Dispatch<React.SetStateAction<cartItem[]>>;
   setCartList: React.Dispatch<React.SetStateAction<cartItem[]>>;
 }
@@ -21,15 +21,17 @@ export default function CartItem({
 }: props) {
   const [item, setItem] = useState(initItem);
   const [mounted, setMounted] = useState(false);
-
+  const [isLoading, setIsLoading] = useState(false);
   const quantityChange = async (cal: "-" | "+") => {
     if (cal === "+") {
       if (item.quantity < 30) {
         try {
+          setIsLoading(true);
           const res = await increaseProduct(item.id);
+          setIsLoading(false);
           console.log(res);
           if (res.message === "success") {
-            await refetchData();
+            refetchData("change", { ...item, quantity: item.quantity + 1 });
             setCheckList((prev) => {
               return prev.map((el) =>
                 el.id === item.id ? { ...el, quantity: el.quantity + 1 } : el
@@ -40,6 +42,7 @@ export default function CartItem({
             });
           }
         } catch (e) {
+          setIsLoading(false);
           return alert("追加に失敗しました。");
         }
       }
@@ -49,10 +52,12 @@ export default function CartItem({
     if (cal === "-") {
       if (item.quantity > 1) {
         try {
+          setIsLoading(true);
           const res = await decreaseProduct(item.id);
+          setIsLoading(false);
           console.log(res);
           if (res.message === "success") {
-            await refetchData();
+            refetchData("change", { ...item, quantity: item.quantity - 1 });
             setCheckList((prev) => {
               return prev.map((el) =>
                 el.id === item.id ? { ...el, quantity: el.quantity - 1 } : el
@@ -63,16 +68,20 @@ export default function CartItem({
             });
           }
         } catch (e) {
+          setIsLoading(false);
           return alert("削除に失敗しました。");
         }
       }
       if (item.quantity === 1 && window.confirm("商品を削除しますか？")) {
         try {
+          setIsLoading(true);
           const res = await deleteCart([item.id]);
+          setIsLoading(false);
           if (res.message === "success") {
-            await refetchData();
+            refetchData("delete");
           }
         } catch (e) {
+          setIsLoading(false);
           return alert("削除に失敗しました。");
         }
       }
@@ -95,6 +104,7 @@ export default function CartItem({
         <div className="cart-quantity">
           <div className="flex ac jb cart-quantity-contain">
             <CustomButton
+              disable={isLoading}
               classname="cart-quantity-btn fw-500"
               text={item.quantity > 1 ? "-" : ""}
               icon={item.quantity <= 1 ? <MdDeleteOutline /> : null}
@@ -105,6 +115,7 @@ export default function CartItem({
               {item.quantity}
             </div>
             <CustomButton
+              disable={isLoading}
               classname="cart-quantity-btn fw-500"
               text="+"
               func={quantityChange.bind(mounted ? window : null, "+")}

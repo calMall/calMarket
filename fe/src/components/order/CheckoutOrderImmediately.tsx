@@ -107,12 +107,15 @@ export default function CheckoutOrderImmediately({
         router.push("/");
       }
     } catch (e: any) {
-      if (e.status === 401) {
-        alert("ログインが必要です。ログインページに移動します。");
-        userStore.logout();
-        return router.push("/login");
+      if (
+        e.message &&
+        e.message.split("fail:").length > 1 &&
+        e.message.split("fail:")[1].trim()
+      ) {
+        alert(e.message.split("fail:")[1].trim());
+      } else {
+        alert("注文に失敗しました。");
       }
-      alert("カートの情報を取得できませんでした。");
       router.replace("/cart");
     }
   };

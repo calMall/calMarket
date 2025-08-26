@@ -11,7 +11,12 @@ export const postOrderByProduct = async (
   });
 
   if (!data.ok) {
-    const error: any = new Error(data.statusText);
+    let errorMessage = data.statusText;
+    const errorBody = await data.json();
+    if (errorBody && errorBody.message) {
+      errorMessage = errorBody.message;
+    }
+    const error: any = new Error(errorMessage);
     error.status = data.status;
     throw error;
   }
