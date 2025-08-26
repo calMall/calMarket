@@ -12,28 +12,20 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.*;
 
+
 /**
- * LLMで商品説明の整形（CSSなし・堅牢版）
- * - 入力正規化
- * - 最大入力長の強制（安全切断）
- * - 800文字前後のスマート分割（最大チャンク数 6）
- * - 控えめ並列（推奨 2〜3）
- * - Groq 429（TPD超過）時は商品名を使った日本語のフォールバックHTMLを返す
- * - sanitizer で「商品説明はありません。」や空殻 body セクションを除去
- * - <li>先頭の装飾記号チェック
+ * LLMで商品説明の整形
  */
 @Slf4j
 public class LlmDescriptionFormatter {
-
-    // === トークン/日 目標に合わせた安全設計値 ===
-    private static final int MAX_INPUT_LENGTH = 3800; // ≈ ~2,000 tokens を目安
-    private static final int CHUNK_SIZE = 800;        // 800字で分割
-    private static final int MAX_CHUNKS = 6;          // 最大 6 チャンク（合計 ≒ 4,800字までだが先に3800でtruncate）
 
     private final GroqClient groq;
     private final String model;
     private final int maxTokens;
     private final int parallelism;
+
+    // 最大入力長（文字数ベース）
+    private static final int MAX_INPUT_LENGTH = 3800;
 
     public LlmDescriptionFormatter(GroqClient groq, String model, int maxTokens, int parallelism) {
         this.groq = groq;
@@ -43,24 +35,30 @@ public class LlmDescriptionFormatter {
     }
 
     /**
-     * 原文（HTML/プレーン/キャプション）を LLM で整形し、<section> から始まる HTML 断片を返す。
-     * 429（TPD超過）が発生した場合は「商品名 + 配額切れの説明」のフォールバック HTML を返す。
+     * 原文（HTML/プレーン/キャプション）をLLMで整形
+     * @param rawHtml     HTML説明
+     * @param rawPlain    プレーン説明
+     * @param itemCaption キャッチコピー
+     * @param itemName    商品名（fallback用）
      */
-    public String cleanToHtml(String rawHtml, String rawPlain, String itemCaption, String itemNameForQuotaFallback) {
+    public String cleanToHtml(String rawHtml, String rawPlain, String itemCaption, String itemName) {
         final String base = chooseBasePreferHtml(rawHtml, rawPlain, itemCaption);
         if (!StringUtils.hasText(base)) {
-            throw new IllegalStateException("No source text to clean.");
+            // 入力ゼロなら商品名でフォールバック
+            return quotaExceededFallbackHtml(itemName);
         }
 
-        // 1) 入力正規化 + 最大長で安全切断
+        // 入力正規化
         final String normalized = normalize(base);
-        final String limited = truncateSafe(normalized, MAX_INPUT_LENGTH);
 
-        // 2) 800字スマート分割（最大 MAX_CHUNKS）
-        final List<String> chunks = chunkSmart(limited, CHUNK_SIZE, MAX_CHUNKS);
+        // 入力を安全に切り詰める
+        final String truncated = truncateSafe(normalized, MAX_INPUT_LENGTH);
+
+        // --- チャンク分割（800文字単位） ---
+        final List<String> chunks = chunkSmart(truncated, 800);
         log.debug("[Groq LLM] chunks={}", chunks.size());
 
-        // 3) 控えめ並列で LLM 呼び出し
+        // 並列実行
         final ExecutorService ex = Executors.newFixedThreadPool(Math.max(1, parallelism));
         final List<Future<String>> futures = new ArrayList<>();
         for (int i = 0; i < chunks.size(); i++) {
@@ -69,7 +67,7 @@ public class LlmDescriptionFormatter {
         }
         ex.shutdown();
 
-        // 4) 出力収集
+        // 出力収集
         final List<String> parts = new ArrayList<>();
         int ok = 0, ng = 0;
         for (Future<String> f : futures) {
@@ -81,48 +79,38 @@ public class LlmDescriptionFormatter {
                 } else {
                     ng++;
                 }
-            } catch (ExecutionException ee) {
-                // Groq 429（TPD超過）はここに入る可能性が高いので検知
-                Throwable cause = ee.getCause();
-                if (cause instanceof IOException io && isGroqDailyQuotaExceeded(io)) {
-                    log.warn("[Groq LLM] Daily quota exceeded. Returning fallback HTML.");
-                    return quotaExceededFallbackHtml(itemNameForQuotaFallback);
-                }
-                log.debug("[Groq LLM] chunk failed (execution)", ee);
-                ng++;
             } catch (Exception e) {
-                log.debug("[Groq LLM] chunk failed (unknown)", e);
+                log.debug("[Groq LLM] chunk failed (execution)", e);
                 ng++;
             }
         }
         log.debug("[Groq LLM] finished: success={} failures={}", ok, ng);
 
         if (parts.isEmpty()) {
-            // 429 以外の理由で全滅した場合は例外化（呼び出し元でDBフォールバックなど）
-            throw new IllegalStateException("LLM produced no fragments (all chunks failed).");
+            // 全部失敗した場合もフォールバック
+            return quotaExceededFallbackHtml(itemName);
         }
 
-        // 5) 連結 → サニタイズ → 簡易検証
+        // 連結 → サニタイズ → 簡易検証
         final String merged = String.join("", parts);
         final String sanitized = sanitizeMerged(merged);
         assertNoLeadingBulletMarks(sanitized);
         return sanitized;
     }
 
-    // ===== Groq 呼び出し（指数バックオフ） =====
-
+    // --- Groq 呼び出し (指数バックオフ) ---
     private String callGroqOnceWithRetry(int chunkIndex, String chunk) throws IOException, InterruptedException {
         int attempt = 0;
-        long backoff = 800; // ms
+        long backoff = 800;
         IOException last = null;
 
         while (attempt < 3) {
             try {
                 return callGroq(chunkIndex, chunk);
             } catch (IOException e) {
-                if (isGroqDailyQuotaExceeded(e)) {
-                    // TPD超過はすぐに投げ返して上位でフォールバック
-                    throw e;
+                // 429 (TPDオーバー) は即フォールバック
+                if (e.getMessage() != null && e.getMessage().contains("rate_limit_exceeded")) {
+                    throw new IOException("QUOTA_EXCEEDED");
                 }
                 log.debug("[Groq LLM] chunk#{} attempt#{} failed: {}", chunkIndex + 1, attempt + 1, e.toString());
                 last = e;
@@ -134,7 +122,7 @@ public class LlmDescriptionFormatter {
         throw last != null ? last : new IOException("Groq call failed");
     }
 
-    // system / user プロンプト（CSSなし）
+    // --- system / user プロンプト (CSSなし) ---
     private String callGroq(int chunkIndex, String chunk) throws IOException {
         final String system = """
 あなたはECサイト向けの「商品説明テキストの構造化クリーナー」です。
@@ -154,7 +142,6 @@ public class LlmDescriptionFormatter {
 - 出力は **<section> から始まるHTML断片のみ**
 - <li> の先頭に装飾記号は入れない
 - システム/ユーザー指示文やプレースホルダー文は出力禁止
-- **「商品説明はありません。」のような空文・案内文は出力しない**
 """;
 
         final String user = """
@@ -175,47 +162,27 @@ public class LlmDescriptionFormatter {
         );
     }
 
-    private static boolean isGroqDailyQuotaExceeded(IOException e) {
-        String msg = e.getMessage();
-        if (msg == null) return false;
-        return msg.contains("Rate limit reached")
-                && msg.contains("tokens per day (TPD)")
-                && msg.contains("rate_limit_exceeded");
-    }
+    // --- Utility ---
 
-    // ===== Utility =====
-
-    /** HTMLがあれば優先。無ければプレーン、最後にキャプション。 */
     private static String chooseBasePreferHtml(String html, String plain, String caption) {
         if (StringUtils.hasText(html)) return html;
         if (StringUtils.hasText(plain)) return plain;
         return caption != null ? caption : "";
     }
 
-    /** 軽い正規化（エンティティ解除・改行統一） */
     private static String normalize(String s) {
         String t = (s == null) ? "" : HtmlUtils.htmlUnescape(s);
         t = t.replace("\r\n", "\n").replace("\r", "\n");
         return t.trim();
     }
 
-    /** 安全切断（サロゲートペア・結合文字を壊さない / 末尾に省略注記） */
     private static String truncateSafe(String text, int maxLen) {
         if (text == null) return "";
         if (text.length() <= maxLen) return text;
-        // 末尾のコードポイント境界で切る
-        int end = text.offsetByCodePoints(0, Math.max(0, text.codePointCount(0, maxLen)));
-        String cut = text.substring(0, end).trim();
-        // 極端に短い場合の保険
-        if (cut.isEmpty()) {
-            end = Math.min(text.length(), maxLen);
-            cut = text.substring(0, end).trim();
-        }
-        return cut + "\n\n※ 元の説明文が長いため、内容を一部省略して整形しています。";
+        return text.substring(0, maxLen) + "\n\n※以下省略しました";
     }
 
-    /** サイズ制御のための行単位分割（targetLen 超なら改行境界で積み上げ） */
-    private static List<String> chunkSmart(String text, int targetLen, int maxChunks) {
+    private static List<String> chunkSmart(String text, int targetLen) {
         final List<String> lines = Arrays.stream(text.split("\n"))
                 .map(String::trim).filter(l -> !l.isEmpty()).toList();
 
@@ -224,17 +191,16 @@ public class LlmDescriptionFormatter {
         for (String ln : lines) {
             if (buf.length() + ln.length() + 1 > targetLen) {
                 out.add(buf.toString().trim());
-                if (out.size() >= maxChunks) break;
                 buf.setLength(0);
             }
             if (buf.length() > 0) buf.append('\n');
             buf.append(ln);
         }
-        if (buf.length() > 0 && out.size() < maxChunks) out.add(buf.toString().trim());
+        if (buf.length() > 0) out.add(buf.toString().trim());
         return out;
     }
 
-    /** LLM出力のサニタイズ（禁止文言／空殻 body セクションを除去） */
+    /** LLM出力のサニタイズ */
     private static String sanitizeMerged(String html) {
         if (html == null) return "";
         String s = html;
@@ -242,27 +208,18 @@ public class LlmDescriptionFormatter {
         // <section>より前を削除
         s = s.replaceFirst("(?s)^\\s*[^<]*?(?=<section\\b)", "");
 
-        // 禁止文言（既存＋追加）
+        // 禁止文言を削除
         String[] banPhrases = {
                 "入力が必要です。原文を入力してください。",
                 "please provide input",
                 "no input provided",
                 "placeholder",
                 "これはテストです",
-                "商品説明はありません。",
-                "商品説明はありません"
+                "入力された情報はありません"
         };
         for (String bad : banPhrases) {
             s = s.replace(bad, "");
         }
-        
-        s = s.replaceAll("(?is)<p>\\s*</p>", "");
-
-        // body セクションが空なら section ごと削除
-        s = s.replaceAll(
-                "(?is)<section\\s+class=\"[^\"]*\\bdesc-section\\b[^\"<>]*\\bbody\\b[^\"]*\"[^>]*>\\s*</section>\\s*",
-                ""
-        );
 
         if (!s.trim().startsWith("<section")) {
             throw new IllegalStateException("LLM output did not start with <section> after sanitization.");
@@ -270,27 +227,21 @@ public class LlmDescriptionFormatter {
         return s.trim();
     }
 
-    /** <li> 先頭に装飾記号が入っていないかの簡易検証 */
+    /** <li>先頭に装飾記号が無いか確認 */
     private static void assertNoLeadingBulletMarks(String html) {
         var m = java.util.regex.Pattern
                 .compile("<li>\\s*([・●•\\-*])", java.util.regex.Pattern.DOTALL)
                 .matcher(html);
         if (m.find()) {
-            throw new IllegalStateException(
-                    "LLM bullet formatting violated: found leading bullet marks inside <li>."
-            );
+            throw new IllegalStateException("LLM bullet formatting violated: found leading bullet marks inside <li>.");
         }
     }
 
-    // GroqのTPDが尽きたときのフォールバックHTML
+    /** TPD超過などでLLMが使えないときのフォールバックHTML */
     private static String quotaExceededFallbackHtml(String itemName) {
-        String safeName = StringUtils.hasText(itemName) ? HtmlUtils.htmlEscape(itemName) : "この商品";
-        return """
-<section class="desc-section body">
-  <p>%s の詳細な説明文を生成できませんでした。</p>
-  <p>理由：Groq の毎日トークン配額（TPD 100,000）が上限に達しました。日次配額が回復すると自動的に生成されます。</p>
-  <p>※ 商品の基本情報（名称・価格・画像など）は引き続き表示しています。</p>
-</section>
-""".formatted(safeName).trim();
+        String safeName = (itemName != null && !itemName.isBlank()) ? itemName : "この商品";
+        return "<section class=\"desc-section body\">\n" +
+                "<p>" + safeName + " の商品説明は現在ご利用いただけません（Groqの1日上限に達しました）。</p>\n" +
+                "</section>";
     }
 }
