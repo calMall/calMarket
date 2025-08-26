@@ -39,12 +39,14 @@ export default function InfiniteProduct({ keyword, hits, isNextPage }: props) {
   }, [keyword]);
   return (
     <>
-      {products.map((product, idx) => (
-        <ProductItem
-          product={product}
-          key={String(idx) + product.Item.itemCode}
-        />
-      ))}
+      <div className="search-list-contain">
+        {products.map((product, idx) => (
+          <ProductItem
+            product={product}
+            key={String(idx) + product.Item.itemCode}
+          />
+        ))}
+      </div>
       <InfiniteScroll
         children
         className="grid-full"

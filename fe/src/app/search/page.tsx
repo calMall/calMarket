@@ -16,20 +16,22 @@ export default async function ProductsSearch({ searchParams }: props) {
       <CustomLayout>
         <h1 className="flex ac jc">「{q}」の検索結果</h1>
         {data.count > 0 ? (
-          <div className="search-list-contain mt-2">
-            {data.Items.map((item) => (
-              <ProductItem
-                imageSize={512}
-                product={item}
-                key={item.Item.itemCode}
-              />
-            ))}
+          <>
+            <div className="search-list-contain mt-2">
+              {data.Items.map((item) => (
+                <ProductItem
+                  imageSize={512}
+                  product={item}
+                  key={item.Item.itemCode}
+                />
+              ))}
+            </div>
             <InfiniteProduct
               keyword={q}
               isNextPage={data.last - data.page > 0}
               hits={20}
             />
-          </div>
+          </>
         ) : (
           <h3>検索結果がありません。</h3>
         )}
