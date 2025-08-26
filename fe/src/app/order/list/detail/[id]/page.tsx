@@ -37,6 +37,10 @@ export default function OrderDetail({
       try {
         const { id } = await params;
         const res = await PostCancelOrder(Number(id));
+        if (res.message === "success") {
+          alert("注文がキャンセルされました。");
+          fetchData();
+        }
       } catch (e: any) {
         if (e.status === 401) {
           alert("ログインが必要です。ログインページに移動します。");
