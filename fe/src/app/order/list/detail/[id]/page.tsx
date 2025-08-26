@@ -44,7 +44,11 @@ export default function OrderDetail({
           userStore.logout();
           return router.push("/login");
         }
-        alert(e.message.split(":")[1].trim());
+        if (e.message.split(":")[1].trim()) {
+          alert(e.message.split(":")[1].trim());
+        } else {
+          alert("注文のキャンセルに失敗しました。");
+        }
         router.back();
       }
     }
@@ -61,7 +65,11 @@ export default function OrderDetail({
           userStore.logout();
           return router.push("/login");
         }
-        alert(e.message.split(":")[1].trim());
+        if (e.message.split(":")[1].trim()) {
+          alert(e.message.split(":")[1].trim());
+        } else {
+          alert("注文の払い戻しに失敗しました。");
+        }
         return router.back();
       }
     }
@@ -85,12 +93,17 @@ export default function OrderDetail({
       }
       console.log(data);
     } catch (e: any) {
+      console.log(e.status);
       if (e.status === 401) {
         alert("ログインが必要です。ログインページに移動します。");
         userStore.logout();
         return router.push("/login");
       }
-      alert(e.message);
+      if (e.message.split(":")[1].trim()) {
+        alert(e.message.split(":")[1].trim());
+      } else {
+        alert("エラーが発生しました。");
+      }
       return router.back();
     }
   };
