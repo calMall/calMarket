@@ -68,7 +68,7 @@ public class LlmDescriptionFormatter {
         // 事前フィルタ（パンくず/販促テンプレ等を除去）
         final String normalized = truncateSafe(prefilterGarbage(normalize(base)), MAX_INPUT_LENGTH);
 
-        // 短文はチャンク分割せず 1 発で実行（多段<section>の発生を抑制）
+        // 1発処理（短文）
         if (normalized.length() <= 1200) {
             log.debug("[Groq LLM] force single chunk for short input (len={})", normalized.length());
             try {
@@ -82,7 +82,7 @@ public class LlmDescriptionFormatter {
             }
         }
 
-        // 通常：分割して並行処理（最大同時 2）
+        // 分割並行
         final List<String> chunks = chunkSmart(normalized, 1600);
         log.debug("[Groq LLM] chunk count={} (targetLen=1600)", chunks.size());
 
@@ -114,7 +114,6 @@ public class LlmDescriptionFormatter {
         }
         log.debug("[Groq LLM] finished: success={} failures={}", ok, ng);
 
-        // 部分成功は採用しない（見栄え/一貫性のため）
         if (ng > 0 || parts.isEmpty()) {
             return quotaExceededFallbackHtml(itemName != null ? itemName : itemCaption);
         }
@@ -135,7 +134,6 @@ public class LlmDescriptionFormatter {
                 return callGroq(chunkIndex, chunk);
             } catch (IOException e) {
                 String msg = e.getMessage() != null ? e.getMessage() : "";
-                // 日次トークン上限（TPD）に当たったら即中断（待っても無駄）
                 if (msg.contains("tokens per day") || msg.contains("TPD")) {
                     log.warn("[Groq LLM] daily token quota exceeded → no retry (chunk#{})", chunkIndex + 1);
                     throw new IOException("GROQ_TPD_EXCEEDED");
@@ -157,30 +155,22 @@ public class LlmDescriptionFormatter {
         throw last != null ? last : new IOException("Groq call failed");
     }
 
-    // === system / user prompt ===
+    // === system / user prompt（DICT 付き / extractive-only） ===
     private String callGroq(int chunkIndex, String chunk) throws IOException, InterruptedException {
-        enforceRateLimit(); // 追加：限速
+        enforceRateLimit();
+
+        java.util.Set<String> dict = buildTermSet(chunk);
 
         final String system = """
 あなたはECサイト向けの「商品説明テキストの構造化クリーナー」です。
-入力は雑多・重複・順序崩れを含む可能性があります。
+出力は **抽出圧縮（extractive-only）** とし、原文に存在しない名詞・機能・数値を新規に作成してはいけません。
 以下のルールに従い、**安全な HTML 本文断片のみ**を出力してください。
 
-【許可される要素】
-<section class="desc-section table|bullets|body">、<table><tr><th|td>、<ul><li>、<p>
-
-【変換ルール】
-- 広告/クーポン/ショップ案内/FAQ/返品・交換/営業時間/連絡先/外部URL/JAN羅列は削除
-- 「規格/サイズ/容量/素材・成分/内容量/セット内容」などは<table>に整理
-- 箇条書きは<ul><li>
-- それ以外は<p>に要約
-- 重複や同義語は圧縮
-- 原文に存在しない新規情報を追加しない（憶測禁止）
-- プレースホルダー表現（例：「商品の詳細情報を記載します。」）は禁止
-- 架空の情報や外部リンクは禁止
-- 出力は **<section> から始まるHTML断片のみ**
-- <li> の先頭に装飾記号は入れない
-- システム/ユーザー指示文やプレースホルダー文は出力禁止
+【許可要素】<section class="desc-section table|bullets|body">、<table><tr><th|td>、<ul><li>、<p>
+【禁止】広告/店舗案内/外部URL/FAQ/連絡先/クーポン/メタ発言/空虚な定型句
+【変換】規格や成分などの「項目：値」は<table>、箇条書きは<ul><li>、その他は<p>
+【整形】重複統合・冗長削除・誤字は直さずに削除（推測で補完しない）
+【出力】<section> から始まる断片のみ。前後に何も出力しない。
 """;
 
         final String user = """
@@ -188,17 +178,17 @@ public class LlmDescriptionFormatter {
 原文:
 %s
 
-出力要件:
-- <section> で始まる本文断片のみ
-- 表にできない場合は<table>省略可
-- 冗長/重複を整理し自然な日本語に
-""".formatted(chunkIndex + 1, chunk);
+【DICT（使用許可語彙）】
+%s
 
-        return groq.chat(
-                model,
-                List.of(Message.sys(system), Message.user(user)),
-                maxTokens
-        );
+【厳格制約】
+- 各文は上記 DICT の語彙（または原文の数値・単位）を必ず1語以上含むこと。含まない文は出力しない。
+- DICT にない新規名詞を導入しない。
+- 内容が空になる場合は、次の1行のみを出力: <section class="desc-section body"><p></p></section>
+- <li> の先頭に記号（・●•-*）を付けない。
+""".formatted(chunkIndex + 1, chunk, String.join("、", dict));
+
+        return groq.chat(model, List.of(Message.sys(system), Message.user(user)), maxTokens);
     }
 
     // === RateLimiter ===
@@ -279,7 +269,7 @@ public class LlmDescriptionFormatter {
         return out;
     }
 
-    /** LLM出力のサニタイズ（空話除去・テーブル化・セクション整理） */
+    /** LLM出力のサニタイズ（DICT 驗收＋表化＋セクション整理） */
     private static String sanitizeMerged(String html, String itemName) {
         if (html == null) return "";
         String s = html;
@@ -287,21 +277,12 @@ public class LlmDescriptionFormatter {
         // <section> までの前置きを除去
         s = s.replaceFirst("(?s)^\\s*[^<]*?(?=<section\\b)", "");
 
-        // 空話/プレースホルダー/上限メッセージ除去
-        String[] banPhrases = {
-                "入力が必要です", "please provide input", "no input provided",
-                "placeholder", "これはテストです", "商品の詳細情報はありません。",
-                "商品説明はありません。", "商品の詳細情報を記載します。",
-                "商品の詳細情報を以下に記載します。", "詳細は以下のとおりです。",
-                "（LLM のトークン上限に達しました）",
-                "Groq の1日あたりのトークン上限を超過しました"
-        };
-        for (String bad : banPhrases) {
-            s = s.replace(bad, "");
-        }
-
         // body セクション内の「キー：値」パラグラフ群を表に
         s = convertKeyValueParasToTable(s);
+
+        // --- 非黑名單：來源語彙重疊度で無関文を排除 ---
+        java.util.Set<String> dictForFilter = buildTermSet(itemName, s);
+        s = filterParagraphsByOverlap(s, dictForFilter);
 
         // 取るに足らない短小セクション削除
         s = dropTrivialSections(s);
@@ -373,9 +354,7 @@ public class LlmDescriptionFormatter {
 
     private static String escapeHtml(String s) {
         if (s == null) return "";
-        return s.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;");
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     /** 取るに足らない <section> を除去 */
@@ -402,9 +381,7 @@ public class LlmDescriptionFormatter {
         StringBuilder mergedInner = new StringBuilder();
         int count = 0;
         while (m.find()) {
-            if (count++ > 0) {
-                // そのまま連結（<p>が並ぶ想定）
-            }
+            if (count++ > 0) { /* 連結 */ }
             mergedInner.append(m.group(1));
         }
         if (count <= 1) return html;
@@ -425,5 +402,54 @@ public class LlmDescriptionFormatter {
         return "<section class=\"desc-section body\"><p>" +
                 (itemName != null ? itemName + " の商品説明は表示できません。" : "商品説明は表示できません。") +
                 "（Groq の1日あたりのトークン上限を超過しました）</p></section>";
+    }
+
+    // ===== DICT（語彙）＆ 検収 =====
+
+    /** 簡易語彙集合（原文から抽出） */
+    private static java.util.Set<String> buildTermSet(String... sources) {
+        java.util.Set<String> dict = new java.util.LinkedHashSet<>();
+        if (sources != null) {
+            for (String s : sources) {
+                if (s == null) continue;
+                String t = HtmlUtils.htmlUnescape(s).replace("\r","").replace("\n"," ");
+                for (String w : t.split("[^\\p{IsHan}\\p{IsHiragana}\\p{IsKatakana}A-Za-z0-9%㎡㎖㎏\\-]+")) {
+                    if (w == null) continue;
+                    w = w.trim();
+                    if (w.length() < 2) continue;
+                    if (w.matches("[0-9]+")) continue;
+                    dict.add(w);
+                    if (dict.size() >= 300) break;
+                }
+            }
+        }
+        return dict;
+    }
+
+    /** 出力 <p> が DICT/数値と無関なら丸ごと削除（黒名單不要） */
+    private static String filterParagraphsByOverlap(String html, java.util.Set<String> dict) {
+        if (!StringUtils.hasText(html)) return html;
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile("(?is)(<p>)(.*?)(</p>)");
+        java.util.regex.Matcher m = p.matcher(html);
+        StringBuffer out = new StringBuffer();
+        while (m.find()) {
+            String inner = m.group(2).replaceAll("\\s+", " ").trim();
+
+            boolean hasNumberOrUnit = inner.matches(".*([0-9０-９]+\\s*(%|個|本|枚|g|kg|mL|ml|L|ℓ|cm|mm|㎜|㎝|㎖|㎡|m²|年|ヶ月|日)).*");
+            int overlap = 0;
+            for (String w : dict) {
+                if (w.length() >= 2 && inner.contains(w)) {
+                    overlap++;
+                    if (overlap >= 2) break;
+                }
+            }
+            if (overlap >= 2 || hasNumberOrUnit) {
+                m.appendReplacement(out, java.util.regex.Matcher.quoteReplacement(m.group(0)));
+            } else {
+                m.appendReplacement(out, "");
+            }
+        }
+        m.appendTail(out);
+        return out.toString();
     }
 }

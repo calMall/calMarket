@@ -83,7 +83,6 @@ public class GroqClient {
         public static Message sys(String c) {
             return new Message("system", c);
         }
-
         public static Message user(String c) {
             return new Message("user", c);
         }
@@ -93,10 +92,10 @@ public class GroqClient {
         public String model;
         public List<Message> messages;
         public Integer max_tokens;
-        public Double temperature = 0.2;
+        public Double temperature = 0.0; // 決定論
+        public Double top_p = 0.0;       // 可能なら 0 に（互換 OK）
 
         public ChatRequest() {}
-
         public ChatRequest(String model, List<Message> messages, Integer maxTokens) {
             this.model = model;
             this.messages = messages;
@@ -106,14 +105,7 @@ public class GroqClient {
 
     public static class ChatResponse {
         public java.util.List<Choice> choices;
-
-        public static class Choice {
-            public Message message;
-        }
-
-        public static class Message {
-            public String role;
-            public String content;
-        }
+        public static class Choice { public Message message; }
+        public static class Message { public String role; public String content; }
     }
 }
