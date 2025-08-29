@@ -477,7 +477,7 @@ body {
   height: 100vh;
   left: 0;
   top: 0;
-  z-index: 1;
+  z-index: 999;
 }
 
 @keyframes menu {
@@ -1469,4 +1469,13 @@ footer {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
   }
+}
+.watermelon-btn {
+  padding: 0 0.5rem;
+  height: 2rem;
+  background-color: $main-color;
+  border-radius: 10px;
+  top: 1rem;
+  left: 1rem;
+  @include shadow-box();
 }
