@@ -1,4 +1,31 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+
 export function Footer() {
+  const router = useRouter();
+  const [goGame, setGoGame] = useState(0);
+  const onCount = () => {
+    setGoGame((prev) => prev + 1);
+    if (goGame === 10) {
+      setGoGame(0);
+      router.push("/watermelone");
+    }
+  };
+  const ref = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setGoGame(0);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [ref]);
   return (
     <footer>
       <div>
@@ -60,29 +87,13 @@ export function Footer() {
         </h4>
       </div>
       {/* column 4 */}
-      <div>
+      <button ref={ref} onClick={onCount}>
         <h3
           style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "8px" }}
         >
           暮らし
         </h3>
-        <h4 style={{ fontSize: "14px", fontWeight: "normal", margin: 0 }}>
-          キャルマシニア
-          <br />
-          キャルマビューティー
-          <br />
-          キャルマ不動産
-          <br />
-          キャルマガス
-          <br />
-          キャルマヘルスケア
-          <br />
-          キャルマレシピ
-          <br />
-          キャルマ電気
-          <br />
-        </h4>
-      </div>
+      </button>
 
       <div>
         <h3
