@@ -8,7 +8,7 @@ export default function Page() {
   return (
     <CustomLayout>
       <ModalCover>
-        <div className="wf hf">
+        <div className="wf hf watermelon">
           <Link className="ab flex ac jc watermelon-btn" href={"/"}>
             ホームに戻る
           </Link>
