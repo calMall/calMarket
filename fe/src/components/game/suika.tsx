@@ -24,7 +24,7 @@ const MatterGame = () => {
   const currentFruitRef = useRef<Fruit | null>(null);
   useEffect(() => {
     // =======================
-    // 🎃 테마 & 과일 세팅
+    // 🎃 テーマ、果物設定
     // =======================
     let THEME: "base" | "halloween" = "halloween";
     let FRUITS: Fruit[] = FRUITS_BASE;
@@ -38,7 +38,7 @@ const MatterGame = () => {
     }
 
     // =======================
-    // ⚙️ Matter.js 엔진/렌더러
+    // ⚙️ Matter.js エンジン、レンダー
     // =======================
     if (!canvasRef.current) return;
     const engine = Engine.create();
@@ -52,12 +52,12 @@ const MatterGame = () => {
         height: canvasRef.current.clientHeight,
       },
     });
-    engine.gravity.y = 1; // 중력 방향
-    engine.gravity.scale = 0.002; // 속도 조절
+    engine.gravity.y = 1; // 重力の方向
+    engine.gravity.scale = 0.002; // 速度調整
     const world = engine.world;
     console.log(engine.gravity);
     // =======================
-    // 🧱 벽/바닥
+    // 🧱 壁/床
     // =======================
 
     if (!render.options.width || !render.options.height) return;
@@ -89,14 +89,14 @@ const MatterGame = () => {
     Runner.run(runner, engine);
 
     // =======================
-    // 🎮 게임 상태
+    // 🎮 ゲーム状態
     // =======================
 
     let disableAction = false;
     let interval: number | null = null;
 
     // =======================
-    // 🍒 과일 생성
+    // 🍒 果物生成
     // =======================
     function addFruit() {
       const index = Math.floor(Math.random() * 5);
@@ -128,7 +128,7 @@ const MatterGame = () => {
     }
 
     // =======================
-    // ⌨️ 키보드 이벤트
+    // ⌨️ キーボードイベント
     // =======================
     const handleKeyDown = (event: KeyboardEvent) => {
       const currentBody = currentBodyRef.current;
@@ -200,7 +200,7 @@ const MatterGame = () => {
     window.addEventListener("keyup", handleKeyUp);
 
     // =======================
-    // 💥 충돌 이벤트
+    // 💥 衝突イベント
     // =======================
     const collisionHandler = (event: IEventCollision<Engine>) => {
       event.pairs.forEach((collision) => {
@@ -248,16 +248,16 @@ const MatterGame = () => {
           !disableAction &&
           (bodyA.name === "topLine" || bodyB.name === "topLine")
         ) {
-          disableAction = true; // 한 번만 실행되게 방지
+          disableAction = true; // 一度だけ実行されるように防止
           alert("ゲームオーバー");
-          window.location.href = "/"; // 홈으로 이동
+          window.location.href = "/"; // ホームに移動
         }
       });
     };
     Events.on(engine, "collisionStart", collisionHandler);
 
     // =======================
-    // 🚀 게임 시작
+    // 🚀 ゲーム開始
     // =======================
     addFruit();
 
