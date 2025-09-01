@@ -55,7 +55,6 @@ const MatterGame = () => {
     engine.gravity.y = 1; // 重力の方向
     engine.gravity.scale = 0.002; // 速度調整
     const world = engine.world;
-    console.log(engine.gravity);
     // =======================
     // 🧱 壁/床
     // =======================
@@ -279,7 +278,7 @@ const MatterGame = () => {
 
   return (
     <div className="flex jc hf wf">
-      <div style={{ width: "30%", height: "80%" }} ref={canvasRef}></div>
+      <div style={{ width: "30%", height: "88%" }} ref={canvasRef}></div>
     </div>
   );
 };
