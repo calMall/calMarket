@@ -17,7 +17,9 @@ export const rakutenSearch = async (
   hits: number
 ): Promise<RakutenAPIResponse> => {
   const data = await fetch(
-    `${searchUrl}${process.env.NEXT_PUBLIC_RAKUTEN_API_ID}&keyword=${keyword}&page=${page}&hits=${hits}`,
+    `${searchUrl}${
+      process.env.NEXT_PUBLIC_RAKUTEN_API_ID
+    }&keyword=${keyword.replace(" ", "_")}&page=${page}&hits=${hits}`,
     {
       method: "GET",
       next: { revalidate: 2592000 },
